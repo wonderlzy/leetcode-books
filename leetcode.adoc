@@ -1,0 +1,133 @@
+= Fighting for dream !
+xjtu-zhongyingLi
+{docdate}
+:stem: latexmath
+:source-highlighter: coderay
+//:source-highlighter: pygments
+//:pygments-style: monokai
+:doctype: book
+:icons: font
+:pygments-linenums-mode: table
+:docinfo:
+:toc: left
+:toc-title: 目录
+:toclevels: 4
+:sectnumlevels: 4
+:preface-title: 前言
+:chapter-lable: 章
+:appendix-caption: 附录
+:listing-caption: 代码
+:figure-caption: 图
+:version-label: V
+:pdf-page-size: A4
+:example-caption: 示例
+:keywords: leetcode 动态规划 迭代 二叉树 链表 字符串 位运算
+:description: 先刷它个七八遍
+:last-update-label: 最后更新时间
+
+"数学是人类智慧的结晶，统计学习是数学领域最璀璨的明珠，算法可以让这个明珠照亮整个世界!"
+-- zhongyingLi
+
+:sectnums:
+
+//problems in 1~20
+include::001_020_solutions.adoc[]
+
+//problems in 21~40
+include::021_040_solutions.adoc[]
+
+//problems in 41~60
+include::041_060_solutions.adoc[]
+
+//problems in 61~80
+include::061_080_solutions.adoc[]
+
+//problems in 81~100
+include::081_100_solutions.adoc[]
+
+//problems in 101~120
+include::101_120_solutions.adoc[]
+
+//problems in 121~140
+include::121_140_solutions.adoc[]
+
+//problems in 141~160
+include::141_160_solutions.adoc[]
+
+//problems in 161~180
+include::161_180_solutions.adoc[]
+
+//problems in 181~200
+include::181_200_solutions.adoc[]
+
+//problems in 201~220
+include::201_220_solutions.adoc[]
+
+//problems in 221~240
+include::221_240_solutions.adoc[]
+
+//problems in 241~260
+include::241_260_solutions.adoc[]
+
+//problems in 261~280
+include::261_280_solutions.adoc[]
+
+//problems in 281~300
+include::281_300_solutions.adoc[]
+
+//problems in 301~320
+include::301_320_solutions.adoc[]
+
+//problems in 321~340
+include::321_340_solutions.adoc[]
+
+//problems in 341~360
+include::341_360_solutions.adoc[]
+
+//problems in 361~380
+include::361_380_solutions.adoc[]
+
+//problems in 381~420
+include::381_420_solutions.adoc[]
+
+//problems in 421~460
+include::421_460_solutions.adoc[]
+
+//problems in 461~480
+include::461_480_solutions.adoc[]
+
+//problems in 481~500
+include::481_500_solutions.adoc[]
+
+//problems in 501~520
+include::501_520_solutions.adoc[]
+
+//problems in 531~550
+include::531_550_solutions.adoc[]
+
+//problems in 551~570
+include::551_570_solutions.adoc[]
+
+//problems in 591~610
+include::591_610_solutions.adoc[]
+
+//problems in 621~640
+include::621_640_solutions.adoc[]
+
+//problems in 641~660
+include::641_660_solutions.adoc[]
+
+//problems in 661~680
+include::661_680_solutions.adoc[]
+
+//problems in 681~700
+include::681_700_solutions.adoc[]
+
+//problems in 721~750
+include::721_750_solutions.adoc[]
+
+//problems in 751~800
+include::751_800_solutions.adoc[]
+
+//other algorithms
+include::other_solutions.adoc[]

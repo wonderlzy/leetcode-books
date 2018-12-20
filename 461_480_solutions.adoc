@@ -1,0 +1,1173 @@
+==== 汉明距离
+
+----
+The Hamming distance between two integers is the number of positions at which the corresponding bits are different.
+
+Given two integers x and y, calculate the Hamming distance.
+
+Note:
+0 ≤ x, y < 231.
+----
+
+这道题让我求两个数字之间的汉明距离，题目中解释的很清楚了，两个数字之间的汉明距离就是其二进制数对应位不同的个数，那么最直接了当的做法就是按位分别取出两个数对应位上的数并异或，我们知道异或的性质上相同的为0，不同的为1，我们只要把为1的情况累加起来就是汉明距离了，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int hammingDistance(int x, int y) {
+        int res = 0;
+        for (int i = 0; i < 32; ++i) {
+            if ((x & (1 << i)) ^ (y & (1 << i))) {
+                ++res;
+            }
+        }
+        return res;
+    }
+};
+----
+
+我们可以对上面的代码进行优化，我们可以一开始直接将两个数字异或起来，然后我们遍历异或结果的每一位，统计为1的个数，也能达到同样的效果，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int hammingDistance(int x, int y) {
+        int res = 0, exc = x ^ y;
+        for (int i = 0; i < 32; ++i) {
+            res += (exc >> i) & 1;
+        }
+        return res;
+    }
+};
+----
+
+经过副博主@fantasywindy的提醒，上面的遍历每一位的方法并不高效，还可以进一步优化，假如数为num, num & (num - 1)可以快速地移除最右边的bit 1， 一直循环到num为0, 总的循环数就是num中bit 1的个数。参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int hammingDistance(int x, int y) {
+        int res = 0, exc = x ^ y;
+        while (exc) {
+            ++res;
+            exc &= (exc - 1);
+        }
+        return res;
+    }
+};
+----
+
+我们再来看一种递归的写法，非常的简洁，递归终止的条件是当两个数异或为0时，表明此时两个数完全相同，我们返回0，否则我们返回异或和对2取余加上对x/2和y/2调用递归的结果。异或和对2取余相当于检查最低位是否相同，而对x/2和y/2调用递归相当于将x和y分别向右移动一位，这样每一位都可以比较到，也能得到正确结果，参见代码如下： +
+
+**解法4:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int hammingDistance(int x, int y) {
+        if ((x ^ y) == 0) return 0;
+        return (x ^ y) % 2 + hammingDistance(x / 2, y / 2);
+    }
+};
+----
+
+==== 最少移动次数使数组元素相等之二
+
+----
+Given a non-empty integer array, find the minimum number of moves required to make all array elements equal, where a move is incrementing a selected element by 1 or decrementing a selected element by 1.
+
+You may assume the array's length is at most 10,000
+----
+
+这道题是之前那道Minimum Moves to Equal Array Elements的拓展，现在我们可以每次对任意一个数字加1或者减1，让我们用最少的次数让数组所有值相等。一般来说这种题目是不能用暴力方法算出所有情况，因为OJ一般是不会答应的。那么这道题是否像上面一道题一样，有巧妙的方法呢？答案是肯定的。下面这种解法实际上利用了之前一道题Best Meeting Point的思想，是不感觉很amazing，看似完全不相干的两道题，居然有着某种内部联系。我们首先给数组排序，那么我们最终需要变成的相等的数字就是中间的数，如果数组有奇数个，那么就是最中间的那个数字；如果是偶数个，那么就是中间两个数的区间中的任意一个数字。而两端的数字变成中间的一个数字需要的步数实际上就是两端数字的距离，讲到这里发现是不是就和这道题Best Meeting Point的思路是一样了。那么我们就两对两对的累加它们的差值就可以了，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int minMoves2(vector<int>& nums) {
+        int res = 0, i = 0, j = (int)nums.size() - 1;
+        sort(nums.begin(), nums.end());
+        while (i < j) {
+            res += nums[j--] - nums[i++];
+        }
+        return res;
+    }
+};
+----
+
+既然有了上面的分析，我们知道实际上最后相等的数字就是数组的最中间的那个数字，那么我们在给数组排序后，直接利用坐标定位到中间的数字，然后算数组中每个数组与其的差的绝对值累加即可，参见代码如下： +
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int minMoves2(vector<int>& nums) {
+        sort(nums.begin(), nums.end());
+        int res = 0, mid = nums[nums.size() / 2];
+        for (int num : nums) {
+            res += abs(num - mid);
+        }
+        return res;
+    }
+};
+----
+
+上面的两种方法都给整个数组排序了，时间复杂度是O(nlgn)，其实我们并不需要给所有的数字排序，我们只关系最中间的数字，那么这个stl中自带的函数nth_element就可以完美的发挥其作用了，我们只要给出我们想要数字的位置，它就能在O(n)的时间内返回正确的数字，然后算数组中每个数组与其的差的绝对值累加即可，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int minMoves2(vector<int>& nums) {
+        int res = 0, n = nums.size(), mid = n / 2;
+        nth_element(nums.begin(), nums.begin() + mid, nums.end());
+        for (int i = 0; i < n; ++i) {
+            res += abs(nums[i] - nums[mid]);
+        }
+        return res;
+    }
+};
+----
+
+----
+下面这种方法是改进版的暴力破解法，它遍历了所有的数字，让每个数字都当作最后相等的值，然后算法出来总步数，每次和res比较，留下较小的。而这种方法叼就叼在它在O(1)的时间内完成了步数统计，那么这样整个遍历下来也只是O(n)的时间，不过由于还是要给数组排序，所以整体的时间复杂度是O(nlgn)，这已经能保证可以通过OJ啦。那么我们来看看如何快速计算总步数，首先我们给数组排序，我们假设中间某个位置有个数字k，那么此时数组就是：nums[0], nums[1], ..., k, ..., nums[n - 1], 如果i为数字k在数组中的坐标，那么有k = nums[i]，那么总步数为：
+
+Y = k - nums[0] + k - nums[1] + ... + k - nums[i - 1] + nums[i] - k + nums[i + 1] - k + ... + nums[n - 1] - k
+
+   = i * k - (nums[0] + nums[1] + ... + nums[i - 1]) + (nums[i] + nums[i + 1] + ... + nums[n - 1]) - (n - i) * k
+
+   = 2 * i * k - n * k + sum - 2 * curSum
+
+那么我们只要算出sum和curSum就可以快速得到总步数了，数组之和可以通过遍历数组计算出来，curSum可以在遍历的过程中累加，那么我们就可以算出总步数，然后每次更新结果res了，参见代码如下：
+----
+
+**解法4:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int minMoves2(vector<int>& nums) {
+        sort(nums.begin(), nums.end());
+        long long sum = accumulate(nums.begin(), nums.end(), 0);
+        long long res = LONG_MAX, curSum = 0;
+        int n = nums.size();
+        for (int i = 0; i < n; ++i) {
+            long long k = nums[i];
+            curSum += k;
+            res = min(res, 2 * k * (i + 1) - n * k + sum - 2 * curSum);
+        }
+        return res;
+    }
+};
+----
+
+==== 岛屿周长
+
+----
+You are given a map in form of a two-dimensional integer grid where 1 represents land and 0 represents water. Grid cells are connected horizontally/vertically (not diagonally). The grid is completely surrounded by water, and there is exactly one island (i.e., one or more connected land cells). The island doesn't have "lakes" (water inside that isn't connected to the water around the island). One cell is a square with side length 1. The grid is rectangular, width and height don't exceed 100. Determine the perimeter of the island.
+----
+
+这道题给了我们一个格子图，若干连在一起的格子形成了一个小岛，规定了图中只有一个相连的岛，且岛中没有湖，让我们求岛的周长。我们知道一个格子有四条边，但是当两个格子相邻，周围为6，若某个格子四周都有格子，那么这个格子一条边都不算在周长里。那么我们怎么统计出岛的周长呢？第一种方法，我们对于每个格子的四条边分别来处理，首先看左边的边，只有当左边的边处于第一个位置或者当前格子的左面没有岛格子的时候，左边的边计入周长。其他三条边的分析情况都跟左边的边相似，这里就不多叙述了，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int islandPerimeter(vector<vector<int>>& grid) {
+        if (grid.empty() || grid[0].empty()) return 0;
+        int m = grid.size(), n = grid[0].size(), res = 0;
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                if (grid[i][j] == 0) continue;
+                if (j == 0 || grid[i][j - 1] == 0) ++res;
+                if (i == 0 || grid[i - 1][j] == 0) ++res;
+                if (j == n - 1 || grid[i][j + 1] == 0) ++res;
+                if (i == m - 1 || grid[i + 1][j] == 0) ++res;
+            }
+        }
+        return res;
+    }
+};
+----
+
+下面这种方法对于每个岛屿格子先默认加上四条边，然后检查其左面和上面是否有岛屿格子，有的话分别减去两条边，这样也能得到正确的结果，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int islandPerimeter(vector<vector<int>>& grid) {
+        if (grid.empty() || grid[0].empty()) return 0;
+        int res = 0, m = grid.size(), n = grid[0].size();
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                if (grid[i][j] == 0) continue;
+                res += 4;
+                if (i > 0 && grid[i - 1][j] == 1) res -= 2;
+                if (j > 0 && grid[i][j - 1] == 1) res -= 2;
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== 我能赢吗
+
+----
+In the "100 game," two players take turns adding, to a running total, any integer from 1..10. The player who first causes the running total to reach or exceed 100 wins.
+
+What if we change the game so that players cannot re-use integers?
+----
+
+这道题给了我们一堆数字，然后两个人，每人每次选一个数字，看数字总数谁先到给定值，有点像之前那道Nim Game，但是比那题难度大。我刚开始想肯定说用递归啊，结果写完发现TLE了，后来发现我们必须要优化效率，使用HashMap来记录已经计算过的结果。我们首先来看如果给定的数字范围大于等于目标值的话，直接返回true。如果给定的数字总和小于目标值的话，说明谁也没法赢，返回false。然后我们进入递归函数，首先我们查找当前情况是否在哈希表中存在，有的话直接返回即可。我们使用一个整型数按位来记录数组中的某个数字是否使用过，我们遍历所有数字，将该数字对应的mask算出来，如果其和used相与为0的话，说明该数字没有使用过，我们看如果此时的目标值小于等于当前数字，说明已经赢了，或者我们调用递归函数，如果返回false，说明也是第一个人赢了。为啥呢，因为当前我们已经选过数字了，此时就该对第二个人调用递归函数，只有他的结果是false，我们才能赢，所以此时我们标记true，返回true。如果遍历完所有数字，我们标记false，返回false，参见代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool canIWin(int maxChoosableInteger, int desiredTotal) {
+        if (maxChoosableInteger >= desiredTotal) return true;
+        if (maxChoosableInteger * (maxChoosableInteger + 1) / 2 < desiredTotal) return false;
+        unordered_map<int, bool> m;
+        return canWin(maxChoosableInteger, desiredTotal, 0, m);
+    }
+    bool canWin(int length, int total, int used, unordered_map<int, bool>& m) {
+        if (m.count(used)) return m[used];
+        for (int i = 0; i < length; ++i) {
+            int cur = (1 << i);
+            if ((cur & used) == 0) {
+                if (total <= i + 1 || !canWin(length, total - (i + 1), cur | used, m)) {
+                    m[used] = true;
+                    return true;
+                }
+            }
+        }
+        m[used] = false;
+        return false;
+    }
+};
+----
+
+==== 最优账户平衡
+
+----
+A group of friends went on holiday and sometimes lent each other money. For example, Alice paid for Bill's lunch for 10.ThenlaterChrisgaveAlice5 for a taxi ride. We can model each transaction as a tuple (x, y, z) which means person x gave person y $z. Assuming Alice, Bill, and Chris are person 0, 1, and 2 respectively (0, 1, 2 are the person's ID), the transactions can be represented as [[0, 1, 10], [2, 0, 5]].
+
+Given a list of transactions between a group of people, return the minimum number of transactions required to settle the debt.
+
+Note:
+
+A transaction will be given as a tuple (x, y, z). Note that x ≠ y and z > 0.
+Person's IDs may not be linear, e.g. we could have the persons 0, 1, 2 or we could also have the persons 0, 2, 6.
+----
+这道题给了一堆某人欠某人多少钱这样的账单，问我们经过优化后最少还剩几个。其实就相当于一堆人出去玩，某些人可能帮另一些人垫付过花费，最后结算总花费的时候可能你欠着别人的钱，其他人可能也欠你的欠。我们需要找出简单的方法把所有欠账都还清就行了。这道题的思路跟之前那道Evaluate Division有些像，都需要对一组数据颠倒顺序处理。我们使用一个哈希表来建立每个人和其账户的映射，其中账户若为正数，说明其他人欠你钱；如果账户为负数，说明你欠别人钱。我们对于每份账单，前面的人就在哈希表中减去钱数，后面的人在哈希表中加上钱数。这样我们每个人就都有一个账户了，然后我们接下来要做的就是合并账户，看最少需要多少次汇款。我们先统计出账户值不为0的人数，因为如果为0了，表明你既不欠别人钱，别人也不欠你钱，如果不为0，我们把钱数放入一个数组accnt中，然后调用递归函数。在递归函数中，我们初始化结果res为整型最大值，然后我们跳过为0的账户，然后我们开始遍历之后的账户，如果当前账户和之前账户的钱数正负不同的话，我们将前一个账户的钱数加到当前账户上，这很好理解，比如前一个账户钱数是-5，表示张三欠了别人五块钱，当前账户钱数是5，表示某人欠了李四五块钱，那么张三给李四五块，这两人的账户就都清零了。然后我们调用递归函数，此时从当前改变过的账户开始找，num表示当前的转账数，需要加1，然后我们用这个递归函数返回的结果来更新res，后面别忘了复原当前账户的值。遍历结束后，我们看res的值如果还是整型的最大值，说明没有改变过，我们返回num，否则返回res即可，参见代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int minTransfers(vector<vector<int>>& transactions) {
+        unordered_map<int, int> m;
+        for (auto t : transactions) {
+            m[t[0]] -= t[2];
+            m[t[1]] += t[2];
+        }
+        vector<int> accnt(m.size());
+        int cnt = 0;
+        for (auto a : m) {
+            if (a.second != 0) accnt[cnt++] = a.second;
+        }
+        return helper(accnt, 0, cnt, 0);
+    }
+    int helper(vector<int>& accnt, int start, int n, int num) {
+        int res = INT_MAX;
+        while (start < n && accnt[start] == 0) ++start;
+        for (int i = start + 1; i < n; ++i) {
+            if ((accnt[i] < 0 && accnt[start] > 0) || (accnt[i] > 0 && accnt[start] < 0)) {
+                accnt[i] += accnt[start];
+                res = min(res, helper(accnt, start + 1, n, num + 1));
+                accnt[i] -= accnt[start];
+            }
+        }
+        return res == INT_MAX ? num : res;
+    }
+};
+----
+
+==== 计数重复个数
+
+----
+Define S = [s,n] as the string S which consists of n connected strings s. For example, ["abc", 3] ="abcabcabc".
+
+On the other hand, we define that string s1 can be obtained from string s2 if we can remove some characters from s2 such that it becomes s1. For example, “abc” can be obtained from “abdbec” based on our definition, but it can not be obtained from “acbbe”.
+
+You are given two non-empty strings s1 and s2 (each at most 100 characters long) and two integers 0 ≤ n1 ≤ 106and 1 ≤ n2 ≤ 106. Now consider the strings S1 and S2, where S1=[s1,n1] and S2=[s2,n2]. Find the maximum integer M such that [S2,M] can be obtained from S1.
+----
+
+----
+这道题放了好久才写，主要是因为这道题难度确实不小，光是分析研究网上大神们的帖子就搞了好久，就是现在也不能说完全理解了这道题，哎，将就着写吧，有不足的地方欢迎指正。主要参考了网上大神lzl124631x的帖子，还有大神aaaeeeo的帖子。  这道题的Java版本的brute force可以通过OJ，但是C++的就不行了，我们需要使用重复模式来优化我们的方法，我们知道：
+
+如果s2在S1中出现了N次，那么S2肯定在S1中出现了N/n2次，注意这里的大写表示字符串加上重复次数组成的大字符串。
+
+所以我们得出结论，我们只要算出s2出现的次数，然后除以n2，就可以得出S2出现的次数了。
+
+那么问题就是我们表示重复，我们遍历s1字符串n1次，表示每个s1字符串为一段，对于每段，我们有：
+
+1. 出现在该段的s2字符串的累计出现次数
+
+2. 一个nextIndex，其中s2[nextIndex]表示在下一段s1中你所要寻找的s2中的一个字符。(比如说s1="abc", s2="bac", 由于第一个s1中只能匹配上s2中的b，那么只有在下一段s1中才能继续匹配s2中的a，所以nextIndex=1，即a在s2中的位置为1；同理，比如s1="abca", s2="bac"，第一个s1可以匹配上s2中的ba，那么后面的c只能在下一段s1中匹配上，那么nextIndex=2，即c在s2中的位置为2)
+
+表示重复关键就在于nextIndex，比如对于下面这个例子：
+
+Input:
+s1="abacb", n1=6
+s2="bcaa", n2=1
+
+Return:
+3
+
+
+j --------------->  1 2    3 0 1      2    3 0 1      2    3 0
+S1 --------------> abacb | abacb | abacb | abacb | abacb | abacb
+
+repeatCount ----->    0  |   1   |   1   |   2   |   2   |   3
+
+nextIndex ------->    2  |   1   |   2   |   1   |   2   |   1
+
+nextIndex的范围从0到s2.size()-1，根据鸽巢原理(又称抽屉原理)，你一定会找到相同的两个nextIndex在遍历s1段s2.size()+1次之后。在上面的例子中，重复的nextIndex出现在第三段，和第一段一样都为2，那么重复的pattern就找到了，是第二段和第三段中的aabc，而且从第四段开始，每两段就有一个aabc，现在我们的目标就是统计出整个S1中有多少个s2。
+
+由于pattern占用了两段，所以interval为2，我们然后看整个S1中有多少个这样的两段，repeat = (n1 - start) / interval。start表示pattern的起始段数，之前的不是pattern，然后我们算在整个S1中有多少个pattern出现，patternCnt = (repeatCnt[k] - repeatCnt[start]) * repeat，注意这里的repeatCnt[k] - repeatCnt[start]表示一个pattern中有多少个字符串s2，个人感觉一般来说都是1个。然后我们算出剩下的非pattern的字符串里能包含几个s2，remainCnt = repeatCnt[start + (n1 - start) % interval]，然后我们把patternCnt + remainCnt之和算出来除以n2就是需要的结果啦。如果pattern未曾出现，那么我们直接用repeatCnt[n1] / n2也能得到正确的结果，参见代码如下：
+----
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int getMaxRepetitions(string s1, int n1, string s2, int n2) {
+        vector<int> repeatCnt(n1 + 1, 0);
+        vector<int> nextIdx(n1 + 1, 0);
+        int j = 0, cnt = 0;
+        for (int k = 1; k <= n1; ++k) {
+            for (int i = 0; i < s1.size(); ++i) {
+                if (s1[i] == s2[j]) {
+                    ++j;
+                    if (j == s2.size()) {
+                        j = 0;
+                        ++cnt;
+                    }
+                }
+            }
+            repeatCnt[k] = cnt;
+            nextIdx[k] = j;
+            for (int start = 0; start < k; ++start) {
+                if (nextIdx[start] == j) {
+                    int interval = k - start;
+                    int repeat = (n1 - start) / interval;
+                    int patternCnt = (repeatCnt[k] - repeatCnt[start]) * repeat;
+                    int remainCnt = repeatCnt[start + (n1 - start) % interval];
+                    return (patternCnt + remainCnt) / n2;
+                }
+            }
+        }
+        return repeatCnt[n1] / n2;
+    }
+};
+----
+
+==== 封装字符串中的独特子字符串
+
+----
+Consider the string s to be the infinite wraparound string of "abcdefghijklmnopqrstuvwxyz", so s will look like this: "...zabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcd....".
+
+Now we have another string p. Your job is to find out how many unique non-empty substrings of p are present in s. In particular, your input is the string p and you need to output the number of different non-empty substrings of p in the string s.
+
+Note: p consists of only lowercase English letters and the size of p might be over 10000.
+----
+
+这道题说有一个无限长的封装字符串，然后又给了我们另一个字符串p，问我们p有多少非空子字符串在封装字符串中。我们通过观察题目中的例子可以发现，由于封装字符串是26个字符按顺序无限循环组成的，那么满足题意的p的子字符串要么是单一的字符，要么是按字母顺序的子字符串。这道题遍历p的所有子字符串会TLE，因为如果p很大的话，子字符串很多，会有大量的满足题意的重复子字符串，必须要用到trick，而所谓技巧就是一般来说你想不到的方法。我们看abcd这个字符串，以d结尾的子字符串有abcd, bcd, cd, d，那么我们可以发现bcd或者cd这些以d结尾的字符串的子字符串都包含在abcd中，那么我们知道以某个字符结束的最大字符串包含其他以该字符结束的字符串的所有子字符串，说起来很拗口，但是理解了我上面举的例子就行。那么题目就可以转换为分别求出以每个字符(a-z)为结束字符的最长连续字符串就行了，我们用一个数组cnt记录下来，最后在求出数组cnt的所有数字之和就是我们要的结果啦，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findSubstringInWraproundString(string p) {
+        vector<int> cnt(26, 0);
+        int len = 0;
+        for (int i = 0; i < p.size(); ++i) {
+            if (i > 0 && (p[i] == p[i - 1] + 1 || p[i - 1] - p[i] == 25)) {
+                ++len;
+            } else {
+                len = 1;
+            }
+            cnt[p[i] - 'a'] = max(cnt[p[i] - 'a'], len);
+        }
+        return accumulate(cnt.begin(), cnt.end(), 0);
+    }
+};
+----
+
+下面这种方法跟上面的基本一样，就是在更新每个最大长度时，把差值累加到结果中，这跟最后统一加上最大值的效果一样，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findSubstringInWraproundString(string p) {
+        vector<int> cnt(26, 0);
+        int res = 0, len = 0;
+        for (int i = 0; i < p.size(); ++i) {
+            int cur = p[i] - 'a';
+            if (i > 0 && p[i - 1] != (cur + 26 - 1) % 26 + 'a') len = 0;
+            if (++len > cnt[cur]) {
+                res += len - cnt[cur];
+                cnt[cur] = len;
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== 验证IP地址
+
+----
+In this problem, your job to write a function to check whether a input string is a valid IPv4 address or IPv6 address or neither.
+
+IPv4 addresses are canonically represented in dot-decimal notation, which consists of four decimal numbers, each ranging from 0 to 255, separated by dots ("."), e.g.,172.16.254.1;
+
+Besides, you need to keep in mind that leading zeros in the IPv4 is illegal. For example, the address 172.16.254.01 is illegal.
+
+IPv6 addresses are represented as eight groups of four hexadecimal digits, each group representing 16 bits. The groups are separated by colons (":"). For example, the address 2001:0db8:85a3:0000:0000:8a2e:0370:7334 is a legal one. Also, we could omit some leading zeros among four hexadecimal digits and some low-case characters in the address to upper-case ones, so 2001:db8:85a3:0:0:8A2E:0370:7334 is also a valid IPv6 address(Omit leading zeros and using upper cases).
+
+However, we don't replace a consecutive group of zero value with a single empty group using two consecutive colons (::) to pursue simplicity. For example, 2001:0db8:85a3::8A2E:0370:7334 is an invalid IPv6 address.
+
+Besides, you need to keep in mind that extra leading zeros in the IPv6 is also illegal. For example, the address 02001:0db8:85a3:0000:0000:8a2e:0370:7334 is also illegal.
+----
+
+----
+这道题让我们验证两种IP地址，LeetCode之前有一道关于IPv4的题Restore IP Addresses，给我们了一个字符串，让我们通过在中间加点来找出所有正确的IP地址，这道题给了我们中间加点或者冒号的字符串，让我们验证其是否是正确的IPv4或者IPv6，感觉要稍稍复杂一些。那么我们只有分别来验证了，那么我们怎么样能快速的区别是IPv4或者IPv6呢，当然是通过中间的点或者冒号啦，所以我们首先在字符串中找冒号(当然你想找点也可以)，如果字符串中没有冒号，那么我们来验证其是否是IPv4，如果有冒号，我们就来验证其是否是IPv6.
+
+首先对于IPv4，我们使用getline函数来截取两个点之间的字符串，我们还需要一个计数器cnt来记录我们已经截取了多少段，如果cnt大于4了，说明超过了4段，说明是不是正确的地址。如果取出的字符串为空，说明两个点连在一起了，也不对。再有就是如果字符串长度大于1，且第一个字符是0，也不对。由于IPv4的地址在0到255之间，所以如果字符串长度大于3，也不正确。下面我们检查每一个字符，如果有不是数字的字符，返回Neither。最后我们再把字符串转为数字，如果不在0到255之间就是非法的。最后的最后，我们要保证cnt正好为4，而且最后一个字符不能是点，统统满足以上条件才是正确的IPv4地址。
+
+然后对于IPv6，我们也使用getline函数来截取两个冒号之间的字符串，我们同样需要计数器cnt来记录我们已经截取了多少段，如果cnt大于8了，说明超过了8段，说明是不是正确的地址。如果取出的字符串为空，说明两个冒号连在一起了，也不对。面我们检查每一个字符，正确的字符应该是0到9之间的数字，或者a到f，或A到F之间的字符，如果出现了其他字符，返回Neither。最后的最后，我们要保证cnt正好为8，而且最后一个字符不能是冒号，统统满足以上条件才是正确的IPv6地址。
+----
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string validIPAddress(string IP) {
+        istringstream is(IP);
+        string t = "";
+        int cnt = 0;
+        if (IP.find(':') == string::npos) { // Check IPv4
+            while (getline(is, t, '.')) {
+                ++cnt;
+                if (cnt > 4 || t.empty() || (t.size() > 1 && t[0] == '0') || t.size() > 3) return "Neither";
+                for (char c : t) {
+                    if (c < '0' || c > '9') return "Neither";
+                }
+                int val = stoi(t);
+                if (val < 0 || val > 255) return "Neither";
+            }
+            return (cnt == 4 && IP.back() != '.') ? "IPv4" : "Neither";
+        } else { // Check IPv6
+            while (getline(is, t, ':')) {
+                ++cnt;
+                if (cnt > 8 || t.empty() || t.size() > 4) return "Neither";
+                for (char c : t) {
+                    if (!(c >= '0' && c <= '9') && !(c >= 'a' && c <= 'f') && !(c >= 'A' && c <= 'F')) return "Neither";
+                }
+            }
+            return (cnt == 8 && IP.back() != ':') ? "IPv6" : "Neither";
+        }
+    }
+};
+----
+
+==== 凸多边形
+
+----
+Given a list of points that form a polygon when joined sequentially, find if this polygon is convex (Convex polygon definition).
+
+Note:
+
+There are at least 3 and at most 10,000 points.
+Coordinates are in the range -10,000 to 10,000.
+You may assume the polygon formed by given points is always a simple polygon (Simple polygon definition). In other words, we ensure that exactly two edges intersect at each vertex, and that edges otherwise don't intersect each other.
+----
+
+这道题让我们让我们判断一个多边形是否为凸多边形，我想关于凸多边形的性质，我大天朝的初中几何就应该有所涉猎啦吧，忘了的去面壁。就是所有的顶点角都不大于180度。那么我们该如何快速验证这一个特点呢，学过计算机图形学或者是图像处理的课应该对计算法线normal并不陌生吧，计算的curve的法向量是非常重要的手段，一段连续曲线可以离散看成许多离散点组成，而相邻的三个点就是最基本的单位，我们可以算由三个点组成的一小段曲线的法线方向，而凸多边形的每个三个相邻点的法向量方向都应该相同，要么同正，要么同负。那么我们只要遍历每个点，然后取出其周围的两个点计算法线方向，然后跟之前的方向对比，如果不一样，直接返回false。这里我们要特别注意法向量为0的情况，如果某一个点的法向量算出来为0，那么正确的pre就会被覆盖为0，后面再遇到相反的法向就无法检测出来，所以我们对计算出来法向量为0的情况直接跳过即可，参见代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool isConvex(vector<vector<int>>& points) {
+        long long n = points.size(), pre = 0, cur = 0;
+        for (int i = 0; i < n; ++i) {
+            int dx1 = points[(i + 1) % n][0] - points[i][0];
+            int dx2 = points[(i + 2) % n][0] - points[i][0];
+            int dy1 = points[(i + 1) % n][1] - points[i][1];
+            int dy2 = points[(i + 2) % n][1] - points[i][1];
+            cur = dx1 * dy2 - dx2 * dy1;
+            if (cur != 0) {
+                if (cur * pre < 0) return false;
+                else pre = cur;
+            }
+        }
+        return true;
+    }
+};
+----
+
+==== 用 Rand7() 实现 Rand10()
+
+----
+已有方法 rand7 可生成 1 到 7 范围内的均匀随机整数，试写一个方法 rand10 生成 1 到 10 范围内的均匀随机整数。
+
+不要使用系统的 Math.random() 方法。
+----
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int rand10() {
+        auto x = (rand7()-1)*7 + rand7();
+        return x<=40 ? x%10 +1 : rand10();
+    }
+};
+----
+
+==== 最短长度编码字符串
+
+----
+Given a non-empty string, encode the string such that its encoded length is the shortest.
+
+The encoding rule is: k[encoded_string], where the encoded_string inside the square brackets is being repeated exactly k times.
+
+Note:
+k will be a positive integer and encoded string will not be empty or have extra space.
+You may assume that the input string contains only lowercase English letters. The string's length is at most 160.
+If an encoding process does not make the string shorter, then do not encode it. If there are several solutions, return any of them is fine.
+----
+
+这道题让我们压缩字符串，把相同的字符串用中括号括起来，然后在前面加上出现的次数，感觉还是一道相当有难度的题呢。参考了网上大神的帖子才弄懂该怎么做，这道题还是应该用DP来做。我们建立一个二维的DP数组，其中dp[i][j]表示s在[i, j]范围内的字符串的缩写形式(如果缩写形式长度大于子字符串，那么还是保留子字符串)，那么如果s字符串的长度是n，最终我们需要的结果就保存在dp[0][n-1]中，然后我们需要遍历s的所有子字符串，对于任意一段子字符串[i, j]，我们\\我们以中间任意位置k来拆分成两段，比较dp[i][k]加上dp[k+1][j]的总长度和dp[i][j]的长度，将长度较小的字符串赋给dp[i][j]，然后我们要做的就是在s中取出[i, j]范围内的子字符串t进行合并。合并的方法是我们在取出的字符串t后面再加上一个t，然后在这里面寻找子字符串t的第二个起始位置，如果第二个起始位置小于t的长度的话，说明t包含重复字符串，举个例子吧，比如 t = "abab", 那么t+t = "abababab"，我们在里面找第二个t出现的位置为2，小于t的长度4，说明t中有重复出现，重复的个数为t.size()/pos = 2个，那么我们就要把重复的地方放入中括号中，注意中括号里不能直接放这个子字符串，而是应该从dp中取出对应位置的字符串，因为重复的部分有可能已经写成缩写形式了，比如题目中的例子5。再看一个例子，如果t = "abc"，那么t+t = "abcabc"，我们在里面找第二个t出现的位置为3，等于t的长度3，说明t中没有重复出现，那么replace就还是t。然后我们比较我们得到的replace和dp[i][j]中的字符串长度，把长度较小的赋给dp[i][j]即可，时间复杂度为O(n3)，空间复杂度为O(n2)，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string encode(string s) {
+        int n = s.size();
+        vector<vector<string>> dp(n, vector<string>(n, ""));
+        for (int step = 1; step <= n; ++step) {
+            for (int i = 0; i + step - 1 < n; ++i) {
+                int j = i + step - 1;
+                dp[i][j] = s.substr(i, step);
+                for (int k = i; k < j; ++k) {
+                    string left = dp[i][k], right = dp[k + 1][j];
+                    if (left.size() + right.size() < dp[i][j].size()) {
+                        dp[i][j] = left + right;
+                    }
+                }
+                string t = s.substr(i, j - i + 1), replace = "";
+                auto pos = (t + t).find(t, 1);
+                if (pos >= t.size()) replace = t;
+                else replace = to_string(t.size() / pos) + '[' + dp[i][i + pos - 1] + ']';
+                if (replace.size() < dp[i][j].size()) dp[i][j] = replace;
+            }
+        }
+        return dp[0][n - 1];
+    }
+};
+----
+
+根据热心网友iffalse的留言，我们可以优化上面的方法。如果t是重复的，是不是就不需要再看left.size() + right.size() < dp[i][j].size()了。例如t是abcabcabcabcabc, 最终肯定是5[abc]，不需要再看3[abc]+abcabc或者abcabc+3[abc]。对于一个本身就重复的字符串，最小的长度肯定是n[REPEATED]，不会是某个left+right。所以应该把k的那个循环放在t和replace那部分代码的后面。这样的确提高了一些运算效率的，参见代码如下： +
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string encode(string s) {
+        int n = s.size();
+        vector<vector<string>> dp(n, vector<string>(n, ""));
+        for (int step = 1; step <= n; ++step) {
+            for (int i = 0; i + step - 1 < n; ++i) {
+                int j = i + step - 1;
+                dp[i][j] = s.substr(i, step);
+                string t = s.substr(i, j - i + 1), replace = "";
+                auto pos = (t + t).find(t, 1);
+                if (pos < t.size()) {
+                    replace = to_string(t.size() / pos) + "[" + dp[i][i + pos - 1] + "]";
+                    if (replace.size() < dp[i][j].size()) dp[i][j] = replace;
+                    continue;
+                }
+                for (int k = i; k < j; ++k) {
+                    string left = dp[i][k], right = dp[k + 1][j];
+                    if (left.size() + right.size() < dp[i][j].size()) {
+                        dp[i][j] = left + right;
+                    }
+                }
+            }
+        }
+        return dp[0][n - 1];
+    }
+};
+----
+
+==== 连接的单词
+
+----
+Given a list of words (without duplicates), please write a program that returns all concatenated words in the given list of words.
+
+A concatenated word is defined as a string that is comprised entirely of at least two shorter words in the given array.
+
+Example:
+
+Input: ["cat","cats","catsdogcats","dog","dogcatsdog","hippopotamuses","rat","ratcatdogcat"]
+
+Output: ["catsdogcats","dogcatsdog","ratcatdogcat"]
+----
+
+这道题给了一个由单词组成的数组，某些单词是可能由其他的单词组成的，让我们找出所有这样的单词。这道题跟之前那道Word Break十分类似，我们可以对每一个单词都调用之前那题的方法，我们首先把所有单词都放到一个unordered_set中，这样可以快速找到某个单词是否在数组中存在。对于当前要判断的单词，我们先将其从set中删去，然后调用之前的Word Break的解法，具体讲解可以参见之前的帖子。如果是可以拆分，那么我们就存入结果res中，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<string> findAllConcatenatedWordsInADict(vector<string>& words) {
+        if (words.size() <= 2) return {};
+        vector<string> res;
+        unordered_set<string> dict(words.begin(), words.end());
+        for (string word : words) {
+            dict.erase(word);
+            int len = word.size();
+            if (len == 0) continue;
+            vector<bool> v(len + 1, false);
+            v[0] = true;
+            for (int i = 0; i < len + 1; ++i) {
+                for (int j = 0; j < i; ++j) {
+                    if (v[j] && dict.count(word.substr(j, i - j))) {
+                        v[i] = true;
+                        break;
+                    }
+                }
+            }
+            if (v.back()) res.push_back(word);
+            dict.insert(word);
+        }
+        return res;
+    }
+};
+----
+
+下面这种方法跟上面的方法很类似，不同的是判断每个单词的时候不用将其移除set，而是在判断的过程中加了判断，使其不会判断单词本身是否在集合set中存在，而且由于对单词中子字符串的遍历顺序不同，加了一些优化在里面，使得其运算速度更快一些，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<string> findAllConcatenatedWordsInADict(vector<string>& words) {
+        vector<string> res;
+        unordered_set<string> dict(words.begin(), words.end());
+        for (string word : words) {
+            int n = word.size();
+            if (n == 0) continue;
+            vector<bool> dp(n + 1, false);
+            dp[0] = true;
+            for (int i = 0; i < n; ++i) {
+                if (!dp[i]) continue;
+                for (int j = i + 1; j <= n; ++j) {
+                    if (j - i < n && dict.count(word.substr(i, j - i))) {
+                        dp[j] = true;
+                    }
+                }
+                if (dp[n]) {res.push_back(word); break;}
+            }
+        }
+        return res;
+    }
+};
+----
+
+下面这种方法是递归的写法，其中递归函数中的cnt表示有其他单词组成的个数，至少得由其他两个单词组成才符合题意，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<string> findAllConcatenatedWordsInADict(vector<string>& words) {
+        vector<string> res;
+        unordered_set<string> dict(words.begin(), words.end());
+        for (string word : words) {
+            if (word.empty()) continue;
+            if (helper(word, dict, 0, 0)) {
+                res.push_back(word);
+            }
+        }
+        return res;
+    }
+    bool helper(string& word, unordered_set<string>& dict, int pos, int cnt) {
+        if (pos >= word.size() && cnt >= 2) return true;
+        for (int i = 1; i <= (int)word.size() - pos; ++i) {
+            string t = word.substr(pos, i);
+            if (dict.count(t) && helper(word, dict, pos + i, cnt + 1)) {
+                return true;
+            }
+        }
+        return false;
+    }
+};
+----
+
+==== 火柴棍组成正方形
+----
+Remember the story of Little Match Girl? By now, you know exactly what matchsticks the little match girl has, please find out a way you can make one square by using up all those matchsticks. You should not break any stick, but you can link them up, and each matchstick must be used exactly one time.
+
+Your input will be several matchsticks the girl has, represented with their stick length. Your output will either be true or false, to represent whether you could make one square using all the matchsticks the little match girl has.
+
+Example 1:
+
+Input: [1,1,2,2,2]
+Output: true
+----
+我已经服了LeetCode了，连卖火柴的小女孩也能改编成题目，还能不能愉快的玩耍了，坐等灰姑娘，丑小鸭的改编题了。好了，言归正传，这道题让我们用数组中的数字来摆出一个正方形。跟之前有道题Partition Equal Subset Sum有点像，那道题问我们能不能将一个数组分成和相等的两个子数组，而这道题实际上是让我们将一个数组分成四个和相等的子数组。我一开始尝试着用那题的解法来做，首先来判断数组之和是否是4的倍数，然后还是找能否分成和相等的两个子数组，但是在遍历的时候加上判断如果数组中某一个数字大于一条边的长度时返回false。最后我们同时检查dp数组中一条边长度位置上的值跟两倍多一条边长度位置上的值是否为true，这种方法不幸TLE了。所以只能上论坛求助各路大神了，发现了可以用优化过的递归来解，递归的方法基本上等于brute force，但是C++版本的直接递归没法通过OJ，而是要先给数组从大到小的顺序排序，这样大的数字先加，如果超过target了，就直接跳过了后面的再次调用递归的操作，效率会提高不少，所以会通过OJ。下面来看代码，我们建立一个长度为4的数组sums来保存每个边的长度和，我们希望每条边都等于target，数组总和的四分之一。然后我们遍历sums中的每条边，我们判断如果加上数组中的当前数字大于target，那么我们跳过，如果没有，我们就加上这个数字，然后对数组中下一个位置调用递归，如果返回为真，我们返回true，否则我们再从sums中对应位置将这个数字减去继续循环，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool makesquare(vector<int>& nums) {
+        if (nums.empty() || nums.size() < 4) return false;
+        int sum = accumulate(nums.begin(), nums.end(), 0);
+        if (sum % 4 != 0) return false;
+        vector<int> sums(4, 0);
+        sort(nums.rbegin(), nums.rend());
+        return helper(nums, sums, 0, sum / 4);
+    }
+    bool helper(vector<int>& nums, vector<int>& sums, int pos, int target) {
+        if (pos >= nums.size()) {
+            return sums[0] == target && sums[1] == target && sums[2] == target;
+        }
+        for (int i = 0; i < 4; ++i) {
+            if (sums[i] + nums[pos] > target) continue;
+            sums[i] += nums[pos];
+            if (helper(nums, sums, pos + 1, target)) return true;
+            sums[i] -= nums[pos];
+        }
+        return false;
+    }
+};
+----
+
+其实这题还有迭代的方法，很巧妙的利用到了位操作的特性，前面的基本求和跟判断还是一样，然后建立一个变量all，初始化为(1 << n) - 1，这是什么意思呢，all其实是一个mask，数组中有多少个数字，all就有多少个1，表示全选所有的数字，然后变量target表示一条边的长度。我们建立两个一位向量masks和validHalf，其中masks保存和target相等的几个数字位置的mask，validHalf保存某个mask是否是总和的一半。然后我们从0遍历到all，实际上就是遍历所有子数组，然后我们根据mask来计算出子数组的和，注意这里用了15，而不是32，因为题目中说了数组元素个数不会超过15个。我们算出的子数组之和如果等于一条边的长度target，我们遍历masks数组中其他等于target的子数组，如果两个mask相与不为0，说明有公用的数字，直接跳过；否则将两个mask或起来，说明我们当前选的数字之和为数组总和的一半，更新validHalf的对应位置，然后我们通过all取出所有剩下的数组，并在validHalf里查找，如果也为true，说明我们成功的找到了四条边，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool makesquare(vector<int>& nums) {
+        if (nums.empty() || nums.size() < 4) return false;
+        int sum = accumulate(nums.begin(), nums.end(), 0);
+        if (sum % 4 != 0) return false;
+        int n = nums.size(), all = (1 << n) - 1, target = sum / 4;
+        vector<int> masks, validHalf(1 << n, false);
+        for (int i = 0; i <= all; ++i) {
+            int curSum = 0;
+            for (int j = 0; j <= 15; ++j) {
+                if ((i >> j) & 1) curSum += nums[j];
+            }
+            if (curSum == target) {
+                for (int mask : masks) {
+                    if ((mask & i) != 0) continue;
+                    int half = mask | i;
+                    validHalf[half] = true;
+                    if (validHalf[all ^ half]) return true;
+                }
+                masks.push_back(i);
+            }
+        }
+        return false;
+    }
+};
+----
+
+==== 一和零
+
+----
+In the computer world, use restricted resource you have to generate maximum benefit is what we always want to pursue.
+
+For now, suppose you are a dominator of m 0s and n 1s respectively. On the other hand, there is an array with strings consisting of only 0s and 1s.
+
+Now your task is to find the maximum number of strings that you can form with given m 0s and n 1s. Each 0 and 1 can be used at most once.
+
+Note:
+
+The given numbers of 0s and 1s will both not exceed 100
+The size of given string array won't exceed 600.
+----
+
+----
+这道题是一道典型的应用DP来解的题，如果我们看到这种求总数，而不是列出所有情况的题，十有八九都是用DP来解，重中之重就是在于找出递推式。如果你第一反应没有想到用DP来做，想得是用贪心算法来做，比如先给字符串数组排个序，让长度小的字符串在前面，然后遍历每个字符串，遇到0或者1就将对应的m和n的值减小，这种方法在有的时候是不对的，比如对于{"11", "01", "10"}，m=2，n=2这个例子，我们将遍历完“11”的时候，把1用完了，那么对于后面两个字符串就没法处理了，而其实正确的答案是应该组成后面两个字符串才对。所以我们需要建立一个二维的DP数组，其中dp[i][j]表示有i个0和j个1时能组成的最多字符串的个数，而对于当前遍历到的字符串，我们统计出其中0和1的个数为zeros和ones，然后dp[i - zeros][j - ones]表示当前的i和j减去zeros和ones之前能拼成字符串的个数，那么加上当前的zeros和ones就是当前dp[i][j]可以达到的个数，我们跟其原有数值对比取较大值即可，所以递推式如下：
+
+dp[i][j] = max(dp[i][j], dp[i - zeros][j - ones] + 1);
+
+有了递推式，我们就可以很容易的写出代码如下：
+----
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findMaxForm(vector<string>& strs, int m, int n) {
+        vector<vector<int>> dp(m + 1, vector<int>(n + 1, 0));
+        for (string str : strs) {
+            int zeros = 0, ones = 0;
+            for (char c : str) (c == '0') ? ++zeros : ++ones;
+            for (int i = m; i >= zeros; --i) {
+                for (int j = n; j >= ones; --j) {
+                    dp[i][j] = max(dp[i][j], dp[i - zeros][j - ones] + 1);
+                }
+            }
+        }
+        return dp[m][n];
+    }
+};
+----
+
+==== 加热器
+
+----
+Winter is coming! Your first job during the contest is to design a standard heater with fixed warm radius to warm all the houses.
+
+Now, you are given positions of houses and heaters on a horizontal line, find out minimum radius of heaters so that all houses could be covered by those heaters.
+
+So, your input will be the positions of houses and heaters seperately, and your expected output will be the minimum radius standard of heaters.
+----
+
+这道题是一道蛮有意思的题目，首先我们看题目中的例子，不管是houses还是heaters数组都是有序的，所以我们也需要给输入的这两个数组先排序，以免其为乱序。我们就拿第二个例子来分析，我们的目标是houses中的每一个数字都要被cover到，那么我们就遍历houses数组，对每一个数组的数字，我们在heaters中找能包含这个数字的左右范围，然后看离左右两边谁近取谁的值，如果某个house位置比heaters中最小的数字还小，那么肯定要用最小的heater去cover，反之如果比最大的数字还大，就用最大的数字去cover。对于每个数字算出的半径，我们要取其中最大的值。通过上面的分析，我们就不难写出代码了，我们在heater中两个数一组进行检查，如果后面一个数和当前house位置差的绝对值小于等于前面一个数和当前house位置差的绝对值，那么我们继续遍历下一个位置的数。跳出循环的条件是遍历到heater中最后一个数，或者上面的小于等于不成立，此时heater中的值和当前house位置的差的绝对值就是能cover当前house的最小半径，我们更新结果res即可，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findRadius(vector<int>& houses, vector<int>& heaters) {
+        int n = heaters.size(), j = 0, res = 0;
+        sort(houses.begin(), houses.end());
+        sort(heaters.begin(), heaters.end());
+        for (int i = 0; i < houses.size(); ++i) {
+            int cur = houses[i];
+            while (j < n - 1 && abs(heaters[j + 1] - cur) <= abs(heaters[j] - cur)) {
+                ++j;
+            }
+            res = max(res, abs(heaters[j] - cur));
+        }
+        return res;
+    }
+};
+----
+
+还是上面的思路，我们可以用二分查找法来快速找到第一个大于等于当前house位置的数，如果这个数存在，那么我们可以算出其和house的差值，并且如果这个数不是heater的首数字，我们可以算出house和前面一个数的差值，这两个数中取较小的为cover当前house的最小半径，然后我们每次更新结果res即可，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findRadius(vector<int>& houses, vector<int>& heaters) {
+        int res = 0, n = heaters.size();
+        sort(heaters.begin(), heaters.end());
+        for (int house : houses) {
+            int left = 0, right = n;
+            while (left < right) {
+                int mid = left + (right - left) / 2;
+                if (heaters[mid] < house) left = mid + 1;
+                else right = mid;
+            }
+            int dist1 = (right == n) ? INT_MAX : heaters[right] - house;
+            int dist2 = (right == 0) ? INT_MAX : house - heaters[right - 1];
+            res = max(res, min(dist1, dist2));
+        }
+        return res;
+    }
+};
+----
+
+我们可以用STL中的lower_bound来代替二分查找的代码来快速找到第一个大于等于目标值的位置，其余部分均和上面方法相同，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findRadius(vector<int>& houses, vector<int>& heaters) {
+        int res = 0;
+        sort(heaters.begin(), heaters.end());
+        for (int house : houses) {
+            auto pos = lower_bound(heaters.begin(), heaters.end(), house);
+            int dist1 = (pos == heaters.end()) ? INT_MAX : *pos - house;
+            int dist2 = (pos == heaters.begin()) ? INT_MAX : house - *(--pos);
+            res = max(res, min(dist1, dist2));
+        }
+        return res;
+    }
+};
+----
+
+==== 补数
+
+----
+Given a positive integer, output its complement number. The complement strategy is to flip the bits of its binary representation.
+----
+这道题给了我们一个数，让我们求补数。通过分析题目汇总的例子，我们知道需要做的就是每个位翻转一下就行了，但是翻转的起始位置上从最高位的1开始的，前面的0是不能被翻转的，所以我们从高往低遍历，如果遇到第一个1了后，我们的flag就赋值为true，然后就可以进行翻转了，翻转的方法就是对应位异或一个1即可，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findComplement(int num) {
+        bool start = false;
+        for (int i = 31; i >= 0; --i) {
+            if (num & (1 << i)) start = true;
+            if (start) num ^= (1 << i);
+        }
+        return num;
+    }
+};
+----
+
+由于位操作里面的取反符号～本身就可以翻转位，但是如果直接对num取反的话就是每一位都翻转了，而最高位1之前的0是不能翻转的，所以我们只要用一个mask来标记最高位1前面的所有0的位置，然后对mask取反后，与上对num取反的结果即可，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findComplement(int num) {
+        int mask = INT_MAX;
+        while (mask & num) mask <<= 1;
+        return ~mask & ~num;
+    }
+};
+----
+
+再来看一种迭代的写法，一行搞定碉堡了，思路就是每次都右移一位，并根据最低位的值先进行翻转，如果当前值小于等于1了，就不用再调用递归函数了，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findComplement(int num) {
+        return (1 - num % 2) + 2 * (num <= 1 ? 0 : findComplement(num / 2));
+    }
+};
+----
+
+==== 全部汉明距离
+
+----
+The Hamming distance between two integers is the number of positions at which the corresponding bits are different.
+
+Now your job is to find the total Hamming distance between all pairs of the given numbers.
+
+Example:
+
+Input: 4, 14, 2
+
+Output: 6
+----
+
+----
+这道题是之前那道Hamming Distance的拓展，由于有之前那道题的经验，我们知道需要用异或来求每个位上的情况，那么我们需要来找出某种规律来，比如我们看下面这个例子，4，14，2和1：
+
+4:     0 1 0 0
+
+14:   1 1 1 0
+
+2:     0 0 1 0
+
+1:     0 0 0 1
+
+我们先看最后一列，有三个0和一个1，那么它们之间相互的汉明距离就是3，即1和其他三个0分别的距离累加，然后在看第三列，累加汉明距离为4，因为每个1都会跟两个0产生两个汉明距离，同理第二列也是4，第一列是3。我们仔细观察累计汉明距离和0跟1的个数，我们可以发现其实就是0的个数乘以1的个数，发现了这个重要的规律，那么整道题就迎刃而解了，只要统计出每一位的1的个数即可，参见代码如下：
+----
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int totalHammingDistance(vector<int>& nums) {
+        int res = 0, n = nums.size();
+        for (int i = 0; i < 32; ++i) {
+            int cnt = 0;
+            for (int num : nums) {
+                if (num & (1 << i)) ++cnt;
+            }
+            res += cnt * (n - cnt);
+        }
+        return res;
+    }
+};
+----
+
+==== 在圆内随机生成点
+
+给定圆的半径和圆心的 x、y 坐标，写一个在圆中产生均匀随机点的函数 randPoint 。 +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    Solution(double radius, double x_center, double y_center): distribution(0, 1), R(radius), X(x_center), Y(y_center) {}
+
+    vector<double> randPoint() {
+        double theta = distribution(generator) * 2 * PI;
+        double r = sqrt(distribution(generator)) * R;
+        return {X + r * cos(theta), Y + r * sin(theta)};
+    }
+
+private:
+    const double PI = 3.1415926535897932384626;
+    std::default_random_engine generator;
+    std::uniform_real_distribution<double> distribution;
+    const double R;
+    const double X;
+    const double Y;
+};
+----
+
+==== 最大回文串乘积
+
+----
+Find the largest palindrome made from the product of two n-digit numbers.
+
+Since the result could be very large, you should return the largest palindrome mod 1337.
+
+Example:
+
+Input: 2
+
+Output: 987
+
+Explanation: 99 x 91 = 9009, 9009 % 1337 = 987
+----
+
+这道题给我们一个数字n，问两个n位数的乘积组成的最大回文数是多少，返回的结果对1337取余。博主刚开始用暴力搜索做，遍历所有的数字组合，求乘积，再来判断是否是回文数，最终TLE了，只能换一种思路来做。论坛上的这种思路真心叼啊，博主感觉这题绝比不该Easy啊。首先我们还是要确定出n位数的范围，最大值upper，可以取到，最小值lower，不能取到。然后我们遍历这区间的所有数字，对于每个遍历到的数字，我们用当前数字当作回文数的前半段，将其翻转一下拼接到后面，此时组成一个回文数，这里用到了一个规律，当n>1时，两个n位数乘积的最大回文数一定是2n位的。下面我们就要来验证这个回文数能否由两个n位数相乘的来，我们还是遍历区间中的数，从upper开始遍历，但此时结束位置不是lower，而是当前数的平方大于回文数，因为我们遍历的是相乘得到回文数的两个数中的较大数，一旦超过这个范围，就变成较小数了，就重复计算了。比如对于回文数9009，其是由99和91组成的，其较大数的范围是[99,95]，所以当遍历到94时，另一个数至少需要是95，而这种情况在之前已经验证过了。当回文数能整除较大数时，说明是成立的，直接对1337取余返回即可，参见代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int largestPalindrome(int n) {
+        int upper = pow(10, n) - 1, lower = upper / 10;
+        for (int i = upper; i > lower; --i) {
+            string t = to_string(i);
+            long p = stol(t + string(t.rbegin(), t.rend()));
+            for (long j = upper; j * j > p; --j) {
+                if (p % j == 0) return p % 1337;
+            }
+        }
+        return 9;
+    }
+};
+----
+
+==== 滑动窗口中位数
+
+----
+Median is the middle value in an ordered integer list. If the size of the list is even, there is no middle value. So the median is the mean of the two middle value.
+
+Examples:
+
+[2,3,4] , the median is 3
+
+[2,3], the median is (2 + 3) / 2 = 2.5
+
+Given an array nums, there is a sliding window of size k which is moving from the very left of the array to the very right. You can only see the k numbers in the window. Each time the sliding window moves right by one position. Your job is to output the median array for each window in the original array.
+----
+
+这道题给了我们一个数组，还是滑动窗口的大小，让我们求滑动窗口的中位数。我想起来之前也有一道滑动窗口的题Sliding Window Maximum，于是想套用那道题的方法，可以用deque怎么也做不出，因为求中位数并不是像求最大值那样只操作deque的首尾元素。后来看到了史蒂芬大神的方法，原来是要用一个multiset集合，和一个指向最中间元素的iterator。我们首先将数组的前k个数组加入集合中，由于multiset自带排序功能，所以我们通过k/2能快速的找到指向最中间的数字的迭代器mid，如果k为奇数，那么mid指向的数字就是中位数；如果k为偶数，那么mid指向的数跟前面那个数求平均值就是中位数。当我们添加新的数字到集合中，multiset会根据新数字的大小加到正确的位置，然后我们看如果这个新加入的数字比之前的mid指向的数小，那么中位数肯定被拉低了，所以mid往前移动一个，再看如果要删掉的数小于等于mid指向的数(注意这里加等号是因为要删的数可能就是mid指向的数)，则mid向后移动一个。然后我们将滑动窗口最左边的数删掉，我们不能直接根据值来用erase来删数字，因为这样有可能删掉多个相同的数字，而是应该用lower_bound来找到第一个不小于目标值的数，通过iterator来删掉确定的一个数字，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<double> medianSlidingWindow(vector<int>& nums, int k) {
+        vector<double> res;
+        multiset<double> ms(nums.begin(), nums.begin() + k);
+        auto mid = next(ms.begin(), k /  2);
+        for (int i = k; ; ++i) {
+            res.push_back((*mid + *prev(mid,  1 - k % 2)) / 2);
+            if (i == nums.size()) return res;
+            ms.insert(nums[i]);
+            if (nums[i] < *mid) --mid;
+            if (nums[i - k] <= *mid) ++mid;
+            ms.erase(ms.lower_bound(nums[i - k]));
+        }
+    }
+};
+----
+
+上面的方法用到了很多STL内置的函数，比如next，lower_bound啥的，下面我们来看一种不使用这些函数的解法。这种解法跟Find Median from Data Stream那题的解法很类似，都是维护了small和large两个堆，分别保存有序数组的左半段和右半段的数字，保持small的长度大于等于large的长度。我们开始遍历数组nums，如果i>=k，说明此时滑动窗口已经满k个了，再滑动就要删掉最左值了，我们分别在small和large中查找最左值，有的话就删掉。然后处理增加数字的情况（分两种情况：1.如果small的长度小于large的长度，再看如果large是空或者新加的数小于等于large的首元素，我们把此数加入small中。否则就把large的首元素移出并加入small中，然后把新数字加入large。2.如果small的长度大于large，再看如果新数字大于small的尾元素，那么新数字加入large中，否则就把small的尾元素移出并加入large中，把新数字加入small中）。最后我们再计算中位数并加入结果res中，根据k的奇偶性来分别处理，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<double> medianSlidingWindow(vector<int>& nums, int k) {
+        vector<double> res;
+        multiset<int> small, large;
+        for (int i = 0; i < nums.size(); ++i) {
+            if (i >= k) {
+                if (small.count(nums[i - k])) small.erase(small.find(nums[i - k]));
+                else if (large.count(nums[i - k])) large.erase(large.find(nums[i - k]));
+            }
+            if (small.size() <= large.size()) {
+                if (large.empty() || nums[i] <= *large.begin()) small.insert(nums[i]);
+                else {
+                    small.insert(*large.begin());
+                    large.erase(large.begin());
+                    large.insert(nums[i]);
+                }
+            } else {
+                if (nums[i] >= *small.rbegin()) large.insert(nums[i]);
+                else {
+                    large.insert(*small.rbegin());
+                    small.erase(--small.end());
+                    small.insert(nums[i]);
+                }
+            }
+            if (i >= (k - 1)) {
+                if (k % 2) res.push_back(*small.rbegin());
+                else res.push_back(((double)*small.rbegin() + *large.begin()) / 2);
+            }
+        }
+        return res;
+    }
+};
+----

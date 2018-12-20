@@ -1,0 +1,1420 @@
+==== 图片平滑器
+
+----
+Given a 2D integer matrix M representing the gray scale of an image, you need to design a smoother to make the gray scale of each cell becomes the average gray scale (rounding down) of all the 8 surrounding cells and itself. If a cell has less than 8 surrounding cells, then use as many as you can.
+----
+
+这道题让我们给一个图片进行平滑处理，博主其实还是有一些图像处理的背景的，一般来说都是用算子来跟图片进行卷积，但是由于这道题只是个Easy的题目，我们直接用土办法就能解了，就直接对于每一个点统计其周围点的个数，然后累加像素值，做个除法就行了，注意边界情况的处理，参见代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<int>> imageSmoother(vector<vector<int>>& M) {
+        if (M.empty() || M[0].empty()) return {};
+        int m = M.size(), n = M[0].size();
+        vector<vector<int>> res = M, dirs{{0,-1},{-1,-1},{-1,0},{-1,1},{0,1},{1,1},{1,0},{1,-1}};
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                int cnt = M[i][j], all = 1;
+                for (auto dir : dirs) {
+                    int x = i + dir[0], y = j + dir[1];
+                    if (x < 0 || x >= m || y < 0 || y >= n) continue;
+                    ++all;
+                    cnt += M[x][y];
+                }
+                res[i][j] = cnt / all;
+            }
+        }
+        return res;
+    }
+};
+----
+
+====  二叉树的最大宽度
+
+----
+Given a binary tree, write a function to get the maximum width of the given tree. The width of a tree is the maximum width among all levels. The binary tree has the same structure as a full binary tree, but some nodes are null.
+
+The width of one level is defined as the length between the end-nodes (the leftmost and right most non-null nodes in the level, where the null nodes between the end-nodes are also counted into the length calculation.
+----
+
+----
+这道题让我们求二叉树的最大宽度，根据题目中的描述可知，这里的最大宽度不是满树的时候的最大宽度，如果是那样的话，肯定是最后一层的结点数最多。这里的最大宽度应该是两个存在的结点中间可容纳的总的结点个数，中间的结点可以为空。那么其实只要我们知道了每一层中最左边和最右边的结点的位置，我们就可以算出这一层的宽度了。所以这道题的关键就是要记录每一层中最左边结点的位置，我们知道对于一棵完美二叉树，如果根结点是深度1，那么每一层的结点数就是2*n-1，那么每个结点的位置就是[1, 2*n-1]中的一个，假设某个结点的位置是i，那么其左右子结点的位置可以直接算出来，为2*i和2*i+1，可以自行带例子检验。由于之前说过，我们需要保存每一层的最左结点的位置，那么我们使用一个数组start，由于数组是从0开始的，我们就姑且认定根结点的深度为0，不影响结果。我们从根结点进入，深度为0，位置为1，进入递归函数。
+
+首先判断，如果当前结点为空，那么直接返回，然后判断如果当前深度大于start数组的长度，说明当前到了新的一层的最左结点，我们将当前位置存入start数组中。然后我们用idx - start[h] + 1来更新结果res。这里idx是当前结点的位置，start[h]是当前层最左结点的位置。然后对左右子结点分别调用递归函数，注意左右子结点的位置可以直接计算出来，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int widthOfBinaryTree(TreeNode* root) {
+        int res = 0;
+        vector<int> start;
+        helper(root, 0, 1, start, res);
+        return res;
+    }
+    void helper(TreeNode* node, int h, int idx, vector<int>& start, int& res) {
+        if (!node) return;
+        if (h >= start.size()) start.push_back(idx);
+        res = max(res, idx - start[h] + 1);
+        helper(node->left, h + 1, idx * 2, start, res);
+        helper(node->right, h + 1, idx * 2 + 1, start, res);
+    }
+};
+----
+
+下面这种解法还是递归，比上面的解法稍微简洁一些，没有用结果res变量，而是递归函数直接返回最大宽度了，但是解题思路没有啥区别，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int widthOfBinaryTree(TreeNode* root) {
+        vector<int> start;
+        return helper(root, 0, 1, start);
+    }
+    int helper(TreeNode* node, int h, int idx, vector<int>& start) {
+        if (!node) return 0;
+        if (h >= start.size()) start.push_back(idx);
+        return max({idx - start[h] + 1, helper(node->left, h + 1, idx * 2, start), helper(node->right, h + 1, idx * 2 + 1, start)});
+    }
+};
+----
+
+下面这个解法用的是层序遍历，迭代的方法来写的，注意这里使用了队列queue来辅助运算，queue里存的是一个pair，结点和其当前位置，在进入新一层的循环时，首先将首结点的位置保存出来当作最左位置，然后对于遍历到的结点，都更新右结点的位置，遍历一层的结点后来计算宽度更新结果res，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int widthOfBinaryTree(TreeNode* root) {
+        if (!root) return 0;
+        int res = 0;
+        queue<pair<TreeNode*,int>> q;
+        q.push({root, 1});
+        while (!q.empty()) {
+            int left = q.front().second, right = left, n = q.size();
+            for (int i = 0; i < n; ++i) {
+                auto t = q.front().first;
+                right = q.front().second; q.pop();
+                if (t->left) q.push({t->left, right * 2});
+                if (t->right) q.push({t->right, right * 2 + 1});
+            }
+            res = max(res, right - left + 1);
+        }
+        return res;
+    }
+};
+----
+
+==== 划分等价树
+
+----
+Given a binary tree with n nodes, your task is to check if it's possible to partition the tree to two trees which have the equal sum of values after removing exactly one edge on the original tree.
+----
+
+这道题让我们划分等价树，就是说当移除一条边后，被分成的两棵树的结点之和需要相等。那么通过观察题目中的例子我们可以发现，如果我们将每个结点的结点值变成其所有子结点的结点值之和再加上当前的结点值，那么对于例子1来说，根结点的结点值就变成了30，断开位置的结点就变成了15，那么我们就可以发现其实只要断开位置的结点值是根结点值的一半，就存在等价划分。所以这道题的难点就是更新每个结点的结点值，我们可以使用递归来做。博主最开始使用的是unordered_set，把更新后的每个结点值都存入集合中，但是对于test case: [0, 1, -1] 会fail, 仔细分析下这个case，发现更新后的根结点值还是0，而且0已经被存入集合了，而0除以2还是0，在集合中存在，会返回true，但其实这棵树是不能等价划分的。0的情况确实比较特殊，所以我们使用unordered_map，建立更新后的结点值和其出现次数之间的映射，这样只有map中0的个数大于1的时候，才返回true。这样完美的避开了根结点为0的陷阱，Perfect！参见代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool checkEqualTree(TreeNode* root) {
+        unordered_map<int, int> m;
+        int sum = helper(root, m);
+        if (sum == 0) return m[0] > 1;
+        return sum % 2 == 0 && m.count(sum / 2);
+    }
+    int helper(TreeNode* node, unordered_map<int, int>& m) {
+        if (!node) return 0;
+        int cur = node->val + helper(node->left, m) + helper(node->right, m);
+        ++m[cur];
+        return cur;
+    }
+};
+----
+
+==== 奇怪的打印机
+
+----
+There is a strange printer with the following two special requirements:
+
+The printer can only print a sequence of the same character each time.
+At each turn, the printer can print new characters starting from and ending at any places, and will cover the original existing characters.
+
+Given a string consists of lower English letters only, your job is to count the minimum number of turns the printer needed in order to print it.
+----
+
+----
+这道题说有一种奇怪的打印机每次只能打印一排相同的字符，然后可以在任意起点和终点位置之间打印新的字符，用来覆盖原有的字符。现在给了我们一个新的字符串，问我们需要几次可以正确的打印出来。题目中给了两个非常简单的例子，主要是帮助我们理解的。博主最开始想的方法是一种类似贪婪算法，先是找出出现次数最多的字符，然后算需要多少次变换能将所有其他字符都变成那个出现最多次的字符，结果fail了。然后又试了一种类似剥洋葱的方法，从首尾都分别找连续相同的字符，如果首尾字符相同，则两部分一起移去，否则就移去连续相同个数多的子序列，这种基于贪婪算法的解法还是fail了，所以这道题是典型的只能动态规划Dynamic Programming，而不能用贪婪算法Greedy Algorithm的题。这道题的解题思路跟之前那道Remove Boxes很相似，博主在那个帖子中做了详细的讲解，是根据fun4leetcode大神的帖子写的，大神的思路对解这道题也相当有帮助。其实这道题并没有之前那道Remove Boxes难，移除盒子的题有隐含的条件需要加到重现关系中，大大地增加了题目的难度，非常地难想出来，这道题没有隐含条件都是个Hard题，那道题妥妥应该是Super Hard。
+
+好，话不多说，来分析这道题吧。思考的线索和思路很重要，不理解核心精髓，当背题侠是没用的，稍微变个形式又不会了，博主就经常是这样的-.-!!!。既然说了要用DP来做，先整个二维dp数组呗，其中dp[i][j]表示打印出字符串[i, j]范围内字符的最小步数，难点就是找递推公式啦。遇到乍看去没啥思路的题，博主一般会先从简单的例子开始，看能不能分析出规律，从而找到解题的线索。首先如果只有一个字符，比如字符串是"a"的话，那么直接一次打印出来就行了。如果字符串是"ab"的话，那么我们要么先打印出"aa"，再改成"ab"，或者先打印出"bb"，再改成"ab"。同理，如果字符串是"abc"的话，就需要三次打印。那么一个很明显的特征是，如果没有重复的字符，打印的次数就是字符的个数。燃鹅这题的难点就是要处理有相同字符的情况，比如字符串是"aba"的时候，我们先打"aaa"的话，两步就搞定了，如果先打"bbb"的话，就需要三步。我们再来看一个字符串"abcb"，我们知道需要需要三步，我们看如果把这个字符串分成两个部分"a"和"bcb"，它们分别的步数是1和2，加起来的3是整个的步数。而对于字符串"abba"，如果分成"a"和"bba"，它们分别的步数也是1和2，但是总步数却是2。这是因为分出的"a"和"bba"中的最后一个字符相同。对于字符串"abbac"，因为位置0上的a和位置3上的a相同，那么整个字符串的步数相当于"bb"和"ac"的步数之和，为3。那么分析到这，是不是有点眉目了？我们关心的是字符相等的地方，对于[i, j]范围的字符，我们从i+1位置上的字符开始遍历到j，如果和i位置上的字符相等，我们就以此位置为界，将[i+1, j]范围内的字符拆为两个部分，将二者的dp值加起来，和原dp值相比，取较小的那个。所以我们的递推式如下:
+
+dp[i][j] = min(dp[i][j], dp[i + 1][k - 1] + dp[k][j]       (s[k] == s[i] and i + 1 <= k <= j)
+要注意一些初始化的值，dp[i][i]是1，因为一个字符嘛，打印1次，还是就是在遍历k之前，dp[i][j]初始化为 1 + dp[i + 1][j]，为啥呢，可以看成在[i + 1, j]的范围上多加了一个s[i]字符，最坏的情况就是加上的是一个不曾出现过的字符，步数顶多加1步，注意我们的i是从后往前遍历的，当然你可以从前往后遍历，参数对应好就行了，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int strangePrinter(string s) {
+        int n = s.size();
+        vector<vector<int>> dp(n, vector<int>(n, 0));
+        for (int i = n - 1; i >= 0; --i) {
+            for (int j = i; j < n; ++j) {
+                dp[i][j] = (i == j) ? 1 : (1 + dp[i + 1][j]);
+                for (int k = i + 1; k <= j; ++k) {
+                    if (s[k] == s[i]) dp[i][j] = min(dp[i][j], dp[i + 1][k - 1] + dp[k][j]);
+                }
+            }
+        }
+        return (n == 0) ? 0 : dp[0][n - 1];
+    }
+};
+----
+理解了上面的DP的方法，那么也可以用递归的形式来写，记忆数组memo就相当于dp数组，整个思路完全一样，参见代码如下：  +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int strangePrinter(string s) {
+        int n = s.size();
+        vector<vector<int>> memo(n, vector<int>(n, 0));
+        return helper(s, 0, n - 1, memo);
+    }
+    int helper(string s, int i, int j, vector<vector<int>>& memo) {
+        if (i > j) return 0;
+        if (memo[i][j]) return memo[i][j];
+        memo[i][j] = helper(s, i + 1, j, memo) + 1;
+        for (int k = i + 1; k <= j; ++k) {
+            if (s[k] == s[i]) {
+                memo[i][j] = min(memo[i][j], helper(s, i + 1, k - 1, memo) + helper(s, k, j, memo));
+            }
+        }
+        return memo[i][j];
+    }
+};
+----
+
+==== 非递减数列
+
+----
+Given an array with n integers, your task is to check if it could become non-decreasing by modifying at most 1element.
+
+We define an array is non-decreasing if array[i] <= array[i + 1] holds for every i (1 <= i < n).
+----
+
+----
+这道题给了我们一个数组，说我们最多有1次修改某个数字的机会，问能不能将数组变为非递减数组。题目中给的例子太少，不能覆盖所有情况，我们再来看下面三个例子：
+
+4，2，3
+
+-1，4，2，3
+
+2，3，3，2，4
+
+我们通过分析上面三个例子可以发现，当我们发现后面的数字小于前面的数字产生冲突后，有时候需要修改前面较大的数字(比如前两个例子需要修改4)，有时候却要修改后面较小的那个数字(比如前第三个例子需要修改2)，那么有什么内在规律吗？是有的，判断修改那个数字其实跟再前面一个数的大小有关系，首先如果再前面的数不存在，比如例子1，4前面没有数字了，我们直接修改前面的数字为当前的数字2即可。而当再前面的数字存在，并且小于当前数时，比如例子2，-1小于2，我们还是需要修改前面的数字4为当前数字2；如果再前面的数大于当前数，比如例子3，3大于2，我们需要修改当前数2为前面的数3。这是修改的情况，由于我们只有一次修改的机会，所以用一个变量cnt，初始化为1，修改数字后cnt自减1，当下次再需要修改时，如果cnt已经为0了，直接返回false。遍历结束后返回true，参见代码如下：
+----
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool checkPossibility(vector<int>& nums) {
+        int cnt = 1, n = nums.size();
+        for (int i = 1; i < n; ++i) {
+            if (nums[i] < nums[i - 1]) {
+                if (cnt == 0) return false;
+                if (i == 1 || nums[i] >= nums[i - 2]) nums[i - 1] = nums[i];
+                else nums[i] = nums[i - 1];
+                --cnt;
+            }
+        }
+        return true;
+    }
+};
+----
+
+==== 二叉树的路径和之四
+
+----
+If the depth of a tree is smaller than 5, then this tree can be represented by a list of three-digits integers.
+
+For each integer in this list:
+
+The hundreds digit represents the depth D of this node, 1 <= D <= 4.
+The tens digit represents the position P of this node in the level it belongs to, 1 <= P <= 8. The position is the same as that in a full binary tree.
+The units digit represents the value V of this node, 0 <= V <= 9.
+
+Given a list of ascending three-digits integers representing a binary with the depth smaller than 5. You need to return the sum of all paths from the root towards the leaves.
+----
+
+这道题还是让我们求二叉树的路径之和，但是跟之前不同的是，树的存储方式比较特别，并没有专门的数结点，而是使用一个三位数字来存的，百位数是该结点的深度，十位上是该结点在某一层中的位置，个位数是该结点的结点值。为了求路径之和，我们肯定还是需要遍历树，但是由于没有树结点，所以我们可以用其他的数据结构代替。比如我们可以将每个结点的位置信息和结点值分离开，然后建立两者之间的映射。比如我们可以将百位数和十位数当作key，将个位数当作value，建立映射。由于题目中说了数组是有序的，所以首元素就是根结点，然后我们进行先序遍历即可。在递归函数中，我们先将深度和位置拆分出来，然后算出左右子结点的深度和位置的两位数，我们还要维护一个变量cur，用来保存当前路径之和。如果当前结点的左右子结点不存在，说明此时cur已经是一条完整的路径之和了，加到结果res中，直接返回。否则就是对存在的左右子结点调用递归函数即可，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int pathSum(vector<int>& nums) {
+        if (nums.empty()) return 0;
+        int res = 0;
+        unordered_map<int, int> m;
+        for (int num : nums) {
+            m[num / 10] = num % 10;
+        }
+        helper(nums[0] / 10, m, 0, res);
+        return res;
+    }
+    void helper(int num, unordered_map<int, int>& m, int cur, int& res) {
+        int level = num / 10, pos = num % 10;
+        int left = (level + 1) * 10 + 2 * pos - 1, right = left + 1;
+        cur += m[num];
+        if (!m.count(left) && !m.count(right)) {
+            res += cur;
+            return;
+        }
+        if (m.count(left)) helper(left, m, cur, res);
+        if (m.count(right)) helper(right, m, cur, res);
+    }
+};
+----
+
+下面这种方法是迭代的形式，我们使用的层序遍历，与先序遍历不同的是，我们不能维护一个当前路径之和的变量，这样会重复计算结点值，而是在遍历每一层的结点时，加上其父结点的值，如果某一个结点没有子结点了，才将累加起来的结点值加到结果res中，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int pathSum(vector<int>& nums) {
+        if (nums.empty()) return 0;
+        int res = 0, cur = 0;
+        unordered_map<int, int> m;
+        queue<int> q{{nums[0] / 10}};
+        for (int num : nums) {
+            m[num / 10] = num % 10;
+        }
+        while (!q.empty()) {
+            int t = q.front(); q.pop();
+            int level = t / 10, pos = t % 10;
+            int left = (level + 1) * 10 + 2 * pos - 1, right = left + 1;
+            if (!m.count(left) && !m.count(right)) {
+                res += m[t];
+            }
+            if (m.count(left)) {
+                m[left] += m[t];
+                q.push(left);
+            }
+            if (m.count(right)) {
+                m[right] += m[t];
+                q.push(right);
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== 优美排列之二
+
+----
+Given two integers n and k, you need to construct a list which contains n different positive integers ranging from 1 to n and obeys the following requirement:
+Suppose this list is [a1, a2, a3, ... , an], then the list [|a1 - a2|, |a2 - a3|, |a3 - a4|, ... , |an-1 - an|] has exactly k distinct integers.
+
+If there are multiple answers, print any of them.
+----
+
+----
+这道题虽然也叫优美排列，但是貌似跟之前那道Beautiful Arrangement的关系不太大。这道题给我们了一个数字n和一个数字k，让找出一种排列方式，使得1到n组成的数组中相邻两个数的差的绝对值正好有k种。给了k和n的关系为k<n。那么我们首先来考虑，是否这种条件关系下，是否已定存在这种优美排列呢，我们用一个例子来分析，比如说当n=8，我们有数组：
+
+1, 2, 3, 4, 5, 6, 7, 8
+
+当我们这样有序排列的话，相邻两数的差的绝对值为1。我们想差的绝对值最大能为多少，应该是把1和8放到一起，为7。那么为了尽可能的产生不同的差的绝对值，我们在8后面需要放一个小数字，比如2，这样会产生差的绝对值6，同理，后面再跟一个大数，比如7，产生差的绝对值5，以此类推，我们得到下列数组：
+
+1, 8, 2, 7, 3, 6, 4, 5
+
+其差的绝对值为：7，6，5，4，3，2，1
+
+共有7种，所以我们知道k最大为n-1，所以这样的排列一定会存在。我们的策略是，先按照这种最小最大数相邻的方法排列，没排一个，k自减1，当k减到1的时候，后面的排列方法只要按照生序的方法排列，就不会产生不同的差的绝对值，这种算法的时间复杂度是O(n)，属于比较高效的那种。我们使用两个指针，初始时分别指向1和n，然后分别从i和j取数加入结果res，每取一个数字k自减1，直到k减到1的时候，开始按升序取后面的数字，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> constructArray(int n, int k) {
+        vector<int> res;
+        int i = 1, j = n;
+        while (i <= j) {
+            if (k > 1) res.push_back(k-- % 2 ? i++ : j--);
+            else res.push_back(i++);
+        }
+        return res;
+    }
+};
+----
+
+下面这种方法是把上面的if...else的语句用三元操作符合并成了一句，看起来更加简洁了一些。  +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+
+class Solution {
+public:
+    vector<int> constructArray(int n, int k) {
+        vector<int> res;
+        int i = 1, j = n;
+        while (i <= j) {
+            res.push_back(k > 1 ? (k-- % 2 ? i++ : j--) : i++);
+        }
+        return res;
+    }
+};
+----
+
+==== 乘法表中的第K小的数字
+
+----
+Nearly every one have used the Multiplication Table. But could you find out the k-th smallest number quickly from the multiplication table?
+
+Given the height m and the length n of a m * n Multiplication Table, and a positive integer k, you need to return the k-th smallest number in this table.
+----
+
+这道题跟之前那道Kth Smallest Element in a Sorted Matrix没有什么太大的区别，这里的乘法表也是各行各列分别有序的。那么之前帖子里的方法都可以拿来参考。之前帖子中的解法一在这道题中无法通过OJ，维护一个大小为k的优先队列实在是没有利用到这道题乘法表的特点，但是后两种解法都是可以的。为了快速定位出第K小的数字，我们采用二分搜索法，由于是有序矩阵，那么左上角的数字一定是最小的，而右下角的数字一定是最大的，所以这个是我们搜索的范围，然后我们算出中间数字mid，由于矩阵中不同行之间的元素并不是严格有序的，所以我们要在每一行都查找一下mid，由于乘法表每行都是连续数字1，2，3...乘以当前行号（从1开始计数），所以我们甚至不需要在每行中使用二分查找，而是直接定位出位置。具体做法是，先比较mid和该行最后一个数字的大小，最后一数字是n * i，i是行数，n是该行数字的个数，如果mid大的话，直接将该行所有数字的个数加入cnt，否则的话加上mid / i，比如当前行是2, 4, 6, 8, 10，如果我们要查找小于7的个数，那么就是7除以2，得3，就是有三个数小于7，直接加入cnt即可。这样我们就可以快速算出矩阵中所有小于mid的个数，根据cnt和k的大小关系，来更新我们的范围，循环推出后，left就是第K小的数字，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findKthNumber(int m, int n, int k) {
+        int left = 1, right = m * n;
+        while (left < right) {
+            int mid = left + (right - left) / 2, cnt = 0;
+            for (int i = 1; i <= m; ++i) {
+                cnt += (mid > n * i) ? n : (mid / i);
+            }
+            if (cnt < k) left = mid + 1;
+            else right = mid;
+        }
+        return right;
+    }
+};
+----
+
+下面这种解法在统计小于mid的数字个数的方法上有些不同，并不是逐行来统计，而是从左下角的数字开始统计，如果该数字小于mid，说明该数字及上方所有数字都小于mid，cnt加上i个，然后向右移动一位继续比较。如果当前数字小于mid了，那么向上移动一位，直到横纵方向有一个越界停止，其他部分都和上面的解法相同，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+ public:
+     int findKthNumber(int m, int n, int k) {
+         int left = 1, right = m * n;
+         while (left < right) {
+             int mid = left + (right - left) / 2, cnt = 0, i = m, j = 1;
+             while (i >= 1 && j <= n) {
+                 if (i * j <= mid) {
+                     cnt += i;
+                     ++j;
+                 } else {
+                     --i;
+                 }
+             }
+             if (cnt < k) left = mid + 1;
+             else right = mid;
+         }
+         return right;
+     }
+ };
+----
+
+下面这种解法由网友bambu提供，是对解法二的优化，再快一点，使用除法来快速定位新的j值，然后迅速算出当前行的小于mid的数的个数，然后快速更新i的值，这比之前那种一次只加1或减1的方法要高效许多，感觉像是解法一和解法二的混合体，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findKthNumber(int m, int n, int k) {
+       int left = 1, right = m * n;
+       while (left < right) {
+           int mid = left + (right - left) / 2, cnt = 0, i = m, j = 1;
+           while (i >= 1 && j <= n) {
+                int t = j;
+                j = (mid > n * i) ? n + 1 : (mid / i + 1);
+                cnt += (j - t) * i;
+                i = mid / j;
+            }
+           if (cnt < k) left = mid + 1;
+           else right = mid;
+       }
+       return right;
+    }
+};
+----
+
+==== 修剪一棵二叉搜索树
+
+----
+Given a binary search tree and the lowest and highest boundaries as L and R, trim the tree so that all its elements lies in [L, R] (R >= L). You might need to change the root of the tree, so the result should return the new root of the trimmed binary search tree.
+----
+
+这道题让我们修剪一棵二叉搜索树，给了个边界范围[L, R], 所有不在这个范围内的结点应该被移除掉，但是仍需要保留二叉搜索树的性质，即左<根<右，有时候是小于等于。博主最开始的想法是先遍历一遍二叉树，将在返回内的结点值都放到一个数组后，遍历结束后再根据数组重建一棵二叉搜索树。这种方法会在某些test case上fail掉，可能会改变原来的二叉搜索树的结构，所以我们只能换一种思路。正确方法其实应该是在遍历的过程中就修改二叉树，移除不合题意的结点。当然对于二叉树的题，十有八九都是要用递归来解的。首先判断如果root为空，那么直接返回空即可。然后就是要看根结点是否在范围内，如果根结点值小于L，那么返回对其右子结点调用递归函数的值；如果根结点大于R，那么返回对其左子结点调用递归函数的值。如果根结点在范围内，将其左子结点更新为对其左子结点调用递归函数的返回值，同样，将其右子结点更新为对其右子结点调用递归函数的返回值。最后返回root即可，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    TreeNode* trimBST(TreeNode* root, int L, int R) {
+        if (!root) return NULL;
+        if (root->val < L) return trimBST(root->right, L, R);
+        if (root->val > R) return trimBST(root->left, L, R);
+        root->left = trimBST(root->left, L, R);
+        root->right = trimBST(root->right, L, R);
+        return root;
+    }
+};
+----
+
+下面这种方法是迭代的写法，虽然树的题一般都是用递归来写，简洁又美观。但是我们也可以强行用while来代替递归，比如下面这种写法： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+
+class Solution {
+public:
+    TreeNode* trimBST(TreeNode* root, int L, int R) {
+        if (!root) return NULL;
+        while (root->val < L || root->val > R) {
+            root = (root->val < L) ? root->right : root->left;
+        }
+        TreeNode *cur = root;
+        while (cur) {
+            while (cur->left && cur->left->val < L) {
+                cur->left = cur->left->right;
+            }
+            cur = cur->left;
+        }
+        cur = root;
+        while (cur) {
+            while (cur->right && cur->right->val > R) {
+                cur->right = cur->right->left;
+            }
+            cur = cur->right;
+        }
+        return root;
+    }
+};
+----
+
+==== 大置换
+
+Given a non-negative integer, you could swap two digits at most once to get the maximum valued number. Return the maximum valued number you could get. +
+
+这道题给了我们一个数字，我们有一次机会可以置换该数字中的任意两位，让我们返回置换后的最大值，当然如果当前数字就是最大值，我们也可以选择不置换，直接返回原数。那么最简单粗暴的方法当然就是将所有可能的置换都进行一遍，然后更新结果res，取其中较大的数字，这样一定会得到置换后的最大数字，这里使用了整型数和字符串之间的相互转换，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int maximumSwap(int num) {
+        string str = to_string(num);
+        int res = num, n = str.size();
+        for (int i = 0; i < n; ++i) {
+            for (int j = i + 1; j < n; ++j) {
+                swap(str[i], str[j]);
+                res = max(res, stoi(str));
+                swap(str[i], str[j]);
+            }
+        }
+        return res;
+    }
+};
+----
+
+----
+下面这种解法是一种更优解，思路是这样的，由于我们希望置换后的数字最大，那么肯定最好的高位上的小数字和低位上的大数字进行置换，比如题目汇总的例子1。而如果高位上的都是大数字，像例子2那样，很有可能就不需要置换。所以我们需要找到每个数字右边的最大数字(包括其自身)，这样我们再从高位像低位遍历，如果某一位上的数字小于其右边的最大数字，说明需要调换，由于最大数字可能不止出现一次，我们希望能跟较低位的数字置换，这样置换后的数字最大，所以我们就从低位向高位遍历来找那个最大的数字，找到后进行调换即可。比如对于1993这个数：
+
+1 9 9 3
+
+9 9 9 3  (back数组)
+
+9 9 1 3
+
+我们建立好back数组后，从头遍历原数字，发现1比9小，于是从末尾往前找9，找到后一置换，就得到了9913。
+----
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int maximumSwap(int num) {
+        string res = to_string(num), back = res;
+        for (int i = back.size() - 2; i >= 0; --i) {
+            back[i] = max(back[i], back[i + 1]);
+        }
+        for (int i = 0; i < res.size(); ++i) {
+            if (res[i] == back[i]) continue;
+            for (int j = res.size() - 1; j > i; --j) {
+                if (res[j] == back[i]) {
+                    swap(res[i], res[j]);
+                    return stoi(res);
+                }
+            }
+        }
+        return stoi(res);
+    }
+};
+----
+
+下面这种解法建了十个桶，分别代表数字0到9，每个桶存该数字出现的最后一个位置，也就是低位。这样我们从开头开始遍历数字上的每位上的数字，然后从大桶开始遍历，如果该大桶的数字对应的位置大于当前数字的位置，说明低位的数字要大于当前高位上的数字，那么直接交换这两个数字返回即可，其实核心思路跟上面的解法蛮像的，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int maximumSwap(int num) {
+        string str = to_string(num);
+        vector<int> buckets(10, 0);
+        for (int i = 0; i < str.size(); ++i) {
+            buckets[str[i] - '0'] = i;
+        }
+        for (int i = 0; i < str.size(); ++i) {
+            for (int k = 9; k > str[i] - '0'; --k) {
+                if (buckets[k] <= i) continue;
+                swap(str[i], str[buckets[k]]);
+                return stoi(str);
+            }
+        }
+        return num;
+    }
+};
+----
+
+==== 二叉树中第二小的结点
+
+----
+Given a non-empty special binary tree consisting of nodes with the non-negative value, where each node in this tree has exactly two or zero sub-node. If the node has two sub-nodes, then this node's value is the smaller value among its two sub-nodes.
+
+Given such a binary tree, you need to output the second minimum value in the set made of all the nodes' value in the whole tree.
+
+If no such second minimum value exists, output -1 instead.
+----
+
+这道题让我们找二叉树中的第二小的结点值，并且给该二叉树做了一些限制，比如对于任意一个结点，要么其没有子结点，要么就同时有两个子结点，而且父结点值是子结点值中较小的那个，当然两个子结点值可以相等。那么直接上暴力搜索呗，根据该树的附加条件可知，根结点一定是最小的结点值first，那么我们只要找出第二小的值second即可，初始化为整型的最大值。然后对根结点调用递归函数，将first和second当作参数传进去即可。在递归函数中，如果当前结点为空，直接返回，若当前结点孩值不等于first，说明其肯定比first要大，然后我们看其是否比second小，小的话就更新second，然后对当前结点的左右子结点分别调用递归函数即可，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findSecondMinimumValue(TreeNode* root) {
+        int first = root->val, second = INT_MAX;
+        helper(root, first, second);
+        return (second == first || second == INT_MAX) ? -1 : second;
+    }
+    void helper(TreeNode* node, int& first, int& second) {
+        if (!node) return;
+        if (node->val != first && node->val < second) {
+            second = node->val;
+        }
+        helper(node->left, first, second);
+        helper(node->right, first, second);
+    }
+};
+----
+
+下面这种方法也是用递归来做的，不过现在递归函数有了返回值，在递归函数中，还是先判断当前结点是否为空，为空直接返回-1。然后就是看当前结点是否等于first，不等于直接返回当前结点值。如果等于，我们对其左右子结点分别调用递归函数，分别得到left和right。如果left和right其中有一个为-1了，我们取其中的较大值；如果left和right都不为-1，我们取其中的较小值返回即可，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findSecondMinimumValue(TreeNode* root) {
+        return helper(root, root->val);
+    }
+    int helper(TreeNode* node, int first) {
+        if (!node) return -1;
+        if (node->val != first) return node->val;
+        int left = helper(node->left, first), right = helper(node->right, first);
+        return (left == -1 || right == -1) ? max(left, right) : min(left, right);
+    }
+};
+----
+
+下面这种递归方法更加简洁了，没有再使用专门的递归函数helper，而是对当前根结点判断其左子树是否存在，不存在就返回-1。题目中说了是非空树，所以根结点一定存在。然后我们比较如果左子结点值等于根结点值，我们则对其左子结点调用递归函数；否则left就等于其左子结点值。再比较如果右子结点值等于根结点值，则对其右子结点调用递归函数；否则right就等于其右子结点值。最后我们还是看如果left和right其中有一个为-1了，我们取其中的较大值；如果left和right都不为-1，我们取其中的较小值返回即可，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findSecondMinimumValue(TreeNode* root) {
+        if (!root->left) return -1;
+        int left = (root->left->val == root->val) ? findSecondMinimumValue(root->left) : root->left->val;
+        int right = (root->right->val == root->val) ? findSecondMinimumValue(root->right) : root->right->val;
+        return (left == -1 || right == -1) ? max(left, right) : min(left, right);
+    }
+};
+----
+
+整了三种递归的解法，来看一种迭代的解法吧，用的是层序遍历，但还是用的解法一种的不停更新second的方法，参见代码如下： +
+
+**解法4:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findSecondMinimumValue(TreeNode* root) {
+        int first = root->val, second = INT_MAX;
+        queue<TreeNode*> q{{root}};
+        while (!q.empty()) {
+            auto t = q.front(); q.pop();
+            if (t->val != first && t->val < second) {
+                second = t->val;
+            }
+            if (t->left) q.push(t->left);
+            if (t->right) q.push(t->right);
+        }
+        return (second == first || second == INT_MAX) ? -1 : second;
+    }
+};
+----
+
+==== 灯泡开关之二
+
+----
+There is a room with n lights which are turned on initially and 4 buttons on the wall. After performing exactly m unknown operations towards buttons, you need to return how many different kinds of status of the n lights could be.
+
+Suppose n lights are labeled as number [1, 2, 3 ..., n], function of these 4 buttons are given below:
+
+Flip all the lights.
+Flip lights with even numbers.
+Flip lights with odd numbers.
+Flip lights with (3k + 1) numbers, k = 0, 1, 2, ...
+----
+
+----
+这道题是之前那道Bulb Switcher的拓展，但是关灯的方式改变了。现在有四种关灯方法，全关，关偶数灯，关奇数灯，关3k+1的灯。现在给我们n盏灯，允许m步操作，问我们总共能组成多少种不同的状态。博主开始想，题目没有让列出所有的情况，而只是让返回总个数。那么博主觉得应该不能用递归的暴力破解来做，一般都是用DP来做啊。可是想了半天也没想出递推公式，只得作罢。只好去参考大神们的做法，发现这道题的结果并不会是一个超大数，最多情况只有8种。转念一想，也是，如果结果是一个超大数，一般都会对一个超大数10e7来取余，而这道题并没有，所以是一个很大的hint，只不过博主没有get到。博主应该多列几种情况的，说不定就能找出规律。下面先来看一种暴力解法，首先我们先做一个小小的优化，我们来分析四种情况：
+
+第一种情况：1，2，3，4，5，6，7，8，9，10，11，12，13，14，15，...
+
+第二种情况：1，2，3，4，5，6，7，8，9，10，11，12，13，14，15，...
+
+第三种情况：1，2，3，4，5，6，7，8，9，10，11，12，13，14，15，...
+
+第四种情况：1，2，3，4，5，6，7，8，9，10，11，12，13，14，15，...
+
+通过观察上面的数组，我们可以发现以6个为1组，都是重复的pattern，那么实际上我们可以把重复的pattern去掉而且并不会影响结果。如果n大于6，我们则对其取余再加上6，新的n跟使用原来的n会得到同样的结果，但这样降低了我们的计算量。
+
+下面我们先来生成n个1，这里1表示灯亮，0表示灯灭，然后我们需要一个set来记录已经存在的状态，用一个queue来辅助我们的BFS运算。我们需要循环m次，因为要操作m次，每次开始循环之前，先统计出此时queue中数字的个数len，然后进行len次循环，这就像二叉树中的层序遍历，必须上一层的结点全部遍历完了才能进入下一层，当然，在每一层开始前，我们都需要情况集合s，这样每个操作之间才不会互相干扰。然后在每层的数字循环中，我们取出队首状态，然后分别调用四种方法，突然感觉，这很像迷宫遍历问题，上下左右四个方向，周围四个状态算出来，我们将不再集合set中的状态加入queue和集合set。当m次操作遍历完成后，队列queue中状态的个数即为所求，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int flipLights(int n, int m) {
+        n == (n <= 6) ? n : (n % 6 + 6);
+        int start = (1 << n) - 1;
+        unordered_set<int> s;
+        queue<int> q{{start}};
+        for (int i = 0; i < m; ++i) {
+            int len = q.size();
+            s.clear();
+            for (int k = 0; k < len; ++k) {
+                int t = q.front(); q.pop();
+                vector<int> next{flipAll(t, n), flipEven(t, n), flipOdd(t, n), flip3k1(t, n)};
+                for (int num : next) {
+                    if (s.count(num)) continue;
+                    q.push(num);
+                    s.insert(num);
+                }
+            }
+        }
+        return q.size();
+    }
+
+    int flipAll(int t, int n) {
+        int x = (1 << n) - 1;
+        return t ^ x;
+    }
+
+    int flipEven(int t, int n) {
+        for (int i = 0; i < n; i += 2) {
+            t ^= (1 << i);
+        }
+        return t;
+    }
+
+    int flipOdd(int t, int n) {
+        for (int i = 1; i < n; i += 2) {
+            t ^= (1 << i);
+        }
+        return t;
+    }
+
+    int flip3k1(int t, int n) {
+        for (int i = 0; i < n; i += 3) {
+            t ^= (1 << i);
+        }
+        return t;
+    }
+};
+----
+
+----
+上面那个方法虽然正确，但是有些复杂了，由于这道题最多只有8中情况，所以很适合分情况来讨论：
+
+- 当m和n其中有任意一个数是0时，返回1
+
+- 当n = 1时
+
+只有两种情况，0和1
+
+- 当n = 2时，
+
+这时候要看m的次数，如果m = 1，那么有三种状态 00，01，10
+
+当m > 1时，那么有四种状态，00，01，10，11
+
+- 当m = 1时，
+
+此时n至少为3，那么我们有四种状态，000，010，101，011
+
+- 当m = 2时，
+
+此时n至少为3，我们有七种状态：111，101，010，100，000，001，110
+
+- 当m > 2时，
+
+此时n至少为3，我们有八种状态：111，101，010，100，000，001，110，011
+----
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int flipLights(int n, int m) {
+        if (n == 0 || m == 0) return 1;
+        if (n == 1) return 2;
+        if (n == 2) return m == 1 ? 3 : 4;
+        if (m == 1) return 4;
+        return m == 2 ? 7 : 8;
+    }
+};
+----
+
+下面这种简洁到变态的方法是史蒂芬大神观察规律得到的，他自己也在帖子中说不清为啥这样可以，但是就是叼，贴上来纯属娱乐吧～ +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int flipLights(int n, int m) {
+        n = min(n, 3);
+        return min(1 << n, 1 + m * n);
+    }
+};
+----
+
+==== 最长递增序列的个数
+
+Given an unsorted array of integers, find the number of longest increasing subsequence. +
+
+这道题给了我们一个数组，让我们求最长递增序列的个数，题目中的两个例子也很好的说明了问题。那么对于这种求个数的问题，直觉告诉我们应该要使用DP来做。其实这道题在设计DP数组的时候有个坑，如果我们将dp[i]定义为到i位置的最长子序列的个数的话，那么递推公式不好找。但是如果我们将dp[i]定义为以nums[i]为结尾的递推序列的个数的话，再配上这些递推序列的长度，将会比较容易的发现递推关系。这里我们用len[i]表示以nums[i]为结尾的递推序列的长度，用cnt[i]表示以nums[i]为结尾的递推序列的个数，初始化都赋值为1，只要有数字，那么至少都是1。然后我们遍历数组，对于每个遍历到的数字nums[i]，我们再遍历其之前的所有数字nums[j]，当nums[i]小于等于nums[j]时，不做任何处理，因为不是递增序列。反之，则判断len[i]和len[j]的关系，如果len[i]等于len[j] + 1，说明nums[i]这个数字可以加在以nums[j]结尾的递增序列后面，并且以nums[j]结尾的递增序列个数可以直接加到以nums[i]结尾的递增序列个数上。如果len[i]小于len[j] + 1，说明我们找到了一条长度更长的递增序列，那么我们此时奖len[i]更新为len[j]+1，并且原本的递增序列都不能用了，直接用cnt[j]来代替。我们在更新完len[i]和cnt[i]之后，要更新mx和res，如果mx等于len[i]，则把cnt[i]加到res之上；如果mx小于len[i]，则更新mx为len[i]，更新结果res为cnt[i]，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findNumberOfLIS(vector<int>& nums) {
+        int res = 0, mx = 0, n = nums.size();
+        vector<int> len(n, 1), cnt(n, 1);
+        for (int i = 0; i < n; ++i) {
+            for (int j = 0; j < i; ++j) {
+                if (nums[i] <= nums[j]) continue;
+                if (len[i] == len[j] + 1) cnt[i] += cnt[j];
+                else if (len[i] < len[j] + 1) {
+                    len[i] = len[j] + 1;
+                    cnt[i] = cnt[j];
+                }
+            }
+            if (mx == len[i]) res += cnt[i];
+            else if (mx < len[i]) {
+                mx = len[i];
+                res = cnt[i];
+            }
+        }
+        return res;
+    }
+};
+----
+
+下面这种方法跟上面的解法基本一样，就是把更新结果res放在了遍历完数组之后，我们利用mx来找到所有的cnt[i]，累加到结果res上，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findNumberOfLIS(vector<int>& nums) {
+        int res = 0, mx = 0, n = nums.size();
+        vector<int> len(n, 1), cnt(n, 1);
+        for (int i = 0; i < n; ++i) {
+            for (int j = 0; j < i; ++j) {
+                if (nums[i] <= nums[j]) continue;
+                if (len[i] == len[j] + 1) cnt[i] += cnt[j];
+                else if (len[i] < len[j] + 1) {
+                    len[i] = len[j] + 1;
+                    cnt[i] = cnt[j];
+                }
+            }
+            mx = max(mx, len[i]);
+        }
+        for (int i = 0; i < n; ++i) {
+            if (mx == len[i]) res += cnt[i];
+        }
+        return res;
+    }
+};
+----
+
+==== 最长连续递增序列
+
+Given an unsorted array of integers, find the length of longest continuous increasing subsequence. +
+
+这道题让我们求一个数组的最长连续递增序列，由于有了连续这个条件，跟之前那道Number of Longest Increasing Subsequence比起来，其实难度就降低了很多。我们可以使用一个计数器，如果遇到大的数字，计数器自增1；如果是一个小的数字，则计数器重置为1。我们用一个变量cur来表示前一个数字，初始化为整型最大值，当前遍历到的数字num就和cur比较就行了，每次用cnt来更新结果res，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findLengthOfLCIS(vector<int>& nums) {
+        int res = 0, cnt = 0, cur = INT_MAX;
+        for (int num : nums) {
+            if (num > cur) ++cnt;
+            else cnt = 1;
+            res = max(res, cnt);
+            cur = num;
+        }
+        return res;
+    }
+};
+----
+
+下面这种方法的思路和上面的解法一样，每次都和前面一个数字来比较，注意处理无法取到钱一个数字的情况，参见代码如下: +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findLengthOfLCIS(vector<int>& nums) {
+        int res = 0, cnt = 0, n = nums.size();
+        for (int i = 0; i < n; ++i) {
+            if (i == 0 || nums[i - 1] < nums[i]) res = max(res, ++cnt);
+            else cnt = 1;
+        }
+        return res;
+    }
+};
+----
+
+==== 为高尔夫赛事砍树
+
+----
+You are asked to cut off trees in a forest for a golf event. The forest is represented as a non-negative 2D map, in this map:
+
+0 represents the obstacle can't be reached.
+1 represents the ground can be walked through.
+The place with number bigger than 1 represents a tree can be walked through, and this positive number represents the tree's height.
+
+You are asked to cut off all the trees in this forest in the order of tree's height - always cut off the tree with lowest height first. And after cutting, the original place has the tree will become a grass (value 1).
+
+You will start from the point (0, 0) and you should output the minimum steps you need to walk to cut off all the trees. If you can't cut off all the trees, output -1 in that situation.
+
+You are guaranteed that no two trees have the same height and there is at least one tree needs to be cut off.
+----
+这道题让我们砍掉所有高度大于1的树，而且要求是按顺序从低到高来砍，那么本质实际上还是要求任意两点之间的最短距离啊。对于这种类似迷宫遍历求最短路径的题，BFS是不二之选啊。那么这道题就对高度相邻的两棵树之间调用一个BFS，所以我们可以把BFS的内容放倒子函数helper中来使用。那么我们首先就要将所有的树从低到高进行排序，我们遍历原二位矩阵，将每棵树的高度及其横纵坐标取出来，组成一个三元组，然后放到vector中，之后用sort对数组进行排序，因为sort默认是以第一个数字排序，这也是为啥我们要把高度放在第一个位置。然后我们就遍历我们的trees数组，我们的起始位置是（0，0），终点位置是从trees数组中取出的树的位置，然后调用BFS的helper函数，这个BFS的子函数就是很基本的写法，没啥过多需要讲解的地方，会返回最短路径的值，如果无法到达目标点，就返回-1。所以我们先检查，如果helper函数返回-1了，那么我们就直接返回-1，否则就将cnt加到结果res中。然后更新我们的起始点为当前树的位置，然后循环取下一棵树即可，参见代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int cutOffTree(vector<vector<int>>& forest) {
+        int m = forest.size(), n = forest[0].size(), res = 0, row = 0, col = 0;
+        vector<vector<int>> trees;
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                if (forest[i][j] > 1) trees.push_back({forest[i][j], i, j});
+            }
+        }
+        sort(trees.begin(), trees.end());
+        for (int i = 0; i < trees.size(); ++i) {
+            int cnt = helper(forest, row, col, trees[i][1], trees[i][2]);
+            if (cnt == -1) return -1;
+            res += cnt;
+            row = trees[i][1];
+            col = trees[i][2];
+        }
+        return res;
+    }
+    int helper(vector<vector<int>>& forest, int row, int col, int treeRow, int treeCol) {
+        if (row == treeRow && col == treeCol) return 0;
+        int m = forest.size(), n = forest[0].size(), cnt = 0;
+        queue<pair<int, int>> q{{{row, col}}};
+        vector<vector<bool>> visited(m, vector<bool>(n, false));
+        vector<vector<int>> dirs{{-1,0},{0,1},{1,0},{0,-1}};
+        while (!q.empty()) {
+            ++cnt;
+            for (int i = q.size() - 1; i >= 0; --i) {
+                auto t = q.front(); q.pop();
+                for (auto dir : dirs) {
+                    int x = t.first + dir[0], y = t.second + dir[1];
+                    if (x < 0 || x >= m || y < 0 || y >= n || visited[x][y] || forest[x][y] == 0) continue;
+                    if (x == treeRow && y == treeCol) return cnt;
+                    visited[x][y] = true;
+                    q.push({x, y});
+                }
+            }
+        }
+        return -1;
+    }
+};
+----
+
+==== 实现神奇字典
+
+----
+Implement a magic directory with buildDict, and search methods.
+
+For the method buildDict, you'll be given a list of non-repetitive words to build a dictionary.
+
+For the method search, you'll be given a word, and judge whether if you modify exactly one character into another character in this word, the modified word is in the dictionary you just built.
+----
+
+这道题让我们设计一种神奇字典的数据结构，里面有一些单词，实现的功能是当我们搜索一个单词，只有存在和这个单词只有一个位置上的字符不相同的才能返回true，否则就返回false，注意完全相同也是返回false，必须要有一个字符不同。博主首先想到了One Edit Distance那道题，只不过这道题的两个单词之间长度必须相等。所以只需检测和要搜索单词长度一样的单词即可，所以我们用的数据结构就是根据单词的长度来分，把长度相同相同的单词放到一起，这样就可以减少搜索量。那么对于和要搜索单词进行比较的单词，由于已经保证了长度相等，我们直接进行逐个字符比较即可，用cnt表示不同字符的个数，初始化为0。如果当前遍历到的字符相等，则continue；如果当前遍历到的字符不相同，并且此时cnt已经为1了，则break，否则cnt就自增1。退出循环后，我们检测是否所有字符都比较完了且cnt为1，是的话则返回true，否则就是跟下一个词比较。如果所有词都比较完了，则返回false，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class MagicDictionary {
+public:
+    /** Initialize your data structure here. */
+    MagicDictionary() {}
+
+    /** Build a dictionary through a list of words */
+    void buildDict(vector<string> dict) {
+        for (string word : dict) {
+            m[word.size()].push_back(word);
+        }
+    }
+
+    /** Returns if there is any word in the trie that equals to the given word after modifying exactly one character */
+    bool search(string word) {
+        for (string str : m[word.size()]) {
+            int cnt = 0, i = 0;
+            for (; i < word.size(); ++i) {
+                if (word[i] == str[i]) continue;
+                if (word[i] != str[i] && cnt == 1) break;
+                ++cnt;
+            }
+            if (i == word.size() && cnt == 1) return true;
+        }
+        return false;
+    }
+
+private:
+    unordered_map<int, vector<string>> m;
+};
+----
+
+下面这种解法实际上是用到了前缀树中的search的思路，但是我们又没有整个用到prefix tree，博主感觉那样写法略复杂，其实我们只需要借鉴一下search方法就行了。我们首先将所有的单词都放到一个集合中，然后在search函数中，我们遍历要搜索的单词的每个字符，然后把每个字符都用a-z中的字符替换一下，形成一个新词，当然遇到本身要跳过。然后在集合中看是否存在，存在的话就返回true。记得换完一圈字符后要换回去，不然就不满足只改变一个字符的条件了，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class MagicDictionary {
+public:
+    /** Initialize your data structure here. */
+    MagicDictionary() {}
+
+    /** Build a dictionary through a list of words */
+    void buildDict(vector<string> dict) {
+        for (string word : dict) s.insert(word);
+    }
+
+    /** Returns if there is any word in the trie that equals to the given word after modifying exactly one character */
+    bool search(string word) {
+        for (int i = 0; i < word.size(); ++i) {
+            char t = word[i];
+            for (char c = 'a'; c <= 'z'; ++c) {
+                if (c == t) continue;
+                word[i] = c;
+                if (s.count(word)) return true;
+            }
+            word[i] = t;
+        }
+        return false;
+    }
+
+private:
+    unordered_set<string> s;
+};
+----
+
+==== 映射配对之和
+
+----
+Implement a MapSum class with insert, and sum methods.
+
+For the method insert, you'll be given a pair of (string, integer). The string represents the key and the integer represents the value. If the key already existed, then the original key-value pair will be overridden to the new one.
+
+For the method sum, you'll be given a string representing the prefix, and you need to return the sum of all the pairs' value whose key starts with the prefix.
+----
+
+这道题让我们实现一个MapSum类，里面有两个方法，insert和sum，其中inser就是插入一个键值对，而sum方法比较特别，是在找一个前缀，需要将所有有此前缀的单词的值累加起来返回。看到这种玩前缀的题，照理来说是要用前缀树来做的。但是博主一般想偷懒，不想新写一个结构或类，于是就使用map来代替前缀树啦。博主开始想到的方法是建立前缀和一个pair之间的映射，这里的pair的第一个值表示该词的值，第二个值表示将该词作为前缀的所有词的累加值，那么我们的sum函数就异常的简单了，直接将pair中的两个值相加即可。关键就是要在insert中把数据结构建好，构建的方法也不难，首先我们suppose原本这个key是有值的，我们更新的时候只需要加上它的差值即可，就算key不存在默认就是0，算差值也没问题。然后我们将first值更新为val，然后就是遍历其所有的前缀了，给每个前缀的second都加上diff即可，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class MapSum {
+public:
+    /** Initialize your data structure here. */
+    MapSum() {}
+
+    void insert(string key, int val) {
+        int diff = val - m[key].first, n = key.size();
+        m[key].first = val;
+        for (int i = n - 1; i > 0; --i) {
+            m[key.substr(0, i)].second += diff;
+        }
+    }
+
+    int sum(string prefix) {
+        return m[prefix].first + m[prefix].second;
+    }
+
+private:
+    unordered_map<string, pair<int, int>> m;
+};
+----
+
+下面这种方法是论坛上投票最高的方法，感觉很叼，用的是带排序的map，insert就是把单词加入map。在map里会按照字母顺序自动排序，然后在sum函数里，我们根据prefix来用二分查找快速定位到第一个不小于prefix的位置，然后向后遍历，向后遍历的都是以prefix为前缀的单词，如果我们发现某个单词不是以prefix为前缀了，直接break；否则就累加其val值，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+
+class MapSum {
+public:
+    /** Initialize your data structure here. */
+    MapSum() {}
+
+    void insert(string key, int val) {
+        m[key] = val;
+    }
+
+    int sum(string prefix) {
+        int res = 0, n = prefix.size();
+        for (auto it = m.lower_bound(prefix); it != m.end(); ++it) {
+            if (it->first.substr(0, n) != prefix) break;
+            res += it->second;
+        }
+        return res;
+    }
+
+private:
+    map<string, int> m;
+};
+----
+
+==== 验证括号字符串
+
+----
+Given a string containing only three types of characters: '(', ')' and '*', write a function to check whether this string is valid. We define the validity of a string by these rules:
+
+Any left parenthesis '(' must have a corresponding right parenthesis ')'.
+Any right parenthesis ')' must have a corresponding left parenthesis '('.
+Left parenthesis '(' must go before the corresponding right parenthesis ')'.
+'*' could be treated as a single right parenthesis ')' or a single left parenthesis '(' or an empty string.
+An empty string is also valid.
+----
+
+这道题让我们验证括号字符串，跟之前那道Valid Parentheses有些类似。不同之处在于这道题不只有小括号，还存在星号，星号可以当左括号，右括号，或空来使用，问我们能不能得到一个合法的括号字符串。那么我们想，如果不存在星号，那么这题是不是异常的简单，我们甚至连stack都可以不用，直接用一个变量，遇到左括号，自增1，遇到右括号，如果此时计数器已经为0了，直接返回false，否则自减1，一旦计数器出现了负数，立即返回false，最后还要看变量是否为0即可。但是由于星号的存在，这道题就变的复杂了，由于星号可以当括号用，所以当遇到右括号时，就算此时变量为0，也可以用星号来当左括号使用。那么星号什么时候都能当括号来用吗，我们来看两个例子 *) 和 *( ，在第一种情况下，星号可以当左括号来用，而在第二种情况下，无论星号当左括号，右括号，还是空，*( 都是不对的。当然这种情况只限于星号和左括号之间的位置关系，而只要星号在右括号前面，就一定可以消掉右括号。那么我们使用两个stack，分别存放左括号和星号的位置，遍历字符串，当遇到星号时，压入星号栈star，当遇到左括号时，压入左括号栈left，当遇到右括号时，此时如果left和star均为空时，直接返回false；如果left不为空，则pop一个左括号来抵消当前的右括号；否则从star中取出一个星号当作左括号来抵消右括号。当循环结束后，我们希望left中没有多余的左括号，就算有，我们可以尝试着用星号来抵消，当star和left均不为空时，进行循环，如果left的栈顶左括号的位置在star的栈顶星号的右边，那么就组成了 *( 模式，直接返回false；否则就说明星号可以抵消左括号，各自pop一个元素。最终退出循环后我们看left中是否还有多余的左括号，没有就返回true，否则false，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool checkValidString(string s) {
+        stack<int> left, star;
+        for (int i = 0; i < s.size(); ++i) {
+            if (s[i] == '*') star.push(i);
+            else if (s[i] == '(') left.push(i);
+            else {
+                if (left.empty() && star.empty()) return false;
+                if (!left.empty()) left.pop();
+                else star.pop();
+            }
+        }
+        while (!left.empty() && !star.empty()) {
+            if (left.top() > star.top()) return false;
+            left.pop(); star.pop();
+        }
+        return left.empty();
+    }
+};
+----
+
+如果你觉得上面的解法逻辑稍稍复杂了一些，我们来看一种逻辑无比简单的解法。既然星号可以当左括号和右括号，那么我们就正反各遍历一次，正向遍历的时候，我们把星号都当成左括号，此时用经典的验证括号的方法，即遇左括号计数器加1，遇右括号则自减1，如果中间某个时刻计数器小于0了，直接返回false。如果最终计数器等于0了，我们直接返回true，因为此时我们把星号都当作了左括号，可以跟所有的右括号抵消。而此时就算计数器大于0了，我们暂时不能返回false，因为有可能多余的左括号是星号变的，星号也可以表示空，所以有可能不多，我们还需要反向q一下，哦不，是反向遍历一下，这是我们将所有的星号当作右括号，遇右括号计数器加1，遇左括号则自减1，如果中间某个时刻计数器小于0了，直接返回false。遍历结束后直接返回true，这是为啥呢？此时计数器有两种情况，要么为0，要么大于0。为0不用说，肯定是true，为啥大于0也是true呢？因为之前正向遍历的时候，我们的左括号多了，我们之前说过了，多余的左括号可能是星号变的，也可能是本身就多的左括号。本身就多的左括号这种情况会在反向遍历时被检测出来，如果没有检测出来，说明多余的左括号一定是星号变的。而这些星号在反向遍历时又变做了右括号，最终导致了右括号有剩余，所以当这些星号都当作空的时候，左右括号都是对应的，即是合法的。你可能会有疑问，右括号本身不会多么，其实不会的，如果多的话，会在正向遍历中被检测出来，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool checkValidString(string s) {
+        int left = 0, right = 0, n = s.size();
+        for (int i = 0; i < n; ++i) {
+            if (s[i] == '(' || s[i] == '*') ++left;
+            else --left;
+            if (left < 0) return false;
+        }
+        if (left == 0) return true;
+        for (int i = n - 1; i >= 0; --i) {
+            if (s[i] == ')' || s[i] == '*') ++right;
+            else --right;
+            if (right < 0) return false;
+        }
+        return true;
+    }
+};
+----
+
+下面这种方法是用递归来写的，思路特别的简单直接，感觉应该属于暴力破解法。使用了变量cnt来记录左括号的个数，变量start表示当前开始遍历的位置，那么在递归函数中，首先判断如果cnt小于0，直接返回false。否则进行从start开始的遍历，如果当前字符为左括号，cnt自增1；如果为右括号，若cnt此时小于等于0，返回false，否则cnt自减1；如果为星号，我们同时递归三种情况，分别是当星号为空，左括号，或右括号，只要有一种情况返回true，那么就是true了。如果循环退出后，若cnt为0，返回true，否则false，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool checkValidString(string s) {
+        return helper(s, 0, 0);
+    }
+    bool helper(string s, int start, int cnt) {
+        if (cnt < 0) return false;
+        for (int i = start; i < s.size(); ++i) {
+            if (s[i] == '(') {
+                ++cnt;
+            } else if (s[i] == ')') {
+                if (cnt <= 0) return false;
+                --cnt;
+            } else {
+                return helper(s, i + 1, cnt) || helper(s, i + 1, cnt + 1) || helper(s, i + 1, cnt - 1);
+            }
+        }
+        return cnt == 0;
+    }
+};
+----
+
+下面这种解法是论坛上排第一的解法，感觉思路清新脱俗，博主研究了好久，参考了网友的留言才稍稍弄懂了一些，这里维护了两个变量low和high，其中low表示在有左括号的情况下，将星号当作右括号时左括号的个数(这样做的原因是尽量不多增加右括号的个数)，而high表示将星号当作左括号时左括号的个数。是不是很绕，没办法。那么当high小于0时，说明就算把星号都当作左括号了，还是不够抵消右括号，返回false。而当low大于0时，说明左括号的个数太多了，没有足够多的右括号来抵消，返回false。那么开始遍历字符串，当遇到左括号时，low和high都自增1；当遇到右括号时，只有当low大于0时，low才自减1，保证了low不会小于0，而high直接自减1；当遇到星号时，只有当low大于0时，low才自减1，保证了low不会小于0，而high直接自增1，因为high把星号当作左括号。当此时high小于0，说明右括号太多，返回false。当循环退出后，我们看low是否为0，参见代码如下： +
+
+**解法4:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool checkValidString(string s) {
+        int low = 0, high = 0;
+        for (char c : s) {
+            if (c == '(') {
+                ++low; ++high;
+            } else if (c == ')') {
+                if (low > 0) --low;
+                --high;
+            } else {
+                if (low > 0) --low;
+                ++high;
+            }
+            if (high < 0) return false;
+        }
+        return low == 0;
+    }
+};
+----
+
+==== 二十四点游戏
+
+----
+You have 4 cards each containing a number from 1 to 9. You need to judge whether they could operated through *, /, +, -, (, )to get the value of 24.
+----
+
+这道题就是经典的24点游戏了，记得小时候经常玩这个游戏，就是每个人发四张牌，看谁最快能算出24，这完全是脑力大比拼啊，不是拼的牌技。玩的多了，就会摸出一些套路来，比如尽量去凑2和12，3和8，4和6等等，但是对于一些特殊的case，比如 [1, 5, 5, 5] 这种，正确的解法是 5 * (5 - 1 / 5)，一般人都会去试加减乘，和能整除的除法，而像这种带小数的确实很难想到，但是程序计算就没问题，可以遍历所有的情况，这也是这道题的实际意义所在吧。那么既然是要遍历所有的情况，我们应该隐约感觉到应该是要使用递归来做的。我们想，任意的两个数字之间都可能进行加减乘除，其中加法和乘法对于两个数字的前后顺序没有影响，但是减法和除法是有影响的，而且做除法的时候还要另外保证除数不能为零。我们要遍历任意两个数字，然后对于这两个数字，尝试各种加减乘除后得到一个新数字，将这个新数字加到原数组中，记得原来的两个数要移除掉，然后调用递归函数进行计算，我们可以发现每次调用递归函数后，数组都减少一个数字，那么当减少到只剩一个数字了，就是最后的计算结果，所以我们在递归函数开始时判断，如果数组只有一个数字，且为24，说明可以算出24，结果res赋值为true返回。这里我们的结果res是一个全局的变量，如果已经为true了，就没必要再进行运算了，所以第一行应该是判断结果res，为true就直接返回了。我们遍历任意两个数字，分别用p和q来取出，然后进行两者的各种加减乘除的运算，将结果保存进数组临时数组t，记得要判断除数不为零。然后将原数组nums中的p和q移除，遍历临时数组t中的数字，将其加入数组nums，然后调用递归函数，记得完成后要移除数字，恢复状态，这是递归解法很重要的一点。最后还要把p和q再加回原数组nums，这也是还原状态，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool judgePoint24(vector<int>& nums) {
+        bool res = false;
+        double eps = 0.001;
+        vector<double> arr(nums.begin(), nums.end());
+        helper(arr, eps, res);
+        return res;
+    }
+    void helper(vector<double>& nums, double eps, bool& res) {
+        if (res) return;
+        if (nums.size() == 1) {
+            if (abs(nums[0] - 24) < eps) res = true;
+            return;
+        }
+        for (int i = 0; i < nums.size(); ++i) {
+            for (int j = 0; j < i; ++j) {
+                double p = nums[i], q = nums[j];
+                vector<double> t{p + q, p - q, q - p, p * q};
+                if (p > eps) t.push_back(q / p);
+                if (q > eps) t.push_back(p / q);
+                nums.erase(nums.begin() + i);
+                nums.erase(nums.begin() + j);
+                for (double d : t) {
+                    nums.push_back(d);
+                    helper(nums, eps, res);
+                    nums.pop_back();
+                }
+                nums.insert(nums.begin() + j, q);
+                nums.insert(nums.begin() + i, p);
+            }
+        }
+    }
+};
+----
+
+来看一种很不同的递归写法，这里将加减乘除操作符放到了一个数组ops中。并且没有用全局变量res，而是让递归函数带有bool型返回值。在递归函数中，还是要先看nums数组的长度，如果为1了，说明已经计算完成，直接看结果是否为0就行了。然后遍历任意两个数字，注意这里的i和j都分别从0到了数组长度，而上面解法的j是从0到i，这是因为上面解法将p - q, q - p, q / q, q / p都分别列出来了，而这里仅仅是nums[i] - nums[j], nums[i] / nums[j]，所以i和j要交换位置，但是为了避免加法和乘法的重复计算，我们可以做个判断，还有别忘记了除数不为零的判断，i和j不能相同的判断。我们建立一个临时数组t，将非i和j位置的数字都加入t，然后遍历操作符数组ops，每次取出一个操作符，然后将nums[i]和nums[j]的计算结果加入t，调用递归函数，如果递归函数返回true了，那么就直接返回true。否则移除刚加入的结果，还原t的状态，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool judgePoint24(vector<int>& nums) {
+        double eps = 0.001;
+        vector<char> ops{'+', '-', '*', '/'};
+        vector<double> arr(nums.begin(), nums.end());
+        return helper(arr, ops, eps);
+    }
+    bool helper(vector<double>& nums, vector<char>& ops, double eps) {
+        if (nums.size() == 1) return abs(nums[0] - 24) < eps;
+        for (int i = 0; i < nums.size(); ++i) {
+            for (int j = 0; j < nums.size(); ++j) {
+                if (i == j) continue;
+                vector<double> t;
+                for (int k = 0; k < nums.size(); ++k) {
+                    if (k != i && k != j) t.push_back(nums[k]);
+                }
+                for (char op : ops) {
+                    if ((op == '+' || op == '*') && i > j) continue;
+                    if (op == '/' && nums[j] < eps) continue;
+                    switch(op) {
+                        case '+': t.push_back(nums[i] + nums[j]); break;
+                        case '-': t.push_back(nums[i] - nums[j]); break;
+                        case '*': t.push_back(nums[i] * nums[j]); break;
+                        case '/': t.push_back(nums[i] / nums[j]); break;
+                    }
+                    if (helper(t, ops, eps)) return true;
+                    t.pop_back();
+                }
+            }
+        }
+        return false;
+    }
+};
+----
+
+==== 验证回文字符串之二
+
+Given a non-empty string s, you may delete at most one character. Judge whether you can make it a palindrome. +
+
+这道题是之前那道Valid Palindrome的拓展，还是让我们验证回复字符串，但是区别是这道题的字符串中只含有小写字母，而且这道题允许删除一个字符，那么当遇到不匹配的时候，我们到底是删除左边的字符，还是右边的字符呢，我们的做法是两种情况都要算一遍，只要有一种能返回true，那么结果就返回true。我们可以写一个子函数来判断字符串中的某一个范围内的子字符串是否为回文串，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool validPalindrome(string s) {
+        int left = 0, right = s.size() - 1;
+        while (left < right) {
+            if (s[left] != s[right]) return isValid(s, left, right - 1) || isValid(s, left + 1, right);
+            ++left; --right;
+        }
+        return true;
+    }
+    bool isValid(string s, int left, int right) {
+        while (left < right) {
+            if (s[left] != s[right]) return false;
+            ++left; --right;
+        }
+        return true;
+    }
+};
+----
+
+下面这种写法跟上面的解法思路一样，只不过没有写额外的函数，还是要遍历两种情况，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool validPalindrome(string s) {
+        int left = 0, right = s.size() - 1;
+        while (left < right) {
+            if (s[left] == s[right]) {
+                ++left; --right;
+            } else {
+                int l = left, r = right - 1;
+                while (l < r) {
+                    if (s[l] != s[r]) break;
+                    ++l; --r;
+                    if (l >= r) return true;
+                }
+                ++left;
+                while (left < right) {
+                    if (s[left] != s[right]) return false;
+                    ++left; --right;
+                }
+            }
+        }
+        return true;
+    }
+};
+----

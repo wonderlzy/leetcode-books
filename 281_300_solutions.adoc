@@ -1,0 +1,1612 @@
+==== 之字形迭代器
+
+----
+Given two 1d vectors, implement an iterator to return their elements alternately.
+
+For example, given two 1d vectors:
+
+v1 = [1, 2]
+v2 = [3, 4, 5, 6]
+By calling next repeatedly until hasNext returns false, the order of elements returned by next should be: [1, 3, 2, 4, 5, 6].
+
+Follow up: What if you are given k 1d vectors? How well can your code be extended to such cases?
+
+Clarification for the follow up question - Update (2015-09-18):
+The "Zigzag" order is not clearly defined and is ambiguous for k > 2 cases. If "Zigzag" does not look right to you, replace "Zigzag" with "Cyclic". For example, given the following input:
+
+[1,2,3]
+[4,5,6,7]
+[8,9]
+It should return [1,4,8,2,5,9,3,6,7].
+----
+
+这道题让我们写一个之字形迭代器，跟之前那道Flatten 2D Vector有些类似，那道题是横向打印，这道题是纵向打印，虽然方向不同，但是实现思路都是大同小异。我最先想到的方法是用两个变量i和j分别记录两个向量的当前元素位置，初始化为0，然后当i<=j时，则说明需要打印v1数组的元素，反之则打印v2数组中的元素。在hasNext函数中，当i或j打印等于对应数组的长度时，我们将其赋为一个特大值，这样不影响我们打印另一个数组的值，只有当i和j都超过格子数组的长度时，返回false，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class ZigzagIterator {
+public:
+    ZigzagIterator(vector<int>& v1, vector<int>& v2) {
+        v.push_back(v1);
+        v.push_back(v2);
+        i = j = 0;
+    }
+    int next() {
+        return i <= j ? v[0][i++] : v[1][j++];
+    }
+    bool hasNext() {
+        if (i >= v[0].size()) i = INT_MAX;
+        if (j >= v[1].size()) j = INT_MAX;
+        return i < v[0].size() || j < v[1].size();
+    }
+private:
+    vector<vector<int>> v;
+    int i, j;
+};
+----
+
+下面我们来看另一种解法，这种解法直接在初始化的时候就两个数组按照之字形的顺序存入另一个一位数组中了，那么我们就按顺序打印新数组中的值即可，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class ZigzagIterator {
+public:
+    ZigzagIterator(vector<int>& v1, vector<int>& v2) {
+        int n1 = v1.size(), n2 = v2.size(), n = max(n1, n2);
+        for (int i = 0; i < n; ++i) {
+            if (i < n1) v.push_back(v1[i]);
+            if (i < n2) v.push_back(v2[i]);
+        }
+    }
+    int next() {
+        return v[i++];
+    }
+    bool hasNext() {
+        return i < v.size();
+    }
+private:
+    vector<int> v;
+    int i = 0;
+};
+----
+
+由于题目中的Follow up让我们考虑将输入换成k个数组的情况，那么上面两种解法显然就不适用了，所以我们需要一种通解。我们可以采用queue加iterator的方法，用一个queue里面保存iterator的pair，在初始化的时候，有几个数组就生成几个pair放到queue中，每个pair保存该数组的首位置和尾位置的iterator，在next()函数中，我们取出queue队首的一个pair，如果当前的iterator不等于end()，我们将其下一个位置的iterator和end存入队尾，然后返回当前位置的值。在hasNext()函数中，我们只需要看queue是否为空即可，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class ZigzagIterator {
+public:
+    ZigzagIterator(vector<int>& v1, vector<int>& v2) {
+        if (!v1.empty()) q.push(make_pair(v1.begin(), v1.end()));
+        if (!v2.empty()) q.push(make_pair(v2.begin(), v2.end()));
+    }
+    int next() {
+        auto it = q.front().first, end = q.front().second;
+        q.pop();
+        if (it + 1 != end) q.push(make_pair(it + 1, end));
+        return *it;
+    }
+    bool hasNext() {
+        return !q.empty();
+    }
+private:
+    queue<pair<vector<int>::iterator, vector<int>::iterator>> q;
+};
+----
+
+==== 表达式增加操作符
+
+----
+Given a string that contains only digits 0-9 and a target value, return all possibilities to add operators +, -, or * between the digits so they evaluate to the target value.
+
+Examples:
+
+"123", 6 -> ["1+2+3", "1*2*3"]
+"232", 8 -> ["2*3+2", "2+3*2"]
+"00", 0 -> ["0+0", "0-0", "0*0"]
+"3456237490", 9191 -> []
+----
+
+----
+这道题给了我们一个只由数字组成的字符串，让我们再其中添加+,-或*号来形成一个表达式，该表达式的计算和为给定了target值，让我们找出所有符合要求的表达式来。题目中给的几个例子其实并不好，很容易让人误以为是必须拆成个位数字，其实不是的，比如"123", 15能返回"12+3"，说明连着的数字也可以。如果非要在过往的题中找一道相似的题，我觉得跟Combination Sum II 组合之和之二很类似。不过这道题要更复杂麻烦一些。还是用递归来解题，我们需要两个变量diff和curNum，一个用来记录将要变化的值，另一个是当前运算后的值，而且它们都需要用long long型的，因为字符串转为int型很容易溢出，所以我们用长整型。对于加和减，diff就是即将要加上的数和即将要减去的数的负值，而对于乘来说稍有些复杂，此时的diff应该是上一次的变化的diff乘以即将要乘上的数，有点不好理解，那我们来举个例子，比如2+3*2，即将要运算到乘以2的时候，上次循环的curNum = 5, diff = 3, 而如果我们要算这个乘2的时候，新的变化值diff应为3*2=6，而我们要把之前+3操作的结果去掉，再加上新的diff，即(5-3)+6=8，即为新表达式2+3*2的值，有点难理解，大家自己一步一步推算吧。
+
+还有一点需要注意的是，如果输入为"000",0的话，容易出现以下的错误：
+
+Wrong:["0+0+0","0+0-0","0+0*0","0-0+0","0-0-0","0-0*0","0*0+0","0*0-0","0*0*0","0+00","0-00","0*00","00+0","00-0",
+
+"00*0","000"]
+
+Correct：["0*0*0","0*0+0","0*0-0","0+0*0","0+0+0","0+0-0","0-0*0","0-0+0","0-0-0"]
+
+我们可以看到错误的结果中有0开头的字符串出现，明显这不是数字，所以我们要去掉这些情况，过滤方法也很简单，我们只要判断长度大于1且首字符是‘0’的字符串，将其滤去即可，参见代码如下：
+----
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<string> addOperators(string num, int target) {
+        vector<string> res;
+        addOperatorsDFS(num, target, 0, 0, "", res);
+        return res;
+    }
+    void addOperatorsDFS(string num, int target, long long diff, long long curNum, string out, vector<string> &res) {
+        if (num.size() == 0 && curNum == target) {
+            res.push_back(out);
+        }
+        for (int i = 1; i <= num.size(); ++i) {
+            string cur = num.substr(0, i);
+            if (cur.size() > 1 && cur[0] == '0') return;
+            string next = num.substr(i);
+            if (out.size() > 0) {
+                addOperatorsDFS(next, target, stoll(cur), curNum + stoll(cur), out + "+" + cur, res);
+                addOperatorsDFS(next, target, -stoll(cur), curNum - stoll(cur), out + "-" + cur, res);
+                addOperatorsDFS(next, target, diff * stoll(cur), (curNum - diff) + diff * stoll(cur), out + "*" + cur, res);
+            } else {
+                addOperatorsDFS(next, target, stoll(cur), stoll(cur), cur, res);
+            }
+        }
+    }
+};
+----
+
+==== 移动零
+
+----
+Given an array nums, write a function to move all 0's to the end of it while maintaining the relative order of the non-zero elements.
+
+For example, given nums = [0, 1, 0, 3, 12], after calling your function, nums should be [1, 3, 12, 0, 0].
+
+Note:
+
+You must do this in-place without making a copy of the array.
+Minimize the total number of operations.
+----
+
+这道题让我们将一个给定数组中所有的0都移到后面，把非零数前移，要求不能改变非零数的相对应的位置关系，而且不能拷贝额外的数组，那么只能用替换法in-place来做，需要用两个指针，一个不停的向后扫，找到非零位置，然后和前面那个指针交换位置即可，参见下面的代码： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    void moveZeroes(vector<int>& nums) {
+        for (int i = 0, j = 0; i < nums.size(); ++i) {
+            if (nums[i]) {
+                swap(nums[i], nums[j++]);
+            }
+        }
+    }
+};
+----
+
+下面这种解法的思路跟上面的没啥区别，写法稍稍复杂了一点。 +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    void moveZeroes(vector<int>& nums) {
+        int left = 0, right = 0;
+        while (right < nums.size()) {
+            if (nums[right]) {
+                swap(nums[left++], nums[right]);
+            }
+            ++right;
+        }
+    }
+};
+----
+
+====  顶端迭代器
+
+----
+Given an Iterator class interface with methods: next() and hasNext(), design and implement a PeekingIterator that support the peek() operation -- it essentially peek() at the element that will be returned by the next call to next().
+
+Here is an example. Assume that the iterator is initialized to the beginning of the list: [1, 2, 3].
+
+Call next() gets you 1, the first element in the list.
+
+Now you call peek() and it returns 2, the next element. Calling next() after that still return 2.
+
+You call next() the final time and it returns 3, the last element. Calling hasNext() after that should return false.
+
+Hint:
+
+Think of "looking ahead". You want to cache the next element.
+Is one variable sufficient? Why or why not?
+Test your design with call order of peek() before next() vs next() before peek().
+For a clean implementation, check out Google's guava library source code.
+Follow up: How would you extend your design to be generic and work with all types, not just integer?
+----
+
+这道题让我们实现一个顶端迭代器，在普通的迭代器类Iterator的基础上增加了peek的功能，就是返回查看下一个值的功能，但是不移动指针，next()函数才会移动指针，那我们可以定义一个变量专门来保存下一个值，再用一个bool型变量标记是否保存了下一个值，再调用原来的一些成员函数，就可以实现这个顶端迭代器了，参见代码如下： +
+
+[source, cpp, linenums]
+----
+class Iterator {
+    struct Data;
+    Data* data;
+public:
+    Iterator(const vector<int>& nums);
+    Iterator(const Iterator& iter);
+    virtual ~Iterator();
+    // Returns the next element in the iteration.
+    int next();
+    // Returns true if the iteration has more elements.
+    bool hasNext() const;
+};
+
+
+class PeekingIterator : public Iterator {
+public:
+    PeekingIterator(const vector<int>& nums) : Iterator(nums) {
+        // Initialize any member here.
+        // **DO NOT** save a copy of nums and manipulate it directly.
+        // You should only use the Iterator interface methods.
+        _flag = false;
+    }
+
+    // Returns the next element in the iteration without advancing the iterator.
+    int peek() {
+        if (!_flag) {
+            _value = Iterator::next();
+            _flag = true;
+        }
+        return _value;
+    }
+
+    // hasNext() and next() should behave the same as in the Iterator interface.
+    // Override them if needed.
+    int next() {
+        if (!_flag) return Iterator::next();
+        _flag = false;
+        return _value;
+    }
+
+    bool hasNext() const {
+        if (_flag) return true;
+        if (Iterator::hasNext()) return true;
+        return false;
+    }
+private:
+    int _value;
+    bool _flag;
+};
+----
+
+==== 二叉搜索树中的中序后继节点
+
+----
+Given a binary search tree and a node in it, find the in-order successor of that node in the BST.
+
+Note: If the given node has no in-order successor in the tree, return null.
+----
+
+这道题让我们求二叉搜索树的某个节点的中序后继节点，那么我们根据BST的性质知道其中序遍历的结果是有序的， 是我最先用的方法是用迭代的中序遍历方法，然后用一个bool型的变量b，初始化为false，我们进行中序遍历，对于遍历到的节点，我们首先看如果此时b已经为true，说明之前遍历到了p，那么此时我们返回当前节点，如果b仍为false，我们看遍历到的节点和p是否相同，如果相同，我们此时将b赋为true，那么下一个遍历到的节点就能返回了，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    TreeNode* inorderSuccessor(TreeNode* root, TreeNode* p) {
+        stack<TreeNode*> s;
+        bool b = false;
+        TreeNode *t = root;
+        while (t || !s.empty()) {
+            while (t) {
+                s.push(t);
+                t = t->left;
+            }
+            t = s.top(); s.pop();
+            if (b) return t;
+            if (t == p) b = true;
+            t = t->right;
+        }
+        return NULL;
+    }
+};
+----
+
+下面这种方法是用的中序遍历的递归写法，我们需要两个全局变量pre和suc，分别用来记录祖先节点和后继节点，我们初始化将他们都赋为NULL，然后在进行递归中序遍历时，对于遍历到的节点，我们首先看pre和p是否相同，如果相同，则suc赋为当前节点，然后将pre赋为root，那么在遍历下一个节点时，pre就起到记录上一个节点的作用，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    TreeNode* inorderSuccessor(TreeNode* root, TreeNode* p) {
+        if (!p) return NULL;
+        inorder(root, p);
+        return suc;
+    }
+    void inorder(TreeNode *root, TreeNode *p) {
+        if (!root) return;
+        inorder(root->left, p);
+        if (pre == p) suc = root;
+        pre = root;
+        inorder(root->right, p);
+    }
+private:
+    TreeNode *pre = NULL, *suc = NULL;
+};
+----
+
+再来看一种更简单的方法，这种方法充分地利用到了BST的性质，我们首先看根节点值和p节点值的大小，如果根节点值大，说明p节点肯定在左子树中，那么此时我们先将res赋为root，然后root移到其左子节点，循环的条件是root存在，我们再比较此时root值和p节点值的大小，如果还是root值大，我们重复上面的操作，如果p节点值，那么我们将root移到其右子节点，这样当root为空时，res指向的就是p的后继节点，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    TreeNode* inorderSuccessor(TreeNode* root, TreeNode* p) {
+        TreeNode *res = NULL;
+        while (root) {
+            if (root->val > p->val) {
+                res = root;
+                root = root->left;
+            } else root = root->right;
+        }
+        return res;
+    }
+};
+----
+
+上面那种方法也可以写成递归形式，写法也比较简洁，但是需要把思路理清，当根节点值小于等于p节点值，说明p的后继节点一定在右子树中，所以对右子节点递归调用此函数，如果根节点值大于p节点值，那么有可能根节点就是p的后继节点，或者左子树中的某个节点是p的后继节点，所以先对左子节点递归调用此函数，如果返回空，说明根节点是后继节点，返回即可，如果不为空，则将那个节点返回，参见代码如下： +
+
+**解法4:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    TreeNode* inorderSuccessor(TreeNode* root, TreeNode* p) {
+        if (!root) return NULL;
+        if (root->val <= p->val) {
+            return inorderSuccessor(root->right, p);
+        } else {
+            TreeNode *left = inorderSuccessor(root->left, p);
+            return left ? left : root;
+        }
+    }
+};
+----
+
+==== 墙和门
+
+----
+You are given a m x n 2D grid initialized with these three possible values.
+
+-1 - A wall or an obstacle.
+0 - A gate.
+INF - Infinity means an empty room. We use the value 231 - 1 = 2147483647 to represent INF as you may assume that the distance to a gate is less than 2147483647.
+Fill each empty room with the distance to its nearest gate. If it is impossible to reach a gate, it should be filled with INF.
+
+For example, given the 2D grid:
+INF  -1  0  INF
+INF INF INF  -1
+INF  -1 INF  -1
+  0  -1 INF INF
+After running your function, the 2D grid should be:
+  3  -1   0   1
+  2   2   1  -1
+  1  -1   2  -1
+  0  -1   3   4
+----
+
+这道题类似一种迷宫问题，规定了-1表示墙，0表示门，让求每个点到门的最近的曼哈顿距离，这其实类似于求距离场Distance Map的问题，那么我们先考虑用DFS来解，思路是，我们搜索0的位置，每找到一个0，以其周围四个相邻点为起点，开始DFS遍历，并带入深度值1，如果遇到的值大于当前深度值，我们将位置值赋为当前深度值，并对当前点的四个相邻点开始DFS遍历，注意此时深度值需要加1，这样遍历完成后，所有的位置就被正确地更新了，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    void wallsAndGates(vector<vector<int>>& rooms) {
+        for (int i = 0; i < rooms.size(); ++i) {
+            for (int j = 0; j < rooms[i].size(); ++j) {
+                if (rooms[i][j] == 0) dfs(rooms, i, j, 0);
+            }
+        }
+    }
+    void dfs(vector<vector<int>>& rooms, int i, int j, int val) {
+        if (i < 0 || i >= rooms.size() || j < 0 || j >= rooms[i].size() || rooms[i][j] < val) return;
+        rooms[i][j] = val;
+        dfs(rooms, i + 1, j, val + 1);
+        dfs(rooms, i - 1, j, val + 1);
+        dfs(rooms, i, j + 1, val + 1);
+        dfs(rooms, i, j - 1, val + 1);
+    }
+};
+----
+
+那么下面我们再来看BFS的解法，需要借助queue，我们首先把门的位置都排入queue中，然后开始循环，对于门位置的四个相邻点，我们判断其是否在矩阵范围内，并且位置值是否大于上一位置的值加1，如果满足这些条件，我们将当前位置赋为上一位置加1，并将次位置排入queue中，这样等queue中的元素遍历完了，所有位置的值就被正确地更新了，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    void wallsAndGates(vector<vector<int>>& rooms) {
+        queue<pair<int, int>> q;
+        vector<vector<int>> dirs{{0, -1}, {-1, 0}, {0, 1}, {1, 0}};
+        for (int i = 0; i < rooms.size(); ++i) {
+            for (int j = 0; j < rooms[i].size(); ++j) {
+                if (rooms[i][j] == 0) q.push({i, j});
+            }
+        }
+        while (!q.empty()) {
+            int i = q.front().first, j = q.front().second; q.pop();
+            for (int k = 0; k < dirs.size(); ++k) {
+                int x = i + dirs[k][0], y = j + dirs[k][1];
+                if (x < 0 || x >= rooms.size() || y < 0 || y >= rooms[0].size() || rooms[x][y] < rooms[i][j] + 1) continue;
+                rooms[x][y] = rooms[i][j] + 1;
+                q.push({x, y});
+            }
+        }
+    }
+};
+----
+
+==== 寻找重复数
+
+----
+Given an array nums containing n + 1 integers where each integer is between 1 and n (inclusive), prove that at least one duplicate element must exist. Assume that there is only one duplicate number, find the duplicate one.
+
+Note:
+You must not modify the array (assume the array is read only).
+You must use only constant extra space.
+Your runtime complexity should be less than O(n2).
+----
+
+这道题给了我们n+1个数，所有的数都在[1, n]区域内，首先让我们证明必定会有一个重复数，这不禁让我想起了小学华罗庚奥数中的抽屉原理(又叫鸽巢原理), 即如果有十个苹果放到九个抽屉里，如果苹果全在抽屉里，则至少有一个抽屉里有两个苹果，这里就不证明了，直接来做题吧。题目要求我们不能改变原数组，即不能给原数组排序，又不能用多余空间，那么哈希表神马的也就不用考虑了，又说时间小于O(n2)，也就不能用brute force的方法，那我们也就只能考虑用二分搜索法了，我们在区别[1, n]中搜索，首先求出中点mid，然后遍历整个数组，统计所有小于等于mid的数的个数，如果个数大于mid，则说明重复值在[mid+1, n]之间，反之，重复值应在[1, mid-1]之间，然后依次类推，直到搜索完成，此时的low就是我们要求的重复值，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findDuplicate(vector<int>& nums) {
+        int low = 1, high = nums.size() - 1;
+        while (low < high) {
+            int mid = low + (high - low) * 0.5;
+            int cnt = 0;
+            for (auto a : nums) {
+                if (a <= mid) ++cnt;
+            }
+            if (cnt <= mid) low = mid + 1;
+            else high = mid;
+        }
+        return low;
+    }
+};
+----
+
+经过热心网友waruzhi的留言提醒还有一种O(n)的解法，并给了参考帖子，发现真是一种不错的解法，其核心思想快慢指针在之前的题目Linked List Cycle II中就有应用，这里应用的更加巧妙一些，由于题目限定了区间[1,n]，所以可以巧妙的利用坐标和数值之间相互转换，而由于重复数字的存在，那么一定会形成环，我们用快慢指针可以找到环并确定环的起始位置，确实是太巧妙了！ +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findDuplicate(vector<int>& nums) {
+        int slow = 0, fast = 0, t = 0;
+        while (true) {
+            slow = nums[slow];
+            fast = nums[nums[fast]];
+            if (slow == fast) break;
+        }
+        while (true) {
+            slow = nums[slow];
+            t = nums[t];
+            if (slow == t) break;
+        }
+        return slow;
+    }
+};
+----
+
+==== 独特的单词缩写
+
+----
+An abbreviation of a word follows the form <first letter><number><last letter>. Below are some examples of word abbreviations:
+
+a) it                      --> it    (no abbreviation)
+
+     1
+b) d|o|g                   --> d1g
+
+              1    1  1
+     1---5----0----5--8
+c) i|nternationalizatio|n  --> i18n
+
+              1
+     1---5----0
+d) l|ocalizatio|n          --> l10n
+Assume you have a dictionary and given a word, find whether its abbreviation is unique in the dictionary. A word's abbreviation is unique if no other word from the dictionary has the same abbreviation.
+
+Example:
+
+Given dictionary = [ "deer", "door", "cake", "card" ]
+
+isUnique("dear") -> false
+isUnique("cart") -> true
+isUnique("cane") -> false
+isUnique("make") -> true
+----
+
+----
+这道题让我们求独特的单词缩写，但是题目中给的例子不是很清晰，我们来看下面三种情况：
+
+1. dictionary = {"dear"},  isUnique("door") -> false
+
+2. dictionary = {"door", "door"}, isUnique("door") -> true
+
+3. dictionary = {"dear", "door"}, isUnique("door") -> false
+
+从上面三个例子我们可以看出，当缩写一致的时候，字典中的单词均和给定单词相同时，那么返回true。我们需要用哈希表来建立缩写形式和其对应的单词的映射，把所有缩写形式的相同单词放到一个set中，然后我们在判断是否unique的时候只需要看给定单词的缩写形式的set里面该单词的个数是否和set中的元素总数相同，相同的话就是上面的第二种情况，返回true。需要注意的是由于set中不能有重复值，所有上面第二种情况只会有一个door存在set里，但是并不影响判断结果，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class ValidWordAbbr {
+public:
+    ValidWordAbbr(vector<string> &dictionary) {
+        for (auto a : dictionary) {
+            string k = a[0] + to_string(a.size() - 2) + a.back();
+            m[k].insert(a);
+        }
+    }
+    bool isUnique(string word) {
+        string k = word[0] + to_string(word.size() - 2) + word.back();
+        return m[k].count(word) == m[k].size();
+    }
+private:
+    unordered_map<string, set<string>> m;
+};
+----
+
+如果我们想省一些空间，也可以不用set，那么我们如何区分上面的第二和第三种情况呢，我们在遇到哈希表中没有当前缩写形式的时候，将该缩写形式和当前单词建立映射，如果该缩写形式应经存在，那么我们看如果映射的单词不是当前单词，我们将映射单词改为空字符串，这样做的原因是，在对于第三种情况dictionary = {"dear", "door"}时，遍历dear时，建立d2r和dear的映射，当遍历到door的时候，由于door和dear不同，我们将映射改为d2r和“”映射，而对于第二种情况 dictionary = {"door", "door"}，保留d2r和door的映射，那么这样在判断door是否unique时，就可以区别第二种和第三种情况了，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class ValidWordAbbr {
+public:
+    ValidWordAbbr(vector<string> &dictionary) {
+        for (auto a : dictionary) {
+            string k = a[0] + to_string(a.size() - 2) + a.back();
+            if (m.find(k) != m.end() && m[k] != a) m[k] = "";
+            else m[k] = a;
+        }
+    }
+    bool isUnique(string word) {
+        string k = word[0] + to_string(word.size() - 2) + word.back();
+        return m.find(k) == m.end() || m[k] == word;
+    }
+private:
+    unordered_map<string, string> m;
+};
+----
+
+==== 生命游戏
+
+----
+According to the Wikipedia's article: "The Game of Life, also known simply as Life, is a cellular automaton devised by the British mathematician John Horton Conway in 1970."
+
+Given a board with m by n cells, each cell has an initial state live (1) or dead (0). Each cell interacts with its eight neighbors (horizontal, vertical, diagonal) using the following four rules (taken from the above Wikipedia article):
+
+
+
+Any live cell with fewer than two live neighbors dies, as if caused by under-population.
+Any live cell with two or three live neighbors lives on to the next generation.
+Any live cell with more than three live neighbors dies, as if by over-population..
+Any dead cell with exactly three live neighbors becomes a live cell, as if by reproduction.
+
+
+Write a function to compute the next state (after one update) of the board given its current state.
+
+Follow up:
+
+Could you solve it in-place? Remember that the board needs to be updated at the same time: You cannot update some cells first and then use their updated values to update other cells.
+In this question, we represent the board using a 2D array. In principle, the board is infinite, which would cause problems when the active area encroaches the border of the array. How would you address these problems?
+----
+
+----
+这道题是有名的康威生命游戏, 而我又是第一次听说这个东东，这是一种细胞自动机，每一个位置有两种状态，1为活细胞，0为死细胞，对于每个位置都满足如下的条件：
+
+1. 如果活细胞周围八个位置的活细胞数少于两个，则该位置活细胞死亡
+
+2. 如果活细胞周围八个位置有两个或三个活细胞，则该位置活细胞仍然存活
+
+3. 如果活细胞周围八个位置有超过三个活细胞，则该位置活细胞死亡
+
+4. 如果死细胞周围正好有三个活细胞，则该位置死细胞复活
+
+由于题目中要求我们用置换方法in-place来解题，所以我们就不能新建一个相同大小的数组，那么我们只能更新原有数组，但是题目中要求所有的位置必须被同时更新，但是在循环程序中我们还是一个位置一个位置更新的，那么当一个位置更新了，这个位置成为其他位置的neighbor时，我们怎么知道其未更新的状态呢，我们可以使用状态机转换：
+
+状态0： 死细胞转为死细胞
+
+状态1： 活细胞转为活细胞
+
+状态2： 活细胞转为死细胞
+
+状态3： 死细胞转为活细胞
+
+最后我们对所有状态对2取余，那么状态0和2就变成死细胞，状态1和3就是活细胞，达成目的。我们先对原数组进行逐个扫描，对于每一个位置，扫描其周围八个位置，如果遇到状态1或2，就计数器累加1，扫完8个邻居，如果少于两个活细胞或者大于三个活细胞，而且当前位置是活细胞的话，标记状态2，如果正好有三个活细胞且当前是死细胞的话，标记状态3。完成一遍扫描后再对数据扫描一遍，对2取余变成我们想要的结果。参见代码如下：
+----
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    void gameOfLife(vector<vector<int> >& board) {
+        int m = board.size(), n = m ? board[0].size() : 0;
+        int dx[] = {-1, -1, -1, 0, 1, 1, 1, 0};
+        int dy[] = {-1, 0, 1, 1, 1, 0, -1, -1};
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                int cnt = 0;
+                for (int k = 0; k < 8; ++k) {
+                    int x = i + dx[k], y = j + dy[k];
+                    if (x >= 0 && x < m && y >= 0 && y < n && (board[x][y] == 1 || board[x][y] == 2)) {
+                        ++cnt;
+                    }
+                }
+                if (board[i][j] && (cnt < 2 || cnt > 3)) board[i][j] = 2;
+                else if (!board[i][j] && cnt == 3) board[i][j] = 3;
+            }
+        }
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                board[i][j] %= 2;
+            }
+        }
+    }
+};
+----
+
+==== 词语模式
+
+----
+Given a pattern and a string str, find if str follows the same pattern.
+
+Examples:
+pattern = "abba", str = "dog cat cat dog" should return true.
+pattern = "abba", str = "dog cat cat fish" should return false.
+pattern = "aaaa", str = "dog cat cat dog" should return false.
+pattern = "abba", str = "dog dog dog dog" should return false.
+Notes:
+Both pattern and str contains only lowercase alphabetical letters.
+Both pattern and str do not have leading or trailing spaces.
+Each word in str is separated by a single space.
+Each letter in pattern must map to a word with length that is at least 1.
+----
+
+这道题给我们一个模式字符串，又给我们一个单词字符串，让我们求单词字符串中单词出现的规律是否符合模式字符串中的规律。那么首先想到就是用哈希表来做，建立模式字符串中每个字符和单词字符串每个单词之间的映射，而且这种映射必须是一对一关系的，不能'a‘和’b'同时对应‘dog'，所以我们在碰到一个新字符时，首先检查其是否在哈希表中出现，若出现，其映射的单词若不是此时对应的单词，则返回false。如果没有在哈希表中出现，我们还要遍历一遍哈希表，看新遇到的单词是否已经是哈希表中的映射，如果没有，再跟新遇到的字符建立映射，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool wordPattern(string pattern, string str) {
+        unordered_map<char, string> m;
+        istringstream in(str);
+        int i = 0;
+        for (string word; in >> word; ++i) {
+            if (m.find(pattern[i]) != m.end()) {
+                if (m[pattern[i]] != word) return false;
+            } else {
+                for (unordered_map<char, string>::iterator it = m.begin(); it != m.end(); ++it) {
+                    if (it->second == word) return false;
+                }
+                m[pattern[i]] = word;
+            }
+        }
+        return i == pattern.size();
+    }
+};
+----
+
+当然这道题也可以用两个哈希表来完成，分别将字符和单词都映射到当前的位置，那么我们在遇到新字符和单词时，首先看两个哈希表是否至少有一个映射存在，如果有一个存在，则比较两个哈希表映射值是否相同，不同则返回false。如果两个表都不存在映射，则同时添加两个映射，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool wordPattern(string pattern, string str) {
+        unordered_map<char, int> m1;
+        unordered_map<string, int> m2;
+        istringstream in(str);
+        int i = 0;
+        for (string word; in >> word; ++i) {
+            if (m1.find(pattern[i]) != m1.end() || m2.find(word) != m2.end()) {
+                if (m1[pattern[i]] != m2[word]) return false;
+            } else {
+                m1[pattern[i]] = m2[word] = i + 1;
+            }
+        }
+        return i == pattern.size();
+    }
+};
+----
+
+==== 词语模式之二
+
+----
+Given a pattern and a string str, find if str follows the same pattern.
+
+Here follow means a full match, such that there is a bijection between a letter in pattern and a non-empty substring in str.
+
+Examples:
+
+pattern = "abab", str = "redblueredblue" should return true.
+pattern = "aaaa", str = "asdasdasdasd" should return true.
+pattern = "aabb", str = "xyzabcxzyabc" should return false.
+----
+
+这道题是之前那道Word Pattern的拓展，之前那道题词语之间都有空格隔开，这样我们可以一个单词一个单词的读入，然后来判断是否符合给定的特征，而这道题没有空格了，那么难度就大大的增加了，因为我们不知道对应的单词是什么，所以得自行分开，那么我们可以用回溯法来生成每一种情况来判断，我们还是需要用哈希表来建立模式字符和单词之间的映射，我们还需要用变量p和r来记录当前递归到的模式字符和单词串的位置，在递归函数中，如果p和r分别等于模式字符串和单词字符串的长度，说明此时匹配成功结束了，返回ture，反之如果一个达到了而另一个没有，说明匹配失败了，返回false。如果都不满足上述条件的话，我们取出当前位置的模式字符，然后从单词串的r位置开始往后遍历，每次取出一个单词，如果模式字符已经存在哈希表中，而且对应的单词和取出的单词也相等，那么我们再次调用递归函数在下一个位置，如果返回true，那么我们就返回true。反之如果该模式字符不在哈希表中，我们要看有没有别的模式字符已经映射了当前取出的单词，如果没有的话，我们建立新的映射，并且调用递归函数，注意如果递归函数返回false了，我们要在哈希表中删去这个映射，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool wordPatternMatch(string pattern, string str) {
+        unordered_map<char, string> m;
+        return helper(pattern, 0, str, 0, m);
+    }
+    bool helper(string pattern, int p, string str, int r, unordered_map<char, string> &m) {
+        if (p == pattern.size() && r == str.size()) return true;
+        if (p == pattern.size() || r == str.size()) return false;
+        char c = pattern[p];
+        for (int i = r; i < str.size(); ++i) {
+            string t = str.substr(r, i - r + 1);
+            if (m.count(c) && m[c] == t) {
+                if (helper(pattern, p + 1, str, i + 1, m)) return true;
+            } else if (!m.count(c)) {
+                bool b = false;
+                for (auto it : m) {
+                    if (it.second == t) b = true;
+                }
+                if (!b) {
+                    m[c] = t;
+                    if (helper(pattern, p + 1, str, i + 1, m)) return true;
+                    m.erase(c);
+                }
+            }
+        }
+        return false;
+    }
+};
+----
+
+下面这种方法和上面那种方法很类似，不同点在于使用了set，而使用其的原因也是为了记录所有和模式字符建立过映射的单词，这样我们就不用每次遍历哈希表了，只要在set中查找取出的单词是否存在，如果存在了则跳过后面的处理，反之则进行和上面相同的处理，注意还要在set中插入新的单词，最后也要同时删除掉，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool wordPatternMatch(string pattern, string str) {
+        unordered_map<char, string> m;
+        set<string> s;
+        return helper(pattern, 0, str, 0, m, s);
+    }
+    bool helper(string pattern, int p, string str, int r, unordered_map<char, string> &m, set<string> &s) {
+        if (p == pattern.size() && r == str.size()) return true;
+        if (p == pattern.size() || r == str.size()) return false;
+        char c = pattern[p];
+        for (int i = r; i < str.size(); ++i) {
+            string t = str.substr(r, i - r + 1);
+            if (m.count(c) && m[c] == t) {
+                if (helper(pattern, p + 1, str, i + 1, m, s)) return true;
+            } else if (!m.count(c)) {
+                if (s.count(t)) continue;
+                m[c] = t;
+                s.insert(t);
+                if (helper(pattern, p + 1, str, i + 1, m, s)) return true;
+                m.erase(c);
+                s.erase(t);
+            }
+        }
+        return false;
+    }
+};
+----
+
+再来看一种不写helper函数的解法，可以调用自身，思路和上面的方法完全相同，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+
+class Solution {
+public:
+    bool wordPatternMatch(string pattern, string str) {
+        if (pattern.empty()) return str.empty();
+        if (m.count(pattern[0])) {
+            string t = m[pattern[0]];
+            if (t.size() > str.size() || str.substr(0, t.size()) != t) return false;
+            if (wordPatternMatch(pattern.substr(1), str.substr(t.size()))) return true;
+        } else {
+            for (int i = 1; i <= str.size(); ++i) {
+                if (s.count(str.substr(0, i))) continue;
+                m[pattern[0]] = str.substr(0, i);
+                s.insert(str.substr(0, i));
+                if (wordPatternMatch(pattern.substr(1), str.substr(i))) return true;
+                m.erase(pattern[0]);
+                s.erase(str.substr(0, i));
+            }
+        }
+        return false;
+    }
+    unordered_map<char, string> m;
+    unordered_set<string> s;
+};
+----
+
+==== 尼姆游戏
+
+----
+You are playing the following Nim Game with your friend: There is a heap of stones on the table, each time one of you take turns to remove 1 to 3 stones. The one who removes the last stone will be the winner. You will take the first turn to remove the stones.
+
+Both of you are very clever and have optimal strategies for the game. Write a function to determine whether you can win the game given the number of stones in the heap.
+
+For example, if there are 4 stones in the heap, then you will never win the game: no matter 1, 2, or 3 stones you remove, the last stone will always be removed by your friend.
+
+Hint:
+
+If there are 5 stones in the heap, could you figure out a way to remove the stones such that you will always be the winner?
+----
+
+----
+有史以来最少代码量的解法，虽然解法很简单，但是题目还是蛮有意思的，题目说给我们一堆石子，每次可以拿一个两个或三个，两个人轮流拿，拿到最后一个石子的人获胜，现在给我们一堆石子的个数，问我们能不能赢。那么我们就从最开始分析，由于是我们先拿，那么3个以内(包括3个)的石子，我们直接赢，如果共4个，那么我们一定输，因为不管我们取几个，下一个人一次都能取完。如果共5个，我们赢，因为我们可以取一个，然后变成4个让别人取，根据上面的分析我们赢，所以我们列出1到10个的情况如下：
+
+1    Win
+
+2    Win
+
+3    Win
+
+4    Lost
+
+5    Win
+
+6    Win
+
+7    Win
+
+8    Lost
+
+9    Win
+
+10   Win
+
+由此我们可以发现规律，只要是4的倍数个，我们一定会输，所以对4取余即可，参见代码如下：
+----
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool canWinNim(int n) {
+        return n % 4;
+    }
+};
+----
+
+讨论：我们来generalize一下这道题，当可以拿1～n个石子时，那么个数为(n+1)的整数倍时一定会输，我们试着证明一下这个结论，若当前共有m*(n+1)个石子，那么： +
+
+当m=1时，即剩n+1个的时候，肯定会输，因为不管你取1～n中的任何一个数字，另一个人都可以取完。 +
+当m>1时，即有m*(n+1)的时候，不管你先取1～n中的任何一个数字x，另外一个人一定会取n+1-x个，这样总数就变成了(m-1)*(n+1)，第二个人就一直按这个策略取，那么直到剩n+1个的时候，就便变成m=1的情况，一定会输。 +
+
+==== 翻转游戏
+
+----
+You are playing the following Flip Game with your friend: Given a string that contains only these two characters: + and -, you and your friend take turns to flip twoconsecutive "++" into "--". The game ends when a person can no longer make a move and therefore the other person will be the winner.
+
+Write a function to compute all possible states of the string after one valid move.
+
+For example, given s = "++++", after one move, it may become one of the following states:
+
+[
+  "--++",
+  "+--+",
+  "++--"
+]
+
+If there is no valid move, return an empty list [].
+----
+
+这道题让我们把相邻的两个++变成--，真不是一道难题，我们就从第二个字母开始遍历，每次判断当前字母是否为+，和之前那个字母是否为+，如果都为加，则将翻转后的字符串存入结果中即可，参见代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<string> generatePossibleNextMoves(string s) {
+        vector<string> res;
+        for (int i = 1; i < s.size(); ++i) {
+            if (s[i] == '+' && s[i - 1] == '+') {
+                res.push_back(s.substr(0, i - 1) + "--" + s.substr(i + 1));
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== 翻转游戏之二
+
+----
+You are playing the following Flip Game with your friend: Given a string that contains only these two characters: + and -, you and your friend take turns to flip two consecutive "++" into "--". The game ends when a person can no longer make a move and therefore the other person will be the winner.
+
+Write a function to determine if the starting player can guarantee a win.
+
+Example:
+
+Input: s = "++++"
+Output: true
+Explanation: The starting player can guarantee a win by flipping the middle "++" to become "+--+".
+----
+
+这道题是之前那道Flip Game的拓展，让我们判断先手的玩家是否能赢，那么我们可以穷举所有的情况，用回溯法来解题，我们的思路跟上面那题类似，也是从第二个字母开始遍历整个字符串，如果当前字母和之前那个字母都是+，那么我们递归调用将这两个位置变为--的字符串，如果返回false，说明当前玩家可以赢，结束循环返回false，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool canWin(string s) {
+        for (int i = 1; i < s.size(); ++i) {
+            if (s[i] == '+' && s[i - 1] == '+' && !canWin(s.substr(0, i - 1) + "--" + s.substr(i + 1))) {
+                return true;
+            }
+        }
+        return false;
+    }
+};
+----
+
+第二种解法和第一种解法一样，只是用find函数来查找++的位置，然后把位置赋值给i，然后还是递归调用canWin函数，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool canWin(string s) {
+        for (int i = -1; (i = s.find("++", i + 1)) >= 0;) {
+            if (!canWin(s.substr(0, i) + "--" + s.substr(i + 2))) {
+                return true;
+            }
+        }
+        return false;
+    }
+};
+----
+
+==== 找出数据流的中位数
+
+----
+Median is the middle value in an ordered integer list. If the size of the list is even, there is no middle value. So the median is the mean of the two middle value.
+
+Examples:
+
+[2,3,4] , the median is 3
+
+[2,3], the median is (2 + 3) / 2 = 2.5
+
+Design a data structure that supports the following two operations:
+
+void addNum(int num) - Add a integer number from the data stream to the data structure.
+double findMedian() - Return the median of all elements so far.
+For example:
+
+add(1)
+add(2)
+findMedian() -> 1.5
+add(3)
+findMedian() -> 2
+----
+
+这道题给我们一个数据流，让我们找出中位数，由于数据流中的数据并不是有序的，所以我们首先应该想个方法让其有序。如果我们用vector来保存数据流的话，每进来一个新数据都要给数组排序，很不高效。所以之后想到用multiset这个数据结构，是有序保存数据的，但是它不能用下标直接访问元素，找中位数也不高效。这里用到的解法十分巧妙，我们使用大小堆来解决问题，其中大堆保存右半段较大的数字，小堆保存左半段较小的数组。这样整个数组就被中间分为两段了，由于堆的保存方式是由大到小，我们希望大堆里面的数据是从小到大，这样取第一个来计算中位数方便。我们用到一个小技巧，就是存到大堆里的数先取反再存，这样由大到小存下来的顺序就是实际上我们想要的从小到大的顺序。当大堆和小堆中的数字一样多时，我们取出大堆小堆的首元素求平均值，当小堆元素多时，取小堆首元素为中位数，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class MedianFinder {
+public:
+
+    // Adds a number into the data structure.
+    void addNum(int num) {
+        small.push(num);
+        large.push(-small.top());
+        small.pop();
+        if (small.size() < large.size()) {
+            small.push(-large.top());
+            large.pop();
+        }
+    }
+
+    // Returns the median of current data stream
+    double findMedian() {
+        return small.size() > large.size() ? small.top() : 0.5 *(small.top() - large.top());
+    }
+
+private:
+    priority_queue<long> small, large;
+};
+----
+
+上述方法是用priority_queue来实现堆功能的，下面我们还可用multiset来实现堆，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class MedianFinder {
+public:
+
+    // Adds a number into the data structure.
+    void addNum(int num) {
+        small.insert(num);
+        large.insert(-*small.begin());
+        small.erase(small.begin());
+        if (small.size() < large.size()) {
+            small.insert(-*large.begin());
+            large.erase(large.begin());
+        }
+    }
+
+    // Returns the median of current data stream
+    double findMedian() {
+        return small.size() > large.size() ? *small.begin() : 0.5 * (*small.begin() - *large.begin());
+    }
+
+private:
+    multiset<long> small, large;
+};
+----
+
+==== 最佳开会地点
+
+----
+A group of two or more people wants to meet and minimize the total travel distance. You are given a 2D grid of values 0 or 1, where each 1 marks the home of someone in the group. The distance is calculated using Manhattan Distance, where distance(p1, p2) = |p2.x - p1.x| + |p2.y - p1.y|.
+
+For example, given three people living at (0,0), (0,4), and (2,2):
+
+1 - 0 - 0 - 0 - 1
+|   |   |   |   |
+0 - 0 - 0 - 0 - 0
+|   |   |   |   |
+0 - 0 - 1 - 0 - 0
+The point (0,2) is an ideal meeting point, as the total travel distance of 2+2+2=6 is minimal. So return 6.
+----
+
+----
+这道题让我们求最佳的开会地点，该地点需要到每个为1的点的曼哈顿距离之和最小，题目中给了我们提示，让我们先从一维的情况来分析，那么我们先看一维时有两个点A和B的情况,
+
+______A_____P_______B_______
+
+那么我们可以发现，只要开会为位置P在[A, B]区间内，不管在哪，距离之和都是A和B之间的距离，如果P不在[A, B]之间，那么距离之和就会大于A和B之间的距离，那么我们现在再加两个点C和D：
+
+______C_____A_____P_______B______D______
+
+我们通过分析可以得出，P点的最佳位置就是在[A, B]区间内，这样和四个点的距离之和为AB距离加上CD距离，在其他任意一点的距离都会大于这个距离，那么分析出来了上述规律，这题就变得很容易了，我们只要给位置排好序，然后用最后一个坐标减去第一个坐标，即CD距离，倒数第二个坐标减去第二个坐标，即AB距离，以此类推，直到最中间停止，那么一维的情况分析出来了，二维的情况就是两个一维相加即可，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int minTotalDistance(vector<vector<int>>& grid) {
+        vector<int> rows, cols;
+        for (int i = 0; i < grid.size(); ++i) {
+            for (int j = 0; j < grid[i].size(); ++j) {
+                if (grid[i][j] == 1) {
+                    rows.push_back(i);
+                    cols.push_back(j);
+                }
+            }
+        }
+        return minTotalDistance(rows) + minTotalDistance(cols);
+    }
+    int minTotalDistance(vector<int> v) {
+        int res = 0;
+        sort(v.begin(), v.end());
+        int i = 0, j = v.size() - 1;
+        while (i < j) res += v[j--] - v[i++];
+        return res;
+    }
+};
+----
+
+我们也可以不用多写一个函数，直接对rows和cols同时处理，稍稍能简化些代码： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int minTotalDistance(vector<vector<int>>& grid) {
+        vector<int> rows, cols;
+        for (int i = 0; i < grid.size(); ++i) {
+            for (int j = 0; j < grid[i].size(); ++j) {
+                if (grid[i][j] == 1) {
+                    rows.push_back(i);
+                    cols.push_back(j);
+                }
+            }
+        }
+        sort(cols.begin(), cols.end());
+        int res = 0, i = 0, j = rows.size() - 1;
+        while (i < j) res += rows[j] - rows[i] + cols[j--] - cols[i++];
+        return res;
+    }
+};
+----
+
+==== 二叉树的序列化和去序列化
+
+----
+Serialization is the process of converting a data structure or object into a sequence of bits so that it can be stored in a file or memory buffer, or transmitted across a network connection link to be reconstructed later in the same or another computer environment.
+
+Design an algorithm to serialize and deserialize a binary tree. There is no restriction on how your serialization/deserialization algorithm should work. You just need to ensure that a binary tree can be serialized to a string and this string can be deserialized to the original tree structure.
+
+For example, you may serialize the following tree
+
+    1
+   / \
+  2   3
+     / \
+    4   5
+as "[1,2,3,null,null,4,5]", just the same as how LeetCode OJ serializes a binary tree. You do not necessarily need to follow this format, so please be creative and come up with different approaches yourself.
+
+Note: Do not use class member/global/static variables to store states. Your serialize and deserialize algorithms should be stateless.
+----
+
+
+这道题让我们对二叉树进行序列化和去序列化的操作。序列化就是将一个数据结构或物体转化为一个位序列，可以存进一个文件或者内存缓冲器中，然后通过网络连接在相同的或者另一个电脑环境中被还原，还原的过程叫做去序列化。现在让我们来序列化和去序列化一个二叉树，并给了我们例子。这题有两种解法，分别为先序遍历的递归解法和层序遍历的非递归解法。先来看先序遍历的递归解法，非常的简单易懂，我们需要接入输入和输出字符串流istringstream和ostringstream，对于序列化，我们从根节点开始，如果节点存在，则将值存入输出字符串流，然后分别对其左右子节点递归调用序列化函数即可。对于去序列化，我们先读入第一个字符，以此生成一个根节点，然后再对根节点的左右子节点递归调用去序列化函数即可，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Codec {
+public:
+    // Encodes a tree to a single string.
+    string serialize(TreeNode* root) {
+        ostringstream out;
+        serialize(root, out);
+        return out.str();
+    }
+    // Decodes your encoded data to tree.
+    TreeNode* deserialize(string data) {
+        istringstream in(data);
+        return deserialize(in);
+    }
+private:
+    void serialize(TreeNode *root, ostringstream &out) {
+        if (root) {
+            out << root->val << ' ';
+            serialize(root->left, out);
+            serialize(root->right, out);
+        } else {
+            out << "# ";
+        }
+    }
+    TreeNode* deserialize(istringstream &in) {
+        string val;
+        in >> val;
+        if (val == "#") return nullptr;
+        TreeNode *root = new TreeNode(stoi(val));
+        root->left = deserialize(in);
+        root->right = deserialize(in);
+        return root;
+    }
+};
+----
+
+另一种方法是层序遍历的非递归解法，这种方法略微复杂一些，我们需要借助queue来做，本质是BFS算法，也不是很难理解，就是BFS算法的常规套路稍作修改即可，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Codec {
+public:
+    // Encodes a tree to a single string.
+    string serialize(TreeNode* root) {
+        ostringstream out;
+        queue<TreeNode*> q;
+        if (root) q.push(root);
+        while (!q.empty()) {
+            TreeNode *t = q.front(); q.pop();
+            if (t) {
+                out << t->val << ' ';
+                q.push(t->left);
+                q.push(t->right);
+            } else {
+                out << "# ";
+            }
+        }
+        return out.str();
+    }
+    // Decodes your encoded data to tree.
+    TreeNode* deserialize(string data) {
+        if (data.empty()) return nullptr;
+        istringstream in(data);
+        queue<TreeNode*> q;
+        string val;
+        in >> val;
+        TreeNode *res = new TreeNode(stoi(val)), *cur = res;
+        q.push(cur);
+        while (!q.empty()) {
+            TreeNode *t = q.front(); q.pop();
+            if (!(in >> val)) break;
+            if (val != "#") {
+                cur = new TreeNode(stoi(val));
+                q.push(cur);
+                t->left = cur;
+            }
+            if (!(in >> val)) break;
+            if (val != "#") {
+                cur = new TreeNode(stoi(val));
+                q.push(cur);
+                t->right = cur;
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== 二叉树最长连续序列
+
+----
+Given a binary tree, find the length of the longest consecutive sequence path.
+
+
+
+The path refers to any sequence of nodes from some starting node to any node in the tree along the parent-child connections. The longest consecutive path need to be from parent to child (cannot be the reverse).
+
+For example,
+
+   1
+    \
+     3
+    / \
+   2   4
+        \
+         5
+Longest consecutive sequence path is 3-4-5, so return 3.
+
+   2
+    \
+     3
+    /
+   2
+  /
+ 1
+Longest consecutive sequence path is 2-3,not3-2-1, so return 2.
+----
+
+这道题让我们求二叉树的最长连续序列，关于二叉树的题基本都需要遍历树，而递归遍历写起来特别简单，下面这种解法是用到了递归版的先序遍历，我们对于每个遍历到的节点，我们看节点值是否比参数值(父节点值)大1，如果是则长度加1，否则长度重置为1，然后更新结果res，再递归调用左右子节点即可，参见代码如下：  +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int longestConsecutive(TreeNode* root) {
+        if (!root) return 0;
+        int res = 0;
+        dfs(root, root->val, 0, res);
+        return res;
+    }
+    void dfs(TreeNode *root, int v, int out, int &res) {
+        if (!root) return;
+        if (root->val == v + 1) ++out;
+        else out = 1;
+        res = max(res, out);
+        dfs(root->left, root->val, out, res);
+        dfs(root->right, root->val, out, res);
+    }
+};
+----
+
+下面这种写法是利用分治法的思想，对左右子节点分别处理，如果左子节点存在且节点值比其父节点值大1，则递归调用函数，如果节点值不是刚好大1，则递归调用重置了长度的函数，对于右子节点的处理情况和左子节点相同，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int longestConsecutive(TreeNode* root) {
+        if (!root) return 0;
+        int res = 0;
+        dfs(root, 1, res);
+        return res;
+    }
+    void dfs(TreeNode *root, int len, int &res) {
+        res = max(res, len);
+        if (root->left) {
+            if (root->left->val == root->val + 1) dfs(root->left, len + 1, res);
+            else dfs(root->left, 1, res);
+        }
+        if (root->right) {
+            if (root->right->val == root->val + 1) dfs(root->right, len + 1, res);
+            else dfs(root->right, 1, res);
+        }
+    }
+};
+----
+
+下面这种递归写法相当简洁，但是核心思想和上面两种方法并没有太大的区别，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int longestConsecutive(TreeNode* root) {
+        return helper(root, NULL, 0);
+    }
+    int helper(TreeNode *root, TreeNode *p, int res) {
+        if (!root) return res;
+        res = (p && root->val == p->val + 1) ? res + 1 : 1;
+        return max(res, max(helper(root->left, root, res), helper(root->right, root, res)));
+    }
+};
+----
+
+上面三种都是递归的写法，下面我们来看看迭代的方法，写法稍稍复杂一些，用的还是DFS的思想，以层序来遍历树，对于遍历到的节点，我们看其左右子节点有没有满足题意的，如果左子节点比其父节点大1，若右子节点存在，则排入queue，指针移到左子节点，反之若右子节点比其父节点大1，若左子节点存在，则排入queue，指针移到右子节点，依次类推直到queue为空，参见代码如下： +
+
+**解法4:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int longestConsecutive(TreeNode* root) {
+        if (!root) return 0;
+        int res = 0;
+        queue<TreeNode*> q;
+        q.push(root);
+        while (!q.empty()) {
+            int len = 1;
+            TreeNode *t = q.front(); q.pop();
+            while ((t->left && t->left->val == t->val + 1) || (t->right && t->right->val == t->val + 1)) {
+                if (t->left && t->left->val == t->val + 1) {
+                    if (t->right) q.push(t->right);
+                    t = t->left;
+                } else if (t->right && t->right->val == t->val + 1) {
+                    if (t->left) q.push(t->left);
+                    t = t->right;
+                }
+                ++len;
+            }
+            if (t->left) q.push(t->left);
+            if (t->right) q.push(t->right);
+            res = max(res, len);
+        }
+        return res;
+    }
+};
+----
+
+==== 公母牛游戏
+
+----
+You are playing the following Bulls and Cows game with your friend: You write a 4-digit secret number and ask your friend to guess it, each time your friend guesses a number, you give a hint, the hint tells your friend how many digits are in the correct positions (called "bulls") and how many digits are in the wrong positions (called "cows"), your friend will use those hints to find out the secret number.
+
+For example:
+
+Secret number:  1807
+Friend's guess: 7810
+Hint: 1 bull and 3 cows. (The bull is 8, the cows are 0, 1 and 7.)
+----
+
+这道题提出了一个叫公牛母牛的游戏，其实就是之前文曲星上有的猜数字的游戏，有一个四位数字，你猜一个结果，然后根据你猜的结果和真实结果做对比，提示有多少个数字和位置都正确的叫做bulls，还提示有多少数字正确但位置不对的叫做cows，根据这些信息来引导我们继续猜测正确的数字。这道题并没有让我们实现整个游戏，而只用实现一次比较即可。给出两个字符串，让我们找出分别几个bulls和cows。这题需要用哈希表，来建立数字和其出现次数的映射。我最开始想的方法是用两次遍历，第一次遍历找出所有位置相同且值相同的数字，即bulls，并且记录secret中不是bulls的数字出现的次数。然后第二次遍历我们针对guess中不是bulls的位置，如果在哈希表中存在，cows自增1，然后映射值减1，参见如下代码： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string getHint(string secret, string guess) {
+        int m[256] = {0}, bulls = 0, cows = 0;
+        for (int i = 0; i < secret.size(); ++i) {
+            if (secret[i] == guess[i]) ++bulls;
+            else ++m[secret[i]];
+        }
+        for (int i = 0; i < secret.size(); ++i) {
+            if (secret[i] != guess[i] && m[guess[i]]) {
+                ++cows;
+                --m[guess[i]];
+            }
+        }
+        return to_string(bulls) + "A" + to_string(cows) + "B";
+    }
+};
+----
+
+我们其实可以用一次循环就搞定的，在处理不是bulls的位置时，我们看如果secret当前位置数字的映射值小于0，则表示其在guess中出现过，cows自增1，然后映射值加1，如果guess当前位置的数字的映射值大于0，则表示其在secret中出现过，cows自增1，然后映射值减1，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string getHint(string secret, string guess) {
+        int m[256] = {0}, bulls = 0, cows = 0;
+        for (int i = 0; i < secret.size(); ++i) {
+            if (secret[i] == guess[i]) ++bulls;
+            else {
+                if (m[secret[i]]++ < 0) ++cows;
+                if (m[guess[i]]-- > 0) ++ cows;
+            }
+        }
+        return to_string(bulls) + "A" + to_string(cows) + "B";
+    }
+};
+----
+
+最后我们还可以稍作修改写的更简洁一些，a是bulls的值，b是bulls和cows之和，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string getHint(string secret, string guess) {
+        int m[256] = {0}, a = 0, b = 0, i = 0;
+        for (char s : secret) {
+            char g = guess[i++];
+            a += s == g;
+            b += (m[s]++ < 0) + (m[g]-- > 0);
+        }
+        return to_string(a) + "A" + to_string(b - a) + "B";
+    }
+};
+----
+
+==== 最长递增子序列
+
+----
+Given an unsorted array of integers, find the length of longest increasing subsequence.
+
+Example:
+
+Input: [10,9,2,5,3,7,101,18]
+Output: 4
+Explanation: The longest increasing subsequence is [2,3,7,101], therefore the length is 4.
+Note:
+
+There may be more than one LIS combination, it is only necessary for you to return the length.
+Your algorithm should run in O(n2) complexity.
+Follow up: Could you improve it to O(n log n) time complexity?
+----
+
+这道题让我们求最长递增子串Longest Increasing Subsequence的长度，简称LIS的长度。我最早接触到这道题是在LintCode上，可参见我之前的博客Longest Increasing Subsequence 最长递增子序列，那道题写的解法略微复杂，下面我们来看其他的一些解法。首先来看一种动态规划Dynamic Programming的解法，这种解法的时间复杂度为O(n2)，类似brute force的解法，我们维护一个一维dp数组，其中dp[i]表示以nums[i]为结尾的最长递增子串的长度，对于每一个nums[i]，我们从第一个数再搜索到i，如果发现某个数小于nums[i]，我们更新dp[i]，更新方法为dp[i] = max(dp[i], dp[j] + 1)，即比较当前dp[i]的值和那个小于num[i]的数的dp值加1的大小，我们就这样不断的更新dp数组，到最后dp数组中最大的值就是我们要返回的LIS的长度，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int lengthOfLIS(vector<int>& nums) {
+        vector<int> dp(nums.size(), 1);
+        int res = 0;
+        for (int i = 0; i < nums.size(); ++i) {
+            for (int j = 0; j < i; ++j) {
+                if (nums[i] > nums[j]) {
+                    dp[i] = max(dp[i], dp[j] + 1);
+                }
+            }
+            res = max(res, dp[i]);
+        }
+        return res;
+    }
+};
+----
+
+下面我们来看一种优化时间复杂度到O(nlgn)的解法，这里用到了二分查找法，所以才能加快运行时间哇。思路是，我们先建立一个数组ends，把首元素放进去，然后比较之后的元素，如果遍历到的新元素比ends数组中的首元素小的话，替换首元素为此新元素，如果遍历到的新元素比ends数组中的末尾元素还大的话，将此新元素添加到ends数组末尾(注意不覆盖原末尾元素)。如果遍历到的新元素比ends数组首元素大，比尾元素小时，此时用二分查找法找到第一个不小于此新元素的位置，覆盖掉位置的原来的数字，以此类推直至遍历完整个nums数组，此时ends数组的长度就是我们要求的LIS的长度，特别注意的是ends数组的值可能不是一个真实的LIS，比如若输入数组nums为{4, 2， 4， 5， 3， 7}，那么算完后的ends数组为{2， 3， 5， 7}，可以发现它不是一个原数组的LIS，只是长度相等而已，千万要注意这点。参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int lengthOfLIS(vector<int>& nums) {
+        if (nums.empty()) return 0;
+        vector<int> ends{nums[0]};
+        for (auto a : nums) {
+            if (a < ends[0]) ends[0] = a;
+            else if (a > ends.back()) ends.push_back(a);
+            else {
+                int left = 0, right = ends.size();
+                while (left < right) {
+                    int mid = left + (right - left) / 2;
+                    if (ends[mid] < a) left = mid + 1;
+                    else right = mid;
+                }
+                ends[right] = a;
+            }
+        }
+        return ends.size();
+    }
+};
+----
+
+我们来看一种思路更清晰的二分查找法，跟上面那种方法很类似，思路是先建立一个空的dp数组，然后开始遍历原数组，对于每一个遍历到的数字，我们用二分查找法在dp数组找第一个不小于它的数字，如果这个数字不存在，那么直接在dp数组后面加上遍历到的数字，如果存在，则将这个数字更新为当前遍历到的数字，最后返回dp数字的长度即可，注意的是，跟上面的方法一样，特别注意的是dp数组的值可能不是一个真实的LIS。参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int lengthOfLIS(vector<int>& nums) {
+        vector<int> dp;
+        for (int i = 0; i < nums.size(); ++i) {
+            int left = 0, right = dp.size();
+            while (left < right) {
+                int mid = left + (right - left) / 2;
+                if (dp[mid] < nums[i]) left = mid + 1;
+                else right = mid;
+            }
+            if (right >= dp.size()) dp.push_back(nums[i]);
+            else dp[right] = nums[i];
+        }
+        return dp.size();
+    }
+};
+----
+
+下面我们来看两种比较tricky的解法，利用到了C++中STL的lower_bound函数，lower_bound返回数组中第一个不小于指定值的元素，
+跟上面的算法类似，我们还需要一个一维数组v，然后对于遍历到的nums中每一个元素，找其lower_bound，如果没有lower_bound，
+说明新元素比一维数组的尾元素还要大，直接添加到数组v中，跟解法二的思路相同了。如果有lower_bound，说明新元素不是最大的，
+将其lower_bound替换为新元素，这个过程跟算法二的二分查找法的部分实现相同功能，最后也是返回数组v的长度，
+注意数组v也不一定是真实的LIS，参见代码如下： +
+
+**解法4:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int lengthOfLIS(vector<int>& nums) {
+        vector<int> v;
+        for (auto a : nums) {
+            auto it = lower_bound(v.begin(), v.end(), a);
+            if (it == v.end()) v.push_back(a);
+            else *it = a;
+        }
+　　　　　 　return v.size();
+    }
+};
+----
+
+既然能用lower_bound，那么upper_bound就耐不住寂寞了，也要出来解个题。upper_bound是返回数组中第一个大于指定值的元素，和lower_bound的区别时，它不能返回和指定值相等的元素，那么当新进来的数和数组中尾元素一样大时，upper_bound无法返回这个元素，那么按算法三的处理方法是加到数组中，这样就不是严格的递增子串了，所以我们要做个处理，在处理每个新进来的元素时，先判断数组v中有无此元素，有的话直接跳过，这样就避免了相同数字的情况，参见代码如下： +
+
+**解法5:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int lengthOfLIS(vector<int>& nums) {
+        vector<int> v;
+        for (auto a : nums) {
+            if (find(v.begin(), v.end(), a) != v.end()) continue;
+            auto it = upper_bound(v.begin(), v.end(), a);
+            if (it == v.end()) v.push_back(a);
+            else *it = a;
+        }
+        return v.size();
+    }
+};
+----

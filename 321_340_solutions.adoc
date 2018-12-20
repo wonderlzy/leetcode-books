@@ -1,0 +1,1648 @@
+==== 创建最大数
+
+----
+Given two arrays of length m and n with digits 0-9 representing two numbers. Create the maximum number of length k <= m + n from digits of the two. The relative order of the digits from the same array must be preserved. Return an array of the k digits. You should try to optimize your time and space complexity.
+
+Example 1:
+
+nums1 = [3, 4, 6, 5]
+nums2 = [9, 1, 2, 5, 8, 3]
+k = 5
+return [9, 8, 6, 5, 3]
+----
+
+这道题给了我们两个数组，里面数字是无序的，又给我们一个k值为k <= m + n，然后我们从两个数组中共挑出k个数，数字之间的相对顺序不变，求能组成的最大的数。这道题的难度是Hard，博主木有想出解法，参考网上大神们的解法来做的。由于k的大小不定，所以有三种可能，第一种是当k为0时，两个数组中都不取数；第二种是当k不大于其中一个数组的长度时，有可能只从一个数组中取数；第三种情况是k大于其中一个数组的长度，则需要从两个数组中分别取数，至于每个数组中取几个，每种情况都要考虑到，然后每次更结果即可。对于分别从两个数组中取数字的情况，我们需要将两个取出的小数组混合排序成一个数组，小数组中各自的数字之间的相对顺序不变。我们还需要一个函数来从数组中取若干个数字的函数，而且取出的数要最大。比如当前数组长度为n，需要取出k个数字，我们定义一个变量drop = n - k，表示需要丢弃的数字的个数，我们遍历数组中的数字，进行下列循环，如果此时drop为整数，且结果数组长度不为0，结果数组的尾元素小于当前遍历的元素，则去掉结果数组的尾元素，此时drop自减1，重复循环直至上述任意条件不满足为止，然后把当前元素加入结果数组中，最后我们返回结果数组中的前k个元素。对于两个数组的混合，我们只要从两个数组开头每次取两个，把大的加入结果数组，然后删掉这个大的，然后继续取一对比较，直到两个数组都为空停止。参见代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> maxNumber(vector<int>& nums1, vector<int>& nums2, int k) {
+        int m = nums1.size(), n = nums2.size();
+        vector<int> res;
+        for (int i = max(0, k - n); i <= min(k, m); ++i) {
+            res = max(res, mergeVector(maxVector(nums1, i), maxVector(nums2, k - i)));
+        }
+        return res;
+    }
+    vector<int> maxVector(vector<int> nums, int k) {
+        int drop = nums.size() - k;
+        vector<int> res;
+        for (int num : nums) {
+            while (drop && res.size() && res.back() < num) {
+                res.pop_back();
+                --drop;
+            }
+            res.push_back(num);
+        }
+        res.resize(k);
+        return res;
+    }
+    vector<int> mergeVector(vector<int> nums1, vector<int> nums2) {
+        vector<int> res;
+        while (nums1.size() + nums2.size()) {
+            vector<int> &tmp = nums1 > nums2 ? nums1 : nums2;
+            res.push_back(tmp[0]);
+            tmp.erase(tmp.begin());
+        }
+        return res;
+    }
+};
+----
+
+==== 硬币找零
+
+----
+You are given coins of different denominations and a total amount of money amount. Write a function to compute the fewest number of coins that you need to make up that amount. If that amount of money cannot be made up by any combination of the coins, return -1.
+
+Example 1:
+coins = [1, 2, 5], amount = 11
+return 3 (11 = 5 + 5 + 1)
+----
+
+这道题给我们了一些可用的硬币值，又给了一个钱数，问我们最小能用几个硬币来找零。根据题目中的例子可知，不是每次都会给全1,2,5的硬币，有时候没有1分硬币，那么有的钱数就没法找零，需要返回-1。这道题跟CareerCup上的那道9.8 Represent N Cents 美分的组成有些类似，那道题给全了所有的美分，25,10,5,1，然后给我们一个钱数，问我们所有能够找零的方法，而这道题只让我们求出最小的那种。没啥特别好的思路就首先来考虑brute force吧，暴力搜索如果也没思路肿么办-.-|||。那我们怎么办，还是来看例子1，如果不考虑代码实现，你怎么手动找出答案。博主会先取出一个最大的数字5，比目标值11要小，由于这里的硬币是可以重复使用的，所以博主会再取个5出来，现在是10，还是比11要小，这是再取5会超，那就往前取，取2，也会超出，于是就取1，刚好是11。那么我们的暴力搜索法也是这种思路，首先要给数组排个序，因为我们想要从最大的开始取，我们的递归函数需要一个变量start，初识化为数组的最后一个位置，当前目标值target，还有当前使用的硬币个数cur，以及最终结果res。在递归函数，我们首先判断如果target小于0了，直接返回。若target为0了，说明我们当前使用的硬币已经组成了目标值，用cur来更新结果res。否则就从start开始往前遍历硬币，对每个硬币都调用递归函数，此时target应该减去当前的硬币值，cur应该自增1，代码参见评论区七楼。但是暴力搜索Brute Force的方法会超时TLE，所以我们考虑一下其他的方法吧。 +
+
+如果大家刷题有一阵子了的，那么应该会知道，对于求极值问题，我们还是主要考虑动态规划Dynamic Programming来做，好处是保留了一些中间状态的计算值，这样可以避免大量的重复计算。我们维护一个一维动态数组dp，其中dp[i]表示钱数为i时的最小硬币数的找零，注意由于数组是从0开始的，所以我们要多申请一位，数组大小为amount+1，这样最终结果就可以保存在dp[amount]中了。初始化dp[0] = 0，因为目标值若为0时，就不需要硬币了。其他值可以初始化为整型最大值，或者是amount+1，为啥呢，因为最小的硬币是1，所以amount最多需要amount个硬币，amount+1也就相当于整型最大值的作用了。好，接下来就是要找状态转移方程了，没思路？不要紧！回归例子1，假设我取了一个值为5的硬币，那么由于目标值是11，所以是不是假如我们知道dp[6]，那么就知道了组成11的dp值了？所以我们更新dp[i]的方法就是遍历每个硬币，如果遍历到的硬币值小于i值（比如我们不能用值为5的硬币去更新dp[3]）时，我们用 dp[i - coins[j]] + 1 来更新dp[i]，所以状态转移方程为： +
+
+dp[i] = min(dp[i], dp[i - coins[j]] + 1); +
+
+其中coins[j]为第j个硬币，而i - coins[j]为钱数i减去其中一个硬币的值，剩余的钱数在dp数组中找到值，然后加1和当前dp数组中的值做比较，取较小的那个更新dp数组。先来看迭代的写法如下所示： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int coinChange(vector<int>& coins, int amount) {
+        vector<int> dp(amount + 1, amount + 1);
+        dp[0] = 0;
+        for (int i = 1; i <= amount; ++i) {
+            for (int j = 0; j < coins.size(); ++j) {
+                if (coins[j] <= i) {
+                    dp[i] = min(dp[i], dp[i - coins[j]] + 1);
+                }
+            }
+        }
+        return (dp[amount] > amount) ? -1 : dp[amount];
+    }
+};
+----
+
+迭代的DP解法有一个好基友，就是递归+memo数组的解法，说其是递归形式的DP解法也没错，但博主比较喜欢说成是递归加记忆数组。其目的都是为了保存中间计算结果，避免大量的重复计算，宠从而提高运算效率，思路都一样，仅仅是写法有些区别： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+
+class Solution {
+public:
+    int coinChange(vector<int>& coins, int amount) {
+        vector<int> memo(amount + 1, INT_MAX);
+        memo[0] = 0;
+        return coinChangeDFS(coins, amount, memo);
+    }
+    int coinChangeDFS(vector<int>& coins, int target, vector<int>& memo) {
+        if (target < 0) return - 1;
+        if (memo[target] != INT_MAX) return memo[target];
+        for (int i = 0; i < coins.size(); ++i) {
+            int tmp = coinChangeDFS(coins, target - coins[i], memo);
+            if (tmp >= 0) memo[target] = min(memo[target], tmp + 1);
+        }
+        return memo[target] = (memo[target] == INT_MAX) ? -1 : memo[target];
+    }
+};
+----
+
+再来看一种使用HashMap来当记忆数组的递归解法： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int coinChange(vector<int>& coins, int amount) {
+        unordered_map<int, int> memo;
+        memo[0] = 0;
+        return coinChangeDFS(coins, amount, memo);
+    }
+    int coinChangeDFS(vector<int>& coins, int target, unordered_map<int, int>& memo) {
+        if (target < 0) return - 1;
+        if (memo.count(target)) return memo[target];
+        int cur = INT_MAX;
+        for (int i = 0; i < coins.size(); ++i) {
+            int tmp = coinChangeDFS(coins, target - coins[i], memo);
+            if (tmp >= 0) cur = min(cur, tmp + 1);
+        }
+        return memo[target] = (cur == INT_MAX) ? -1 : cur;
+    }
+};
+----
+
+难道这题一定要DP来做吗，我们来看网友hello_world00提供的一种解法，这其实是对暴力搜索的解法做了很好的优化，不仅不会TLE，而且击败率相当的高！对比Brute Force的方法，这里在递归函数中做了很好的优化。首先是判断start是否小于0，因为我们需要从coin中取硬币，不能越界。下面就是优化的核心了，看target是否能整除coins[start]，这是相当叼的一步，比如假如我们的目标值是15，如果我们当前取出了大小为5的硬币，我们做除法，可以立马知道只用大小为5的硬币就可以组成目标值target，那么我们用cur + target/coins[start] 来更新结果res。之后的for循环也相当叼，不像暴力搜索中的那样从start位置开始往前遍历coins中的硬币，而是遍历 target/coins[start] 的次数，由于不能整除，我们只需要对余数调用递归函数，而且我们要把次数每次减1，并且再次求余数。举个例子，比如coins=[1,2,3]，amount=11，那么 11除以3，得3余2，那么我们的i从3开始遍历，这里有一步非常有用的剪枝操作，没有这一步，还是会TLE，而加上了这一步，直接击败百分之九十九以上，可以说是天壤之别。那就是判断若 cur + i >= res - 1 成立，直接break，不调用递归。这里解释一下，cur + i 自不必说，是当前硬币个数cur 加上新加的i个硬币，我们都是知道cur+i如果大于等于res的话，那么res是不会被更新的，那么为啥这里是大于等于res-1呢？因为能运行到这一步，说明之前是无法整除的，那么余数一定存在，所以再次调用递归函数的target不为0，那么如果整除的话，cur至少会加上1，所以又跟res相等了，还是不会使得res变得更小。解释到这里应该比较明白了吧，有疑问的请在下方留言哈，参见代码如下： +
+
+**解法4:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int coinChange(vector<int>& coins, int amount) {
+        int res = INT_MAX, n = coins.size();
+        sort(coins.begin(), coins.end());
+        helper(coins, n - 1, amount, 0, res);
+        return (res == INT_MAX) ? -1 : res;
+    }
+    void helper(vector<int>& coins, int start, int target, int cur, int& res) {
+        if (start < 0) return;
+        if (target % coins[start] == 0) {
+            res = min(res, cur + target / coins[start]);
+            return;
+        }
+        for (int i = target / coins[start]; i >= 0; --i) {
+            if (cur + i >= res - 1) break;
+            helper(coins, start - 1, target - i * coins[start], cur + i, res);
+        }
+    }
+};
+----
+
+==== 无向图中的连通区域的个数
+
+----
+Given n nodes labeled from 0 to n - 1 and a list of undirected edges (each edge is a pair of nodes), write a function to find the number of connected components in an undirected graph.
+
+Example 1:
+
+     0          3
+
+     |          |
+
+     1 --- 2    4
+
+Given n = 5 and edges = [[0, 1], [1, 2], [3, 4]], return 2.
+
+Example 2:
+
+     0           4
+
+     |           |
+
+     1 --- 2 --- 3
+
+Given n = 5 and edges = [[0, 1], [1, 2], [2, 3], [3, 4]], return 1.
+
+ Note:
+
+You can assume that no duplicate edges will appear in edges. Since all edges are undirected, [0, 1] is the same as [1, 0] and thus will not appear together in edges.
+----
+
+
+这道题让我们求无向图中连通区域的个数，LeetCode中关于图Graph的题屈指可数，解法都有类似的特点，都是要先构建邻接链表Adjacency List来做。这道题的一种解法是利用DFS来做，思路是给每个节点都有个flag标记其是否被访问过，对于一个未访问过的节点，我们将结果自增1，因为这肯定是一个新的连通区域，然后我们通过邻接链表来遍历与其相邻的节点，并将他们都标记成已访问过，遍历完所有的连通节点后我们继续寻找下一个未访问过的节点，以此类推直至所有的节点都被访问过了，那么此时我们也就求出来了连通区域的个数。 +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int countComponents(int n, vector<pair<int, int> >& edges) {
+        int res = 0;
+        vector<vector<int> > g(n);
+        vector<bool> v(n, false);
+        for (auto a : edges) {
+            g[a.first].push_back(a.second);
+            g[a.second].push_back(a.first);
+        }
+        for (int i = 0; i < n; ++i) {
+            if (!v[i]) {
+                ++res;
+                dfs(g, v, i);
+            }
+        }
+        return res;
+    }
+    void dfs(vector<vector<int> > &g, vector<bool> &v, int i) {
+        if (v[i]) return;
+        v[i] = true;
+        for (int j = 0; j < g[i].size(); ++j) {
+            dfs(g, v, g[i][j]);
+        }
+    }
+};
+----
+
+这道题还有一种比较巧妙的方法，不用建立邻接链表，也不用DFS，思路是建立一个root数组，下标和节点值相同，此时root[i]表示节点i属于group i，我们初始化了n个部分 (res = n)，假设开始的时候每个节点都属于一个单独的区间，然后我们开始遍历所有的edge，对于一条边的两个点，他们起始时在root中的值不相同，这时候我们我们将结果减1，表示少了一个区间，然后更新其中一个节点的root值，使两个节点的root值相同，那么这样我们就能把连通区间的所有节点的root值都标记成相同的值，不同连通区间的root值不相同，这样也能找出连通区间的个数。 +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int countComponents(int n, vector<pair<int, int> >& edges) {
+        int res = n;
+        vector<int> root(n);
+        for (int i = 0; i < n; ++i) root[i] = i;
+        for (auto a : edges) {
+            int x = find(root, a.first), y = find(root, a.second);
+            if (x != y) {
+                --res;
+                root[y] = x;
+            }
+        }
+        return res;
+    }
+    int find(vector<int> &root, int i) {
+        while (root[i] != i) i = root[i];
+        return i;
+    }
+};
+----
+
+==== 摆动排序之二
+
+----
+Given an unsorted array nums, reorder it such that nums[0] < nums[1] > nums[2] < nums[3]....
+
+Example 1:
+
+Input: nums = [1, 5, 1, 1, 6, 4]
+Output: One possible answer is [1, 4, 1, 5, 1, 6].
+----
+
+这道题给了我们一个无序数组，让我们排序成摆动数组，满足nums[0] < nums[1] > nums[2] < nums[3]...，并给了我们例子。我们可以先给数组排序，然后在做调整。调整的方法是找到数组的中间的数，相当于把有序数组从中间分成两部分，然后从前半段的末尾取一个，在从后半的末尾去一个，这样保证了第一个数小于第二个数，然后从前半段取倒数第二个，从后半段取倒数第二个，这保证了第二个数大于第三个数，且第三个数小于第四个数，以此类推直至都取完，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    void wiggleSort(vector<int>& nums) {
+        vector<int> tmp = nums;
+        int n = nums.size(), k = (n + 1) / 2, j = n;
+        sort(tmp.begin(), tmp.end());
+        for (int i = 0; i < n; ++i) {
+            nums[i] = i & 1 ? tmp[--j] : tmp[--k];
+        }
+    }
+};
+----
+
+这道题的Follow up让我们用O(n)的时间复杂度和O(1)的空间复杂度，这个真的比较难，参见网友的解答，(未完待续。。) +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    void wiggleSort(vector<int>& nums) {
+        #define A(i) nums[(1 + 2 * i) % (n | 1)]
+        int n = nums.size(), i = 0, j = 0, k = n - 1;
+        auto midptr = nums.begin() + n / 2;
+        nth_element(nums.begin(), midptr, nums.end());
+        int mid = *midptr;
+        while (j <= k) {
+            if (A(j) > mid) swap(A(i++), A(j++));
+            else if (A(j) < mid) swap(A(j), A(k--));
+            else ++j;
+        }
+    }
+};
+----
+
+==== 最大子数组之和为k
+
+----
+Given an array nums and a target value k, find the maximum length of a subarray that sums to k. If there isn't one, return 0 instead.
+
+Example 1:
+Given nums = [1, -1, 5, -2, 3], k = 3,
+return 4. (because the subarray [1, -1, 5, -2] sums to 3 and is the longest)
+----
+
+----
+这道题给我们一个一维数组nums，让我们求和为k最大子数组，默认子数组必须连续，题目中提醒我们必须要在O(n)的时间复杂度完成，我试了下brute force无法通过OJ，那么根据题目中的提示标签，我们需要用哈希表和累积和来做，关于累积和的用法可以参看我之前的博客Range Sum Query - Immutable，那么建立累积和的好处显而易见，如果当前累积和正好等于k，那么从开头到此位置的子数组就是一个符合要求的解，但不一定是最长的子数组，而使用哈希表来建立累积和和其坐标之间的映射，我们就从题目中给的例子进行分析：
+
+nums: [1, -1, 5, -2, 3], k = 3
+
+sums: [1, 0, 5, 3, 6]
+
+我们可以看到累积和的第四个数字为3，和k相同，则说明前四个数字就是符合题意的一个子数组，再来看第二个例子：
+
+nums: [-2, -1, 2, 1], k = 1
+
+sums: [-2, -3, -1, 0]
+
+我们发现累积和中没有数字等于k，但是我们知道这个例子的答案是[-1, 2]，那么我们看累积和数组的第一和第三个数字，我们是否能看出一些规律呢，没错，第三个数字-1减去k，得到第一个数字，这就是规律，这也是累积和求区间和的方法，但是由于累计和数组中可能会有重复数字，而哈希表的关键字不能相同，比如下面这个例子：
+
+nums: [1, 0, -1], k = -1
+
+sums: [1, 1, 0]
+----
+
+我们发现累积和数组的第一个和第二个数字都为1，那么如何建立映射呢，我想的是用一个一维数组将其都存起来，然后比较的话就比较数组中的第一个数字，当我们建立完哈希表后，开始遍历这个哈希表，当累积和跟k相同时，我们更新res，不相同的话我们检测当前值减去k得到的值在哈希表中存不存在，如果存在就更新结果，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int maxSubArrayLen(vector<int>& nums, int k) {
+        if (nums.empty()) return 0;
+        int res = 0;
+        unordered_map<int, vector<int>> m;
+        m[nums[0]].push_back(0);
+        vector<int> sum = nums;
+        for (int i = 1; i < nums.size(); ++i) {
+            sum[i] += sum[i - 1];
+            m[sum[i]].push_back(i);
+        }
+        for (auto it : m) {
+            if (it.first == k) res = max(res, it.second.back() + 1);
+            else if (m.find(it.first - k) != m.end()) {
+                res = max(res, it.second.back() - m[it.first - k][0]);
+            }
+        }
+        return res;
+    }
+};
+----
+
+然而当我上网看大神们的解法时，才发现我图样图森破，根本不需要我写的那么复杂，我们不需要另外创建一个累积和的数组，而是直接用一个变量sum边累加边处理，而且我们哈希表也完全不用建立和一维数组的映射，只要保存第一个出现该累积和的位置，后面再出现直接跳过，这样算下来就是最长的子数组，对于想出这解法的人，博主只想说，阁下何不随风起，扶摇直上九万里～参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int maxSubArrayLen(vector<int>& nums, int k) {
+        int sum = 0, res = 0;
+        unordered_map<int, int> m;
+        for (int i = 0; i < nums.size(); ++i) {
+            sum += nums[i];
+            if (sum == k) res = i + 1;
+            else if (m.count(sum - k)) res = max(res, i - m[sum - k]);
+            if (!m.count(sum)) m[sum] = i;
+        }
+        return res;
+    }
+};
+----
+
+==== 判断3的次方数
+
+----
+Given an integer, write a function to determine if it is a power of three.
+
+Follow up:
+Could you do it without using any loop / recursion?
+----
+
+这道题让我们判断一个数是不是3的次方数，在LeetCode中，有一道类似的题目Power of Two，那道题有个非常简单的方法，由于2的次方数实在太有特点，最高位为1，其他位均为0，所以特别容易，而3的次方数没有显著的特点，最直接的方法就是不停地除以3，看最后的余数是否为1，要注意考虑输入是负数和0的情况，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool isPowerOfThree(int n) {
+        while (n && n % 3 == 0) {
+            n /= 3;
+        }
+        return n == 1;
+    }
+};
+----
+
+题目中的Follow up让我们不用循环，那么有一个投机取巧的方法，由于输入是int，正数范围是0-231，在此范围中允许的最大的3的次方数为319=1162261467，那么我们只要看这个数能否被n整除即可，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool isPowerOfThree(int n) {
+        return (n > 0 && 1162261467 % n == 0);
+    }
+};
+----
+
+最后还有一种巧妙的方法，利用对数的换底公式来做，高中学过的换底公式为logab = logcb / logca，那么如果n是3的倍数，则log3n一定是整数，我们利用换底公式可以写为log3n = log10n / log103，注意这里一定要用10为底数，不能用自然数或者2为底数，否则当n=243时会出错，原因请看这个帖子。现在问题就变成了判断log10n / log103是否为整数，在c++中判断数字a是否为整数，我们可以用 a - int(a) == 0 来判断，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool isPowerOfThree(int n) {
+        return (n > 0 && int(log10(n) / log10(3)) - log10(n) / log10(3) == 0);
+    }
+};
+----
+
+==== 区间和计数
+
+----
+Given an integer array nums, return the number of range sums that lie in [lower, upper] inclusive.
+Range sum S(i, j) is defined as the sum of the elements in nums between indices i and j (i ≤ j), inclusive.
+
+Note:
+A naive algorithm of O(n2) is trivial. You MUST do better than that.
+
+Example:
+Given nums = [-2, 5, -1], lower = -2, upper = 2,
+Return 3.
+The three ranges are : [0, 0], [2, 2], [0, 2] and their respective sums are: -2, -1, 2.
+----
+
+这道题给了我们一个数组，又给了我们一个下限和一个上限，让我们求有多少个不同的区间使得每个区间的和在给定的上下限之间。这道题的难度系数给的是Hard，的确是一道难度不小的题，题目中也说了Brute Force的方法太Naive了，那么我们只能另想方法了。To be honest，这题完全超出了我的能力范围，所以我也没挣扎了，直接上网搜大神们的解法啦。首先根据前面的那几道类似题Range Sum Query - Mutable 区域和检索 - 可变，Range Sum Query 2D - Immutable 二维区域和检索和Range Sum Query - Immutable 区域和检索 - 不可变的解法可知类似的区间和的问题一定是要计算累积和sum的，其中sum[i] = nums[0] + nums[1] + ... + nums[i]，对于某个i来说，只有那些满足 lower <= sum[i] - sum[j] <= upper 的j能形成一个区间[j, i]满足题意，那么我们的目标就是来找到有多少个这样的j (0 =< j < i) 满足 sum[i] - upper =< sum[j] <= sum[i] - lower，我们可以用C++中由红黑树实现的multiset数据结构可以对其中数据排序，然后用upperbound和lowerbound来找临界值。lower_bound是找数组中第一个不小于给定值的数(包括等于情况)，而upper_bound是找数组中第一个大于给定值的数，那么两者相减，就是j的个数，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int countRangeSum(vector<int>& nums, int lower, int upper) {
+        int res = 0;
+        long long sum = 0;
+        multiset<long long> sums;
+        sums.insert(0);
+        for (int i = 0; i < nums.size(); ++i) {
+            sum += nums[i];
+            res += distance(sums.lower_bound(sum - upper), sums.upper_bound(sum - lower));
+            sums.insert(sum);
+        }
+        return res;
+    }
+};
+----
+
+----
+我们再来看一种方法，这种方法的思路和前一种一样，只是没有STL的multiset和lower_bound和upper_bound函数，而是使用了Merge Sort来解，在混合的过程中，我们已经给左半边[start, mid) 和右半边 [mid, end) 排序了。当我们遍历左半边，对于每个i，我们需要在右半边找出k和j，使其满足：
+
+j是第一个满足 sums[j] - sums[i] > upper 的下标
+
+k是第一个满足 sums[k] - sums[i] >= lower 的下标
+
+那么在[lower, upper]之间的区间的个数是j - k，同时我们也需要另一个下标t，用来拷贝所有满足sums[t] < sums[i]到一个寄存器Cache中以完成混合排序的过程。(注意这里sums可能会整型溢出，我们使用长整型long long代替)。
+----
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int countRangeSum(vector<int>& nums, int lower, int upper) {
+        vector<long> sums(nums.size() + 1, 0);
+        for (int i = 0; i < nums.size(); ++i) {
+            sums[i + 1] = sums[i] + nums[i];
+        }
+        return countAndMergeSort(sums, 0, sums.size(), lower, upper);
+    }
+    int countAndMergeSort(vector<long> &sums, int start, int end, int lower, int upper) {
+        if (end - start <= 1) return 0;
+        int mid = start + (end - start) / 2;
+        int cnt = countAndMergeSort(sums, start, mid, lower, upper) + countAndMergeSort(sums, mid, end, lower, upper);
+        int j = mid, k = mid, t = mid;
+        vector<int> cache(end - start, 0);
+        for (int i = start, r = 0; i < mid; ++i, ++r) {
+            while (k < end && sums[k] - sums[i] < lower) ++k;
+            while (j < end && sums[j] - sums[i] <= upper) ++j;
+            while (t < end && sums[t] < sums[i]) cache[r++] = sums[t++];
+            cache[r] = sums[i];
+            cnt += j - k;
+        }
+        copy(cache.begin(), cache.begin() + t - start, sums.begin() + start);
+        return cnt;
+    }
+};
+----
+
+==== 奇偶链表
+
+----
+Given a singly linked list, group all odd nodes together followed by the even nodes. Please note here we are talking about the node number and not the value in the nodes.
+
+You should try to do it in place. The program should run in O(1) space complexity and O(nodes) time complexity.
+
+Example:
+Given 1->2->3->4->5->NULL,
+return 1->3->5->2->4->NULL.
+----
+
+这道题给了我们一个链表，让我们分开奇偶节点，所有奇节点在前，偶节点在后。我们可以使用两个指针来做，pre指向奇节点，cur指向偶节点，然后把偶节点cur后面的那个奇节点提前到pre的后面，然后pre和cur各自前进一步，此时cur又指向偶节点，pre指向当前奇节点的末尾，以此类推直至把所有的偶节点都提前了即可，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    ListNode* oddEvenList(ListNode* head) {
+        if (!head || !head->next) return head;
+        ListNode *pre = head, *cur = head->next;
+        while (cur && cur->next) {
+            ListNode *tmp = pre->next;
+            pre->next = cur->next;
+            cur->next = cur->next->next;
+            pre->next->next = tmp;
+            cur = cur->next;
+            pre = pre->next;
+        }
+        return head;
+    }
+};
+----
+
+还有一种解法，用两个奇偶指针分别指向奇偶节点的起始位置，另外需要一个单独的指针even_head来保存偶节点的起点位置，然后把奇节点的指向偶节点的下一个(一定是奇节点)，此奇节点后移一步，再把偶节点指向下一个奇节点的下一个(一定是偶节点)，此偶节点后移一步，以此类推直至末尾，此时把分开的偶节点的链表连在奇节点的链表后即可，参见代码如下: +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    ListNode* oddEvenList(ListNode* head) {
+        if (!head || !head->next) return head;
+        ListNode *odd = head, *even = head->next, *even_head = even;
+        while (even && even->next) {
+            odd = odd->next = even->next;
+            even = even->next = odd->next;
+        }
+        odd->next = even_head;
+        return head;
+    }
+};
+----
+
+==== 矩阵中的最长递增路径
+
+----
+Given an integer matrix, find the length of the longest increasing path.
+
+From each cell, you can either move to four directions: left, right, up or down. You may NOT move diagonally or move outside of the boundary (i.e. wrap-around is not allowed).
+
+Example 1:
+
+nums = [
+  [9,9,4],
+  [6,6,8],
+  [2,1,1]
+]
+Return 4
+The longest increasing path is [1, 2, 6, 9].
+----
+
+这道题给我们一个二维数组，让我们求矩阵中最长的递增路径，规定我们只能上下左右行走，不能走斜线或者是超过了边界。那么这道题的解法要用递归和DP来解，用DP的原因是为了提高效率，避免重复运算。我们需要维护一个二维动态数组dp，其中dp[i][j]表示数组中以(i,j)为起点的最长递增路径的长度，初始将dp数组都赋为0，当我们用递归调用时，遇到某个位置(x, y), 如果dp[x][y]不为0的话，我们直接返回dp[x][y]即可，不需要重复计算。我们需要以数组中每个位置都为起点调用递归来做，比较找出最大值。在以一个位置为起点用DFS搜索时，对其四个相邻位置进行判断，如果相邻位置的值大于上一个位置，则对相邻位置继续调用递归，并更新一个最大值，搜素完成后返回即可，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<int>> dirs = {{0, -1}, {-1, 0}, {0, 1}, {1, 0}};
+    int longestIncreasingPath(vector<vector<int>>& matrix) {
+        if (matrix.empty() || matrix[0].empty()) return 0;
+        int res = 1, m = matrix.size(), n = matrix[0].size();
+        vector<vector<int>> dp(m, vector<int>(n, 0));
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                res = max(res, dfs(matrix, dp, i, j));
+            }
+        }
+        return res;
+    }
+    int dfs(vector<vector<int>> &matrix, vector<vector<int>> &dp, int i, int j) {
+        if (dp[i][j]) return dp[i][j];
+        int mx = 1, m = matrix.size(), n = matrix[0].size();
+        for (auto a : dirs) {
+            int x = i + a[0], y = j + a[1];
+            if (x < 0 || x >= m || y < 0 |a| y >= n || matrix[x][y] <= matrix[i][j]) continue;
+            int len = 1 + dfs(matrix, dp, x, y);
+            mx = max(mx, len);
+        }
+        dp[i][j] = mx;
+        return mx;
+    }
+};
+----
+
+下面再来看一种BFS的解法，需要用queue来辅助遍历，我们还是需要dp数组来减少重复运算。遍历数组中的每个数字，跟上面的解法一样，把每个遍历到的点都当作BFS遍历的起始点，需要优化的是，如果当前点的dp值大于0了，说明当前点已经计算过了，我们直接跳过。否则就新建一个queue，然后把当前点的坐标加进去，再用一个变量cnt，初始化为1，表示当前点为起点的递增长度，然后进入while循环，然后cnt自增1，这里先自增1没有关系，因为只有当周围有合法的点时候才会用cnt来更新。由于当前结点周围四个相邻点距当前点距离都一样，所以采用类似二叉树层序遍历的方式，先出当前queue的长度，然后遍历跟长度相同的次数，取出queue中的首元素，对周围四个点进行遍历，计算出相邻点的坐标后，要进行合法性检查，横纵坐标不能越界，且相邻点的值要大于当前点的值，并且相邻点点dp值要小于cnt，才有更新的必要。用cnt来更新dp[x][y]，并用cnt来更新结果res，然后把相邻点排入queue中继续循环即可，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int longestIncreasingPath(vector<vector<int>>& matrix) {
+        if (matrix.empty() || matrix[0].empty()) return 0;
+        int m = matrix.size(), n = matrix[0].size(), res = 1;
+        vector<vector<int>> dirs{{0,-1},{-1,0},{0,1},{1,0}};
+        vector<vector<int>> dp(m, vector<int>(n, 0));
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j ) {
+                if (dp[i][j] > 0) continue;
+                queue<pair<int, int>> q{{{i, j}}};
+                int cnt = 1;
+                while (!q.empty()) {
+                    ++cnt;
+                    int len = q.size();
+                    for (int k = 0; k < len; ++k) {
+                        auto t = q.front(); q.pop();
+                        for (auto dir : dirs) {
+                            int x = t.first + dir[0], y = t.second + dir[1];
+                            if (x < 0 || x >= m || y < 0 || y >= n || matrix[x][y] <= matrix[t.first][t.second] || cnt <= dp[x][y]) continue;
+                            dp[x][y] = cnt;
+                            res = max(res, cnt);
+                            q.push({x, y});
+                        }
+                    }
+                }
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== 补丁数组
+
+----
+Given a sorted positive integer array nums and an integer n, add/patch elements to the array such that any number in range [1, n] inclusive can be formed by the sum of some elements in the array. Return the minimum number of patches required.
+
+Example 1:
+nums = [1, 3], n = 6
+Return 1.
+
+Combinations of nums are [1], [3], [1,3], which form possible sums of: 1, 3, 4.
+Now if we add/patch 2 to nums, the combinations are: [1], [2], [3], [1,3], [2,3], [1,2,3].
+Possible sums are 1, 2, 3, 4, 5, 6, which now covers the range [1, 6].
+So we only need 1 patch.
+----
+
+----
+这道题给我们一个有序的正数数组nums，又给了我们一个正整数n，问我们最少需要给nums加几个数字，使其能组成[1,n]之间的所有数字，注意数组中的元素不能重复使用，否则的话只有要有1，就能组成所有的数字了。这道题我又不会了，上网看到了史蒂芬大神的解法，膜拜啊，这里就全部按他的解法来讲吧。我们定义一个变量miss，用来表示[0,n]之间最小的不能表示的值，那么初始化为1，为啥不为0呢，因为n=0没啥意义，直接返回0了。那么此时我们能表示的范围是[0, miss)，表示此时我们能表示0到miss-1的数，如果此时的num <= miss，那么我们可以把我们能表示数的范围扩大到[0, miss+num)，如果num>miss，那么此时我们需要添加一个数，为了能最大限度的增加表示数范围，我们加上miss它本身，以此类推直至遍历完整个数组，我们可以得到结果。下面我们来举个例子说明：
+
+给定nums = [1, 2, 4, 11, 30], n = 50，我们需要让[0, 50]之间所有的数字都能被nums中的数字之和表示出来。
+
+首先使用1, 2, 4可能表示出0到7之间的所有数，表示范围为[0, 8)，但我们不能表示8，因为下一个数字11太大了，所以我们要在数组里加上一个8，此时能表示的范围是[0, 16)，那么我们需要插入16吗，答案是不需要，因为我们数组有1和4，可以组成5，而下一个数字11，加一起能组成16，所以有了数组中的11，我们此时能表示的范围扩大到[0, 27)，但我们没法表示27，因为30太大了，所以此时我们给数组中加入一个27，那么现在能表示的范围是[0, 54)，已经满足要求了，我们总共添加了两个数8和27，所以返回2即可。
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int minPatches(vector<int>& nums, int n) {
+        long miss = 1, res = 0, i = 0;
+        while (miss <= n) {
+            if (i < nums.size() && nums[i] <= miss) {
+                miss += nums[i++];
+            } else {
+                miss += miss;
+                ++res;
+            }
+        }
+        return res;
+    }
+};
+----
+
+下面这种方法跟上面那种方法原理都一样，稍有不同之处在于真正的patch了nums数组，把需要插入的数字真正的加入了数组中，那么最后用新数组的长度减去原始长度就知道我们加入了几个数字了。 +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int minPatches(vector<int>& nums, int n) {
+        long miss = 1, k = nums.size(), i = 0;
+        while (miss <= n) {
+            if (i >= nums.size() || nums[i] > miss) {
+                nums.insert(nums.begin() + i, miss);
+            }
+            miss += nums[i++];
+        }
+        return nums.size() - k;
+    }
+};
+----
+
+==== 验证二叉树的先序序列化
+
+----
+One way to serialize a binary tree is to use pre-oder traversal. When we encounter a non-null node, we record the node's value. If it is a null node, we record using a sentinel value such as #.
+
+     _9_
+    /   \
+   3     2
+  / \   / \
+ 4   1  #  6
+/ \ / \   / \
+# # # #   # #
+For example, the above binary tree can be serialized to the string "9,3,4,#,#,1,#,#,2,#,6,#,#", where # represents a null node.
+
+Given a string of comma separated values, verify whether it is a correct preorder traversal serialization of a binary tree. Find an algorithm without reconstructing the tree.
+
+Each comma separated value in the string must be either an integer or a character '#' representing null pointer.
+
+You may assume that the input format is always valid, for example it could never contain two consecutive commas such as "1,,3".
+
+Example 1:
+"9,3,4,#,#,1,#,#,2,#,6,#,#"
+Return true
+----
+
+----
+这道题给了我们一个类似序列化二叉树后的字符串，关于二叉树的序列化和去序列化可以参见我之前的博客Serialize and Deserialize Binary Tree，这道题让我们判断给定是字符串是不是一个正确的序列化的二叉树的字符串。那么根据之前那边博客的解法，我们还是要用istringsteam来操作字符串，C++里面没有像Java那样有字符串的split函数，可以直接分隔任意字符串，我们只能使用getline这个函数，来将字符串流的内容都存到一个vector数组中。我们通过举一些正确的例子，比如"9,3,4,#,#,1,#,#,2,#,6,#,#" 或者"9,3,4,#,#,1,#,#,2,#,6,#,#"等等，可以观察出如下两个规律：
+
+1. 数字的个数总是比#号少一个
+
+2. 最后一个一定是#号
+
+那么我们加入先不考虑最后一个#号，那么此时数字和#号的个数应该相同，如果我们初始化一个为0的计数器，遇到数字，计数器加1，遇到#号，计数器减1，那么到最后计数器应该还是0。下面我们再来看两个返回False的例子，"#,7,6,9,#,#,#"和"7,2,#,2,#,#,#,6,#"，那么通过这两个反例我们可以看出，如果根节点为空的话，后面不能再有节点，而且不能有三个连续的#号出现。所以我们再加减计数器的时候，如果遇到#号，且此时计数器已经为0了，再减就成负数了，就直接返回False了，因为正确的序列里，任何一个位置i，在[0, i]范围内的#号数都不大于数字的个数的。当循环完成后，我们检测计数器是否为0的同时还要看看最后一个字符是不是#号。参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool isValidSerialization(string preorder) {
+        istringstream in(preorder);
+        vector<string> v;
+        string t = "";
+        int cnt = 0;
+        while (getline(in, t, ',')) v.push_back(t);
+        for (int i = 0; i < v.size() - 1; ++i) {
+            if (v[i] == "#") {
+                if (cnt == 0) return false;
+                --cnt;
+            } else ++cnt;
+        }
+        return cnt == 0 && v.back() == "#";
+    }
+};
+----
+
+下面这种解法由网友edyyy提供，不需要建立解法一中的额外数组，而是边解析边判断，遇到不合题意的情况直接返回false，而不用全部解析完再来验证是否合法，提高了运算的效率。我们用一个变量degree表示能容忍的"#"的个数，degree初始化为1。再用一个布尔型变量degree_is_zero来记录degree此时是否为0的状态，这样的设计很巧妙，可以cover到"#"开头，但后面还跟有数字的情况，比如"#,1,2"这种情况，当检测到"#"时，degree自减1，此时若degree为0了，degree_is_zero赋值为true，那么如果后面还跟有其他东西的话，在下次循环开始开始前，先判断degree_is_zero，如果为true的话，直接返回false。而当首字符为数字的话，degree自增1，那么此时degree就成了2，表示后面可以再容忍两个"#"。当循环退出的时候，此时判断degree是否为0，因为我们要补齐"#"的个数，少了也是不对的，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool isValidSerialization(string preorder) {
+        istringstream in(preorder);
+        string t = "";
+        int degree = 1;
+        bool degree_is_zero = false;;
+        while (getline(in, t, ',')) {
+            if (degree_is_zero) return false;
+            if (t == "#") {
+                if (--degree == 0) degree_is_zero = true;
+            } else ++degree;
+        }
+        return degree == 0;
+    }
+};
+----
+
+下面这种解法就更加巧妙了，连字符串解析都不需要了，用一个变量capacity来记录能容忍"#"的个数，跟上面解法中的degree一个作用，然后我们给preorder末尾加一个逗号，这样可以处理末尾的"#"。我们遍历preorder字符串，如果遇到了非逗号的字符，直接跳过，否则的话capacity自减1，如果此时capacity小于0了，直接返回true。此时再判断逗号前面的字符是否为"#"，如果不是的话，capacity自增2。这种设计非常巧妙，如果逗号前面是"#"，我们capacity自减1没问题，因为容忍了一个"#"；如果前面是数字，那么先自减的1，可以看作是初始化的1被减了，然后再自增2，因为每多一个数字，可以多容忍两个"#"，最后还是要判断capacity是否为0，跟上面的解法一样，我们要补齐"#"的个数，少了也是不对的，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool isValidSerialization(string preorder) {
+        int capacity = 1;
+        preorder += ",";
+        for (int i = 0; i < preorder.size(); ++i) {
+            if (preorder[i] != ',') continue;
+            if (--capacity < 0) return false;
+            if (preorder[i - 1] != '#') capacity += 2;
+        }
+        return capacity == 0;
+    }
+};
+----
+
+==== 重建行程单
+
+----
+Given a list of airline tickets represented by pairs of departure and arrival airports [from, to], reconstruct the itinerary in order. All of the tickets belong to a man who departs from JFK. Thus, the itinerary must begin with JFK.
+
+Note:
+
+If there are multiple valid itineraries, you should return the itinerary that has the smallest lexical order when read as a single string. For example, the itinerary ["JFK", "LGA"] has a smaller lexical order than ["JFK", "LGB"].
+All airports are represented by three capital letters (IATA code).
+You may assume all tickets may form at least one valid itinerary.
+
+Example 1:
+tickets = [["MUC", "LHR"], ["JFK", "MUC"], ["SFO", "SJC"], ["LHR", "SFO"]]
+Return ["JFK", "MUC", "LHR", "SFO", "SJC"].
+----
+
+这道题给我们一堆飞机票，让我们建立一个行程单，如果有多种方法，取其中字母顺序小的那种方法。这道题的本质是有向图的遍历问题，那么LeetCode关于有向图的题只有两道Course Schedule和Course Schedule II，而那两道是关于有向图的顶点的遍历的，而本题是关于有向图的边的遍历。每张机票都是有向图的一条边，我们需要找出一条经过所有边的路径，那么DFS不是我们的不二选择。先来看递归的结果，我们首先把图建立起来，通过邻接链表来建立。由于题目要求解法按字母顺序小的，那么我们考虑用multiset，可以自动排序。等我们图建立好了以后，从节点JFK开始遍历，只要当前节点映射的multiset里有节点，我们取出这个节点，将其在multiset里删掉，然后继续递归遍历这个节点，由于题目中限定了一定会有解，那么等图中所有的multiset中都没有节点的时候，我们把当前节点存入结果中，然后再一层层回溯回去，将当前节点都存入结果，那么最后我们结果中存的顺序和我们需要的相反的，我们最后再翻转一下即可，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<string> findItinerary(vector<pair<string, string>> tickets) {
+        vector<string> res;
+        unordered_map<string, multiset<string>> m;
+        for (auto a : tickets) {
+            m[a.first].insert(a.second);
+        }
+        dfs(m, "JFK", res);
+        return vector<string> (res.rbegin(), res.rend());
+    }
+    void dfs(unordered_map<string, multiset<string>>& m, string s, vector<string>& res) {
+        while (m[s].size()) {
+            string t = *m[s].begin();
+            m[s].erase(m[s].begin());
+            dfs(m, t, res);
+        }
+        res.push_back(s);
+    }
+};
+----
+
+----
+下面我们来看迭代的解法，需要借助栈来实现，来实现回溯功能。比如对下面这个例子：
+
+tickets = [["JFK", "KUL"], ["JFK", "NRT"], ["MRT", "JFK"]]
+
+那么建立的图如下：
+
+JFK -> KUL, NRT
+
+NRT -> JFK
+
+由于multiset是按顺序存的，所有KUL会在NRT之前，那么我们起始从JFK开始遍历，先到KUL，但是KUL没有下家了，这时候图中的边并没有遍历完，此时我们需要将KUL存入栈中，然后继续往下遍历，最后再把栈里的节点存回结果即可，参见代码如下：
+----
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<string> findItinerary(vector<pair<string, string>> tickets) {
+        vector<string> res;
+        stack<string> st{{"JFK"}};
+        unordered_map<string, multiset<string>> m;
+        for (auto t : tickets) {
+            m[t.first].insert(t.second);
+        }
+        while (!st.empty()) {
+            string t = st.top();
+            if (m[t].empty()) {
+                res.insert(res.begin(), t);
+                st.pop();
+            } else {
+                st.push(*m[t].begin());
+                m[t].erase(m[t].begin());
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== 最大的二分搜索子树
+
+----
+Given a binary tree, find the largest subtree which is a Binary Search Tree (BST), where largest means subtree with largest number of nodes in it.
+
+Note:
+A subtree must include all of its descendants.
+Here's an example:
+
+    10
+    / \
+   5  15
+  / \   \
+ 1   8   7
+The Largest BST Subtree in this case is the highlighted one.
+The return value is the subtree's size, which is 3.
+
+
+
+Hint:
+
+You can recursively use algorithm similar to 98. Validate Binary Search Tree at each node of the tree, which will result in O(nlogn) time complexity.
+Follow up:
+Can you figure out ways to solve it with O(n) time complexity?
+----
+
+这道题让我们求一棵二分树的最大二分搜索子树，所谓二分搜索树就是满足左<根<右的二分树，我们需要返回这个二分搜索子树的节点个数。题目中给的提示说我们可以用之前那道Validate Binary Search Tree的方法来做，时间复杂度为O(n2)，这种方法是把每个节点都当做根节点，来验证其是否是二叉搜索数，并记录节点的个数，若是二叉搜索树，就更新最终结果，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int largestBSTSubtree(TreeNode* root) {
+        int res = 0;
+        dfs(root, res);
+        return res;
+    }
+    void dfs(TreeNode *root, int &res) {
+        if (!root) return;
+        int d = countBFS(root, INT_MIN, INT_MAX);
+        if (d != -1) {
+            res = max(res, d);
+            return;
+        }
+        dfs(root->left, res);
+        dfs(root->right, res);
+    }
+    int countBFS(TreeNode *root, int mn, int mx) {
+        if (!root) return 0;
+        if (root->val <= mn || root->val >= mx) return -1;
+        int left = countBFS(root->left, mn, root->val);
+        if (left == -1) return -1;
+        int right = countBFS(root->right, root->val, mx);
+        if (right == -1) return -1;
+        return left + right + 1;
+    }
+};
+----
+
+下面我们来看一种更简洁的写法，对于每一个节点，都来验证其是否是BST，如果是的话，我们就统计节点的个数即可，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int largestBSTSubtree(TreeNode* root) {
+        if (!root) return 0;
+        if (isValid(root, INT_MIN, INT_MAX)) return count(root);
+        return max(largestBSTSubtree(root->left), largestBSTSubtree(root->right));
+    }
+    bool isValid(TreeNode* root, int mn, int mx) {
+        if (!root) return true;
+        if (root->val <= mn || root->val >= mx) return false;
+        return isValid(root->left, mn, root->val) && isValid(root->right, root->val, mx);
+    }
+    int count(TreeNode* root) {
+        if (!root) return 0;
+        return count(root->left) + count(root->right) + 1;
+    }
+};
+----
+
+题目中的Follow up让我们用O(n)的时间复杂度来解决问题，我们还是采用DFS的思想来解题，由于时间复杂度的限制，只允许我们遍历一次整个二叉树，由于满足题目要求的 二叉搜索子树必定是有叶节点的，所以我们的思路就是先递归到最左子节点，然后逐层往上递归，对于每一个节点，我们都记录当前最大的BST的节点数，当做为左子树的最大值，和做为右子树的最小值，当每次遇到左子节点不存在或者当前节点值大于左子树的最大值，且右子树不存在或者当前节点值小于右子树的最小数时，说明BST的节点数又增加了一个，我们更新结果及其参数，如果当前节点不是BST的节点，那么我们更新BST的节点数res为左右子节点的各自的BST的节点数的较大值，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int largestBSTSubtree(TreeNode* root) {
+        int res = 0, mn = INT_MIN, mx = INT_MAX;
+        bool d = isValidBST(root, mn, mx, res);
+        return res;
+    }
+    bool isValidBST(TreeNode *root, int &mn, int &mx, int &res) {
+        if (!root) return true;
+        int left_n = 0, right_n = 0, left_mn = INT_MIN;
+        int right_mn = INT_MIN, left_mx = INT_MAX, right_mx = INT_MAX;
+        bool left = isValidBST(root->left, left_mn, left_mx, left_n);
+        bool right = isValidBST(root->right, right_mn, right_mx, right_n);
+        if (left && right) {
+            if ((!root->left || root->val > left_mx) && (!root->right || root->val < right_mn)) {
+                res = left_n + right_n + 1;
+                mn = root->left ? left_mn : root->val;
+                mx = root->right ? right_mx : root->val;
+                return true;
+            }
+        }
+        res = max(left_n, right_n);
+        return false;
+    }
+};
+----
+
+==== 递增的三元子序列
+
+----
+Given an unsorted array return whether an increasing subsequence of length 3 exists or not in the array.
+
+Formally the function should:
+
+Return true if there exists i, j, k
+such that arr[i] < arr[j] < arr[k] given 0 ≤ i < j < k ≤ n-1 else return false.
+
+Your algorithm should run in O(n) time complexity and O(1) space complexity.
+
+Examples:
+Given [1, 2, 3, 4, 5],
+return true.
+----
+
+这道题让我们求一个无序数组中是否有任意三个数字是递增关系的，我最先相处的方法是用一个dp数组，dp[i]表示在i位置之前小于等于nums[i]的数字的个数(包括其本身)，我们初始化dp数组都为1，然后我们开始遍历原数组，对当前数字nums[i]，我们遍历其之前的所有数字，如果之前某个数字nums[j]小于nums[i]，那么我们更新dp[i] = max(dp[i], dp[j] + 1)，如果此时dp[i]到3了，则返回true，若遍历完成，则返回false，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool increasingTriplet(vector<int>& nums) {
+        vector<int> dp(nums.size(), 1);
+        for (int i = 0; i < nums.size(); ++i) {
+            for (int j = 0; j < i; ++j) {
+                if (nums[j] < nums[i]) {
+                    dp[i] = max(dp[i], dp[j] + 1);
+                    if (dp[i] >= 3) return true;
+                }
+            }
+        }
+        return false;
+    }
+};
+----
+
+但是题目中要求我们O(n)的时间复杂度和O(1)的空间复杂度，上面的那种方法一条都没满足，所以白写了。我们下面来看满足题意的方法，这个思路是使用两个指针m1和m2，初始化为整型最大值，我们遍历数组，如果m1大于等于当前数字，则将当前数字赋给m1；如果m1小于当前数字且m2大于等于当前数字，那么将当前数字赋给m2，一旦m2被更新了，说明一定会有一个数小于m2，那么我们就成功的组成了一个长度为2的递增子序列，所以我们一旦遍历到比m2还大的数，我们直接返回ture。如果我们遇到比m1小的数，还是要更新m1，有可能的话也要更新m2为更小的值，毕竟m2的值越小，能组成长度为3的递增序列的可能性越大，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool increasingTriplet(vector<int>& nums) {
+        int m1 = INT_MAX, m2 = INT_MAX;
+        for (auto a : nums) {
+            if (m1 >= a) m1 = a;
+            else if (m2 >= a) m2 = a;
+            else return true;
+        }
+        return false;
+    }
+};
+----
+
+----
+如果觉得上面的解法不容易想出来，那么如果能想出下面这种解法，估计面试官也会为你点赞。这种方法的虽然不满足常数空间的要求，但是作为对暴力搜索的优化，也是一种非常好的解题思路。这个解法的思路是建立两个数组，forward数组和backward数组，其中forward[i]表示[0, i]之间最小的数，backward[i]表示[i, n-1]之间最大的数，那么对于任意一个位置i，如果满足 forward[i] < nums[i] < backward[i]，则表示这个递增三元子序列存在，举个例子来看吧，比如：
+
+nums:        8  3  5  1  6
+
+foward:      8  3  3  1  1
+
+backward:  8  6  6  6  6
+
+我们发现数字5满足forward[i] < nums[i] < backward[i]，所以三元子序列存在。
+----
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool increasingTriplet(vector<int>& nums) {
+        if (nums.size() < 3) return false;
+        int n = nums.size();
+        vector<int> f(n, nums[0]), b(n, nums.back());
+        for (int i = 1; i < n; ++i) {
+            f[i] = min(f[i - 1], nums[i]);
+        }
+        for (int i = n - 2; i >= 0; --i) {
+            b[i] = max(b[i + 1], nums[i]);
+        }
+        for (int i = 0; i < n; ++i) {
+            if (nums[i] > f[i] && nums[i] < b[i]) return true;
+        }
+        return false;
+    }
+};
+----
+
+==== 自交
+
+----
+You are given an array x of n positive numbers. You start at point (0,0) and moves x[0] metres to the north, then x[1] metres to the west, x[2] metres to the south, x[3] metres to the east and so on. In other words, after each move your direction changes counter-clockwise.
+
+Write a one-pass algorithm with O(1) extra space to determine, if your path crosses itself, or not.
+
+Example 1:
+Given x = [2, 1, 1, 2],
+┌───┐
+│   │
+└───┼──>
+    │
+
+Return true (self crossing)
+
+Example 2:
+Given x = [1, 2, 3, 4],
+┌──────┐
+│      │
+│
+│
+└────────────>
+----
+
+这道题给了我们一个一位数组，每个数字是个移动量，按照上左下右的顺序来前进每一个位移量，问我们会不会和之前的轨迹相交，而且限定了常量的空间复杂度，我立马想到了贪吃蛇游戏，但是这条蛇不会自动向前移动哈。言归正传，这题我不会，参考的网上大神们的解法，实际上相交的情况只有以下三种情况： +
+
+----
+x(1)
+┌───┐
+x(2)│   │x(0)
+└───┼──>
+x(3)│
+
+第一类是第四条边和第一条边相交的情况，需要满足的条件是第一条边大于等于第三条边，第四条边大于等于第二条边。同样适用于第五条边和第二条边相交，第六条边和第三条边相交等等，依次向后类推的情况...
+
+      x(1)
+    ┌──────┐
+    │      │x(0)
+x(2)│      ^
+    │      │x(4)
+    └──────│
+      x(3)
+
+第二类是第五条边和第一条边重合相交的情况，需要满足的条件是第二条边和第四条边相等，第五条边大于等于第三条边和第一条边的差值，同样适用于第六条边和第二条边重合相交的情况等等依次向后类推...
+
+  x(1)
+┌──────┐
+│      │x(0)
+x(2)│     <│────│
+│       x(5)│x(4)
+└───────────│
+  x(3)
+第三类是第六条边和第一条边相交的情况，需要满足的条件是第四条边大于等于第二条边，第三条边大于等于第五条边，第五条边大于等于第三条边和第一条边的差值，第六条边大于等于第四条边和第二条边的差值，同样适用于第七条边和第二条边相交的情况等等依次向后类推...
+----
+
+那么根据上面的分析，我们不难写出代码如下： +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool isSelfCrossing(vector<int>& x) {
+        for (int i = 3; i < x.size(); ++i) {
+            if (x[i] >= x[i - 2] && x[i - 3] >= x[i - 1]) {
+                return true;
+            }
+            if (i >= 4 && x[i-1] == x[i-3] && x[i] >= x[i-2] - x[i-4]) {
+                return true;
+            }
+            if (i >= 5 && x[i-2] >= x[i-4] && x[i-3] >= x[i-1] && x[i-1] >= x[i-3] - x[i-5] && x[i] >= x[i-2] - x[i-4]) {
+                return true;
+            }
+        }
+        return false;
+    }
+};
+----
+
+==== 回文对
+
+----
+Given a list of unique words. Find all pairs of distinct indices (i, j) in the given list, so that the concatenation of the two words, i.e. words[i] + words[j] is a palindrome.
+
+Example 1:
+Given words = ["bat", "tab", "cat"]
+Return [[0, 1], [1, 0]]
+The palindromes are ["battab", "tabbat"]
+----
+
+这道题给我们了许多单词，让我们找出回文对，就是两个单词拼起来是个回文字符串，我最开始尝试的是brute force的方法，每两个单词都拼接起来然后判断是否是回文字符串，但是通过不了OJ，会超时，可能这也是这道题标为Hard的原因之一吧，那么我们只能找别的方法来做，通过学习大神们的解法，发现如下两种方法比较好，其实两种方法的核心思想都一样，写法略有不同而已，那么我们先来看第一种方法吧，要用到哈希表来建立每个单词和其位置的映射，然后需要一个set来保存出现过的单词的长度，算法的思想是，遍历单词集，对于遍历到的单词，我们对其翻转一下，然后在哈希表查找翻转后的字符串是否存在，注意不能和原字符串的坐标位置相同，因为有可能一个单词翻转后和原单词相等，现在我们只是处理了bat和tab的情况，还存在abcd和cba，dcb和abcd这些情况需要考虑，这就是我们为啥需要用set，由于set是自动排序的，我们可以找到当前单词长度在set中的iterator，然后从开头开始遍历set，遍历比当前单词小的长度，比如abcdd翻转后为ddcba，我们发现set中有长度为3的单词，然后我们dd是否为回文串，若是，再看cba是否存在于哈希表，若存在，则说明abcdd和cba是回文对，存入结果中，对于dcb和aabcd这类的情况也是同样处理，我们要在set里找的字符串要在遍历到的字符串的左边和右边分别尝试，看是否是回文对，这样遍历完单词集，就能得到所有的回文对，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<int>> palindromePairs(vector<string>& words) {
+        vector<vector<int>> res;
+        unordered_map<string, int> m;
+        set<int> s;
+        for (int i = 0; i < words.size(); ++i) {
+            m[words[i]] = i;
+            s.insert(words[i].size());
+        }
+        for (int i = 0; i < words.size(); ++i) {
+            string t = words[i];
+            int len = t.size();
+            reverse(t.begin(), t.end());
+            if (m.count(t) && m[t] != i) {
+                res.push_back({i, m[t]});
+            }
+            auto a = s.find(len);
+            for (auto it = s.begin(); it != a; ++it) {
+                int d = *it;
+                if (isValid(t, 0, len - d - 1) && m.count(t.substr(len - d))) {
+                    res.push_back({i, m[t.substr(len - d)]});
+                }
+                if (isValid(t, d, len - 1) && m.count(t.substr(0, d))) {
+                    res.push_back({m[t.substr(0, d)], i});
+                }
+            }
+        }
+        return res;
+    }
+    bool isValid(string t, int left, int right) {
+        while (left < right) {
+            if (t[left++] != t[right--]) return false;
+        }
+        return true;
+    }
+};
+----
+下面这种方法没有用到set，但实际上循环的次数要比上面多，因为这种方法对于遍历到的字符串，要验证其所有可能的子串，看其是否在哈希表里存在，并且能否组成回文对，anyway，既然能通过OJ，说明还是比brute force要快的，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<int>> palindromePairs(vector<string>& words) {
+        vector<vector<int>> res;
+        unordered_map<string, int> m;
+        for (int i = 0; i < words.size(); ++i) m[words[i]] = i;
+        for (int i = 0; i < words.size(); ++i) {
+            int l = 0, r = 0;
+            while (l <= r) {
+                string t = words[i].substr(l, r - l);
+                reverse(t.begin(), t.end());
+                if (m.count(t) && i != m[t] && isValid(words[i].substr(l == 0 ? r : 0, l == 0 ? words[i].size() - r: l))) {
+                    if (l == 0) res.push_back({i, m[t]});
+                    else res.push_back({m[t], i});
+                }
+                if (r < words[i].size()) ++r;
+                else ++l;
+            }
+        }
+        return res;
+    }
+    bool isValid(string t) {
+        for (int i = 0; i < t.size() / 2; ++i) {
+            if (t[i] != t[t.size() - 1 - i]) return false;
+        }
+        return true;
+    }
+};
+----
+
+==== 打家劫舍之三
+
+----
+he thief has found himself a new place for his thievery again. There is only one entrance to this area, called the "root." Besides the root, each house has one and only one parent house. After a tour, the smart thief realized that "all houses in this place forms a binary tree". It will automatically contact the police if two directly-linked houses were broken into on the same night.
+
+Determine the maximum amount of money the thief can rob tonight without alerting the police.
+
+Example 1:
+
+     3
+    / \
+   2   3
+    \   \
+     3   1
+Maximum amount of money the thief can rob = 3 + 3 + 1 = 7.
+----
+
+这道题是之前那两道House Robber II和House Robber的拓展，这个小偷又偷出新花样了，沿着二叉树开始偷，碉堡了，题目中给的例子看似好像是要每隔一个偷一次，但实际上不一定只隔一个，比如如下这个例子： +
+
+----
+
+        4
+       /
+      1
+     /
+    2
+   /
+  3
+----
+
+如果隔一个偷，那么是4+2=6，其实最优解应为4+3=7，隔了两个，所以说纯粹是怎么多怎么来，那么这种问题是很典型的递归问题，我们可以利用回溯法来做，因为当前的计算需要依赖之前的结果，那么我们对于某一个节点，如果其左子节点存在，我们通过递归调用函数，算出不包含左子节点返回的值，同理，如果右子节点存在，算出不包含右子节点返回的值，那么此节点的最大值可能有两种情况，一种是该节点值加上不包含左子节点和右子节点的返回值之和，另一种是左右子节点返回值之和不包含当期节点值，取两者的较大值返回即可，但是这种方法无法通过OJ，超时了，所以我们必须优化这种方法，这种方法重复计算了很多地方，比如要完成一个节点的计算，就得一直找左右子节点计算，我们可以把已经算过的节点用哈希表保存起来，以后递归调用的时候，现在哈希表里找，如果存在直接返回，如果不存在，等计算出来后，保存到哈希表中再返回，这样方便以后再调用，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int rob(TreeNode* root) {
+        unordered_map<TreeNode*, int> m;
+        return dfs(root, m);
+    }
+    int dfs(TreeNode *root, unordered_map<TreeNode*, int> &m) {
+        if (!root) return 0;
+        if (m.count(root)) return m[root];
+        int val = 0;
+        if (root->left) {
+            val += dfs(root->left->left, m) + dfs(root->left->right, m);
+        }
+        if (root->right) {
+            val += dfs(root->right->left, m) + dfs(root->right->right, m);
+        }
+        val = max(val + root->val, dfs(root->left, m) + dfs(root->right, m));
+        m[root] = val;
+        return val;
+    }
+};
+----
+
+下面再来看一种方法，这种方法的递归函数返回一个大小为2的一维数组res，其中res[0]表示不包含当前节点值的最大值，res[1]表示包含当前值的最大值，那么我们在遍历某个节点时，首先对其左右子节点调用递归函数，分别得到包含与不包含左子节点值的最大值，和包含于不包含右子节点值的最大值，那么当前节点的res[0]就是左子节点两种情况的较大值加上右子节点两种情况的较大值，res[1]就是不包含左子节点值的最大值加上不包含右子节点值的最大值，和当前节点值之和，返回即可，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+
+class Solution {
+public:
+    int rob(TreeNode* root) {
+        vector<int> res = dfs(root);
+        return max(res[0], res[1]);
+    }
+    vector<int> dfs(TreeNode *root) {
+        if (!root) return vector<int>(2, 0);
+        vector<int> left = dfs(root->left);
+        vector<int> right = dfs(root->right);
+        vector<int> res(2, 0);
+        res[0] = max(left[0], left[1]) + max(right[0], right[1]);
+        res[1] = left[0] + right[0] + root->val;
+        return res;
+    }
+};
+----
+
+下面这种解法由网友edyyy提供，仔细看了一下，也非常的巧妙，思路和解法二有些类似。这里的helper函数返回当前结点为根结点的最大rob的钱数，里面的两个参数l和r表示分别从左子结点和右子结点开始rob，分别能获得的最大钱数。在递归函数里面，如果当前结点不存在，直接返回0。否则我们对左右子结点分别调用递归函数，得到l和r。另外还得到四个变量，ll和lr表示左子结点的左右子结点的最大rob钱数，rl和rr表示右子结点的最大rob钱数。那么我们最后返回的值其实是两部分的值比较，其中一部分的值是当前的结点值加上ll, lr, rl, 和rr这四个值，这不难理解，因为抢了当前的房屋，那么左右两个子结点就不能再抢了，但是再下一层的四个子结点都是可以抢的；另一部分是不抢当前房屋，而是抢其左右两个子结点，即l+r的值，返回两个部分的值中的较大值即可，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int rob(TreeNode* root) {
+        int l = 0, r = 0;
+        return helper(root, l, r);
+    }
+    int helper(TreeNode* node, int& l, int& r) {
+        if (!node) return 0;
+        int ll = 0, lr = 0, rl = 0, rr = 0;
+        l = helper(node->left, ll, lr);
+        r = helper(node->right, rl, rr);
+        return max(node->val + ll + lr + rl + rr, l + r);
+    }
+};
+----
+
+==== 计数位
+
+----
+Given a non negative integer number num. For every numbers i in the range 0 ≤ i ≤ num calculate the number of 1's in their binary representation and return them as an array.
+
+Example:
+For num = 5 you should return [0,1,1,2,1,2].
+
+Follow up:
+
+It is very easy to come up with a solution with run time O(n*sizeof(integer)). But can you do it in linear time O(n) /possibly in a single pass?
+Space complexity should be O(n).
+Can you do it like a boss? Do it without using any builtin function like __builtin_popcount in c++ or in any other language.
+Hint:
+
+You should make use of what you have produced already.
+Divide the numbers in ranges like [2-3], [4-7], [8-15] and so on. And try to generate new range from previous.
+Or does the odd/even status of the number help you in calculating the number of 1s?
+----
+
+这道题给我们一个整数n，然我们统计从0到n每个数的二进制写法的1的个数，存入一个一维数组中返回，题目中明确表示不希望我们一个数字一个数字，一位一位的傻算，而是希望我们找出规律，而且题目中也提示了我们注意[2-3], [4-7], [8-15]这些区间的规律，那么我们写出0到15的数的二进制和1的个数如下： +
+
+----
+0    0000    0
+-------------
+1    0001    1
+-------------
+2    0010    1
+3    0011    2
+-------------
+4    0100    1
+5    0101    2
+6    0110    2
+7    0111    3
+-------------
+8    1000    1
+9    1001    2
+10   1010    2
+11   1011    3
+12   1100    2
+13   1101    3
+14   1110    3
+15   1111    4
+----
+我最先看出的规律是这样的，除去前两个数字0个1，从2开始，2和3，是[21, 22)区间的，值为1和2。而4到7属于[22, 23)区间的，值为1,2,2,3，前半部分1和2和上一区间相同，2和3是上面的基础上每个数字加1。再看8到15，属于[23, 24)区间的，同样满足上述规律，所以可以写出代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> countBits(int num) {
+        if (num == 0) return {0};
+        vector<int> res{0, 1};
+        int k = 2, i = 2;
+        while (i <= num) {
+            for (i = pow(2, k - 1); i < pow(2, k); ++i) {
+                if (i > num) break;
+                int t = (pow(2, k) - pow(2, k - 1)) / 2;
+                if (i < pow(2, k - 1) + t) res.push_back(res[i - t]);
+                else res.push_back(res[i - t] + 1);
+            }
+            ++k;
+        }
+        return res;
+    }
+};
+----
+
+下面来看一种投机取巧的方法，直接利用了built-in的函数bitset的count函数可以直接返回1的个数，题目中说了不提倡用这种方法，写出来只是多一种思路而已： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> countBits(int num) {
+        vector<int> res;
+        for (int i = 0; i <= num; ++i) {
+            res.push_back(bitset<32>(i).count());
+        }
+        return res;
+    }
+};
+----
+
+下面这种方法相比第一种方法就要简洁很多了，这个规律找的更好，规律是，从1开始，遇到偶数时，其1的个数和该偶数除以2得到的数字的1的个数相同，遇到奇数时，其1的个数等于该奇数除以2得到的数字的1的个数再加1，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> countBits(int num) {
+        vector<int> res{0};
+        for (int i = 1; i <= num; ++i) {
+            if (i % 2 == 0) res.push_back(res[i / 2]);
+            else res.push_back(res[i / 2] + 1);
+        }
+        return res;
+    }
+};
+----
+
+下面这种方法就更加巧妙了，巧妙的利用了i&(i - 1)， 这个本来是用来判断一个数是否是2的指数的快捷方法，比如8，二进制位1000, 那么8&(8-1)为0，只要为0就是2的指数, 那么我们现在来看一下0到15的数字和其对应的i&(i - 1)值： +
+
+----
+i    bin       '1'    i&(i-1)
+0    0000    0
+-----------------------
+1    0001    1    0000
+-----------------------
+2    0010    1    0000
+3    0011    2    0010
+-----------------------
+4    0100    1    0000
+5    0101    2    0100
+6    0110    2    0100
+7    0111    3    0110
+-----------------------
+8    1000    1    0000
+9    1001    2    1000
+10   1010    2    1000
+11   1011    3    1010
+12   1100    2    1000
+13   1101    3    1100
+14   1110    3    1100
+15   1111    4    1110
+----
+
+我们可以发现每个i值都是i&(i-1)对应的值加1，这样我们就可以写出代码如下： +
+
+**解法4:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> countBits(int num) {
+        vector<int> res(num + 1, 0);
+        for (int i = 1; i <= num; ++i) {
+            res[i] = res[i & (i - 1)] + 1;
+        }
+        return res;
+    }
+};
+----
+
+==== 嵌套链表权重和
+
+----
+Given a nested list of integers, return the sum of all integers in the list weighted by their depth.
+
+Each element is either an integer, or a list -- whose elements may also be integers or other lists.
+
+Example 1:
+Given the list [[1,1],2,[1,1]], return 10. (four 1's at depth 2, one 2 at depth 1)
+----
+
+这道题定义了一种嵌套链表的结构，链表可以无限往里嵌套，规定每嵌套一层，深度加1，让我们求权重之和，就是每个数字乘以其权重，
+再求总和。那么我们考虑，由于嵌套层数可以很大，所以我们用深度优先搜索DFS会很简单，每次遇到嵌套的，递归调用函数，
+一层一层往里算就可以了，我最先想的方法是遍历给的嵌套链表的数组，对于每个嵌套链表的对象，调用getSum函数，并赋深度值1，
+累加起来返回。在getSum函数中，首先判断其是否为整数，如果是，则返回当前深度乘以整数，如果不是，那么我们再遍历嵌套数组，
+对每个嵌套链表再调用递归函数，将返回值累加起来返回即可，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int depthSum(vector<NestedInteger>& nestedList) {
+        int res = 0;
+        for (auto a : nestedList) {
+            res += getSum(a, 1);
+        }
+        return res;
+    }
+    int getSum(NestedInteger ni, int level) {
+        int res = 0;
+        if (ni.isInteger()) return level * ni.getInteger();
+        for (auto a : ni.getList()) {
+            res += getSum(a, level + 1);
+        }
+        return res;
+    }
+};
+----
+但其实上面的方法可以优化，我们可以把给的那个嵌套链表的一维数组直接当做一个嵌套链表的对象，然后调用递归函数，递归函数的处理方法跟上面一样，只不过用了个三元处理使其看起来更加简洁了一些： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int depthSum(vector<NestedInteger>& nestedList) {
+        return helper(nestedList, 1);
+    }
+    int helper(vector<NestedInteger>& nl, int depth) {
+        int res = 0;
+        for (auto a : nl) {
+            res += a.isInteger() ? a.getInteger() * depth : helper(a.getList(), depth + 1);
+        }
+        return res;
+    }
+};
+----
+
+==== 最多有K个不同字符的最长子串
+
+----
+Given a string, find the length of the longest substring T that contains at most k distinct characters.
+
+For example, Given s = “eceba” and k = 2,
+
+T is "ece" which its length is 3.
+----
+
+这道题是之前那道Longest Substring with At Most Two Distinct Characters的拓展，而且那道题中的解法一和解法二直接将2换成k就行了，具体讲解请参考之前那篇博客： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int lengthOfLongestSubstringKDistinct(string s, int k) {
+        int res = 0, left = 0;
+        unordered_map<char, int> m;
+        for (int i = 0; i < s.size(); ++i) {
+            ++m[s[i]];
+            while (m.size() > k) {
+                if (--m[s[left]] == 0) m.erase(s[left]);
+                ++left;
+            }
+            res = max(res, i - left + 1);
+        }
+        return res;
+    }
+};
+----
+具体讲解请参考之前那篇博客Longest Substring with At Most Two Distinct Characters，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int lengthOfLongestSubstringKDistinct(string s, int k) {
+        int res = 0, left = 0;
+        unordered_map<char, int> m;
+        for (int i = 0; i < s.size(); ++i) {
+            m[s[i]] = i;
+            while (m.size() > k) {
+                if (m[s[left]] == left) m.erase(s[left]);
+                ++left;
+            }
+            res = max(res, i - left + 1);
+        }
+        return res;
+    }
+};
+----

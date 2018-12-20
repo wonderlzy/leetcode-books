@@ -1,0 +1,1484 @@
+==== 添加括号的不同方式
+
+----
+Given a string of numbers and operators, return all possible results from computing all the different possible ways to group numbers and operators. The valid operators are +, -and *.
+
+
+Example 1
+
+Input: "2-1-1".
+
+((2-1)-1) = 0
+(2-(1-1)) = 2
+Output: [0, 2]
+----
+
+这道题让给我们一个可能含有加减乘的表达式，让我们在任意位置添加括号，求出所有可能表达式的不同值。
+这道题跟之前的那道Unique Binary Search Trees II 独一无二的二叉搜索树之二用的方法一样，用递归来解，
+划分左右子树，递归构造。 +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> diffWaysToCompute(string input) {
+        vector<int> res;
+        for (int i = 0; i < input.size(); ++i) {
+            if (input[i] == '+' || input[i] == '-' || input[i] == '*') {
+                vector<int> left = diffWaysToCompute(input.substr(0, i));
+                vector<int> right = diffWaysToCompute(input.substr(i + 1));
+                for (int j = 0; j < left.size(); ++j) {
+                    for (int k = 0; k < right.size(); ++k) {
+                        if (input[i] == '+') res.push_back(left[j] + right[k]);
+                        else if (input[i] == '-') res.push_back(left[j] - right[k]);
+                        else res.push_back(left[j] * right[k]);
+                    }
+                }
+            }
+        }
+        if (res.empty()) res.push_back(atoi(input.c_str()));
+        return res;
+    }
+};
+----
+
+==== 验证变位词
+
+----
+Given two strings s and t, write a function to determine if t is an anagram of s.
+
+For example,
+s = "anagram", t = "nagaram", return true.
+s = "rat", t = "car", return false.
+
+Note:
+You may assume the string contains only lowercase alphabets.
+----
+
+这不算一道难题，核心点就在于使用哈希表映射，我们还是用一个数组来代替哈希表，使用类似方法的题目有Minimum Window Substring 最小窗口子串，Isomorphic Strings 同构字符串，Longest Substring Without Repeating Characters 最长无重复子串 和 1.1 Unique Characters of a String 字符串中不同的字符。我们先判断两个字符串长度是否相同，不相同直接返回false。然后把s中所有的字符出现个数统计起来，存入一个大小为26的数组中，因为题目中限定了输入字符串为小写字母组成。然后我们再来统计t字符串，如果发现不匹配则返回false。 参见代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool isAnagram(string s, string t) {
+        if (s.size() != t.size()) return false;
+        int m[26] = {0};
+        for (int i = 0; i < s.size(); ++i) ++m[s[i] - 'a'];
+        for (int i = 0; i < t.size(); ++i) {
+            if (--m[t[i] - 'a'] < 0) return false;
+        }
+        return true;
+    }
+};
+----
+
+==== 最短单词距离
+
+----
+Given a list of words and two words word1 and word2, return the shortest distance between these two words in the list.
+
+For example,
+Assume that words = ["practice", "makes", "perfect", "coding", "makes"].
+
+Given word1 = “coding”, word2 = “practice”, return 3.
+Given word1 = "makes", word2 = "coding", return 1.
+
+Note:
+You may assume that word1 does not equal to word2, and word1 and word2 are both in the list.
+----
+这道题让我们给了我们一个单词数组，又给定了两个单词，让我们求这两个单词之间的最小距离，限定了两个单词不同，而且都在数组中。我最先想到的方法比较笨，我首先想的是要用哈希表来做，建立每个单词和其所有出现位置数组的映射，但是后来想想，反正建立映射也要遍历一遍数组，我们还不如直接遍历一遍数组，直接把两个给定单词所有出现的位置分别存到两个数组里，然后我们在对两个数组进行两两比较更新结果，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int shortestDistance(vector<string>& words, string word1, string word2) {
+        vector<int> idx1, idx2;
+        int res = INT_MAX;
+        for (int i = 0; i < words.size(); ++i) {
+            if (words[i] == word1) idx1.push_back(i);
+            else if (words[i] == word2) idx2.push_back(i);
+        }
+        for (int i = 0; i < idx1.size(); ++i) {
+            for (int j = 0; j < idx2.size(); ++j) {
+                res = min(res, abs(idx1[i] - idx2[j]));
+            }
+        }
+        return res;
+    }
+};
+----
+
+上面的那种方法并不高效，我们其实需要遍历一次数组就可以了，我们用两个变量p1,p2初始化为-1，然后我们遍历数组，遇到单词1，就将其位置存在p1里，若遇到单词2，就将其位置存在p2里，如果此时p1, p2都不为-1了，那么我们更新结果，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int shortestDistance(vector<string>& words, string word1, string word2) {
+        int p1 = -1, p2 = -1, res = INT_MAX;
+        for (int i = 0; i < words.size(); ++i) {
+            if (words[i] == word1) p1 = i;
+            else if (words[i] == word2) p2 = i;
+            if (p1 != -1 && p2 != -1) res = min(res, abs(p1 - p2));
+        }
+        return res;
+    }
+};
+----
+
+下面这种方法只用一个辅助变量idx，初始化为-1，然后遍历数组，如果遇到等于两个单词中的任意一个的单词，我们在看idx是否为-1，若不为-1，且指向的单词和当前遍历到的单词不同，我们更新结果，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int shortestDistance(vector<string>& words, string word1, string word2) {
+        int idx = -1, res = INT_MAX;
+        for (int i = 0; i < words.size(); ++i) {
+            if (words[i] == word1 || words[i] == word2) {
+                if (idx != -1 && words[idx] != words[i]) {
+                    res = min(res, i - idx);
+                }
+                idx = i;
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== 最短单词距离之二
+
+----
+This is a follow up of Shortest Word Distance. The only difference is now you are given the list of words and your method will be called repeatedly many times with different parameters. How would you optimize it?
+
+Design a class which receives a list of words in the constructor, and implements a method that takes two words word1 and word2 and return the shortest distance between these two words in the list.
+
+For example,
+Assume that words = ["practice", "makes", "perfect", "coding", "makes"].
+
+Given word1 = “coding”, word2 = “practice”, return 3.
+Given word1 = "makes", word2 = "coding", return 1.
+
+Note:
+You may assume that word1 does not equal to word2, and word1 and word2 are both in the list.
+----
+
+这道题是之前那道Shortest Word Distance的拓展，不同的是这次我们需要多次调用求最短单词距离的函数，那么用之前那道题的解法二和三就非常不高效，而当时我们摒弃的解法一的思路却可以用到这里，我们用哈希表来建立每个单词和其所有出现的位置的映射，然后在找最短单词距离时，我们只需要取出该单词在哈希表中映射的位置数组进行两两比较即可，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class WordDistance {
+public:
+    WordDistance(vector<string>& words) {
+        for (int i = 0; i < words.size(); ++i) {
+            m[words[i]].push_back(i);
+        }
+    }
+
+    int shortest(string word1, string word2) {
+        int res = INT_MAX;
+        for (int i = 0; i < m[word1].size(); ++i) {
+            for (int j = 0; j < m[word2].size(); ++j) {
+                res = min(res, abs(m[word1][i] - m[word2][j]));
+            }
+        }
+        return res;
+    }
+
+private:
+    unordered_map<string, vector<int> > m;
+};
+----
+
+我们可以优化上述的代码，使查询的复杂度由上面的O(MN)变为O(M+N)，其中M和N为两个单词的长度，我们需要两个指针i和j来指向位置数组中的某个位置，开始初始化都为0，然后比较位置数组中的数字，将较小的一个的指针向后移动一位，直至其中一个数组遍历完成即可，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class WordDistance {
+public:
+    WordDistance(vector<string>& words) {
+        for (int i = 0; i < words.size(); ++i) {
+            m[words[i]].push_back(i);
+        }
+    }
+
+    int shortest(string word1, string word2) {
+        int i = 0, j = 0, res = INT_MAX;
+        while (i < m[word1].size() && j < m[word2].size()) {
+            res = min(res, abs(m[word1][i] - m[word2][j]));
+            m[word1][i] < m[word2][j] ? ++i : ++j;
+        }
+        return res;
+    }
+
+private:
+    unordered_map<string, vector<int> > m;
+};
+----
+
+==== 最短单词距离之三
+
+----
+This is a follow up of Shortest Word Distance. The only difference is now word1 could be the same as word2.
+
+Given a list of words and two words word1 and word2, return the shortest distance between these two words in the list.
+
+word1 and word2 may be the same and they represent two individual words in the list.
+
+For example,
+Assume that words = ["practice", "makes", "perfect", "coding", "makes"].
+
+Given word1 = “makes”, word2 = “coding”, return 1.
+Given word1 = "makes", word2 = "makes", return 3.
+
+Note:
+You may assume word1 and word2 are both in the list.
+----
+
+这道题还是让我们求最短单词距离，有了之前两道题Shortest Word Distance II和Shortest Word Distance的基础，
+就大大降低了题目本身的难度。这道题增加了一个条件，就是说两个单词可能会相同，所以在第一题中的解法的基础上做一些修改，
+我最先想的解法是基于第一题中的解法二，由于会有相同的单词的情况，那么p1和p2就会相同，这样结果就会变成0，显然不对，
+所以我们要对word1和word2是否的相等的情况分开处理，如果相等了，由于p1和p2会相同，所以我们需要一个变量t来记录上一个位置，
+这样如果t不为-1，且和当前的p1不同，我们可以更新结果，如果word1和word2不等，那么还是按原来的方法做，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int shortestWordDistance(vector<string>& words, string word1, string word2) {
+        int p1 = -1, p2 = -1, res = INT_MAX;
+        for (int i = 0; i < words.size(); ++i) {
+            int t = p1;
+            if (words[i] == word1) p1 = i;
+            if (words[i] == word2) p2 = i;
+            if (p1 != -1 && p2 != -1) {
+                if (word1 == word2 && t != -1 && t != p1) {
+                    res = min(res, abs(t - p1));
+                } else if (p1 != p2) {
+                    res = min(res, abs(p1 - p2));
+                }
+            }
+        }
+        return res;
+    }
+};
+----
+
+上述代码其实可以优化一下，我们并不需要变量t来记录上一个位置，我们将p1初始化为数组长度，p2初始化为数组长度的相反数，然后当word1和word2相等的情况，我们用p1来保存p2的结果，p2赋为当前的位置i，这样我们就可以更新结果了，如果word1和word2不相等，则还跟原来的做法一样，这种思路真是挺巧妙的，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int shortestWordDistance(vector<string>& words, string word1, string word2) {
+        int p1 = words.size(), p2 = -words.size(), res = INT_MAX;
+        for (int i = 0; i < words.size(); ++i) {
+            if (words[i] == word1) p1 = word1 == word2 ? p2 : i;
+            if (words[i] == word2) p2 = i;
+            res = min(res, abs(p1 - p2));
+        }
+        return res;
+    }
+};
+----
+
+我们再来看一种更进一步优化的方法，只用一个变量idx，这个idx的作用就相当于记录上一次的位置，当前idx不等-1时，说明当前i和idx不同，然后我们在word1和word2相同或者words[i]和words[idx]相同的情况下更新结果，最后别忘了将idx赋为i，参见代码如下: +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+
+class Solution {
+public:
+    int shortestWordDistance(vector<string>& words, string word1, string word2) {
+        int idx = -1, res = INT_MAX;
+        for (int i = 0; i < words.size(); ++i) {
+            if (words[i] == word1 || words[i] == word2) {
+                if (idx != -1 && (word1 == word2 || words[i] != words[idx])) {
+                    res = min(res, i - idx);
+                }
+                idx = i;
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== 对称数
+
+----
+A strobogrammatic number is a number that looks the same when rotated 180 degrees (looked at upside down).
+
+Write a function to determine if a number is strobogrammatic. The number is represented as a string.
+
+Example 1:
+
+Input:  "69"
+Output: true
+Example 2:
+
+Input:  "88"
+Output: true
+----
+
+这道题定义了一种对称数，就是说一个数字旋转180度和原来一样，也就是倒过来看一样，比如609，倒过来还是609等等，满足这种条件的数字其实没有几个，只有0,1,8,6,9。这道题其实可以看做求回文数的一种特殊情况，我们还是用双指针来检测，那么首尾两个数字如果相等的话，那么只有它们是0,1,8中间的一个才行，如果它们不相等的话，必须一个是6一个是9，或者一个是9一个是6，其他所有情况均返回false，参见代码如下: +
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool isStrobogrammatic(string num) {
+        int l = 0, r = num.size() - 1;
+        while (l <= r) {
+            if (num[l] == num[r]) {
+                if (num[l] != '1' && num[l] != '0' && num[l] != '8'){
+                    return false;
+                }
+            } else {
+                if ((num[l] != '6' || num[r] != '9') && (num[l] != '9' || num[r] != '6')) {
+                    return false;
+                }
+            }
+            ++l; --r;
+        }
+        return true;
+    }
+};
+----
+
+由于满足题意的数字不多，所以我们可以用哈希表来做，把所有符合题意的映射都存入哈希表中，然后双指针扫描，看对应位置的两个数字是否在哈希表里存在映射，若不存在，返回false，遍历完成返回true，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool isStrobogrammatic(string num) {
+        unordered_map<char, char> m {{'0', '0'}, {'1', '1'}, {'8', '8'}, {'6', '9'}, {'9', '6'}};
+        for (int i = 0; i <= num.size() / 2; ++i) {
+            if (m[num[i]] != num[num.size() - i - 1]) return false;
+        }
+        return true;
+    }
+};
+----
+
+==== 对称数之二
+
+----
+A strobogrammatic number is a number that looks the same when rotated 180 degrees (looked at upside down).
+
+Find all strobogrammatic numbers that are of length = n.
+
+For example,
+Given n = 2, return ["11","69","88","96"].
+
+Hint:
+
+Try to use recursion and notice that it should recurse with n - 2 instead of n - 1.
+----
+
+----
+这道题是之前那道Strobogrammatic Number的拓展，那道题让我们判断一个数是否是对称数，而这道题让我们找出长度为n的所有的对称数，我们肯定不能一个数一个数的来判断，那样太不高效了，而且OJ肯定也不会答应。题目中给了提示说可以用递归来做，而且提示了递归调用n-2，而不是n-1。我们先来列举一下n为0,1,2,3,4的情况：
+
+n = 0:   none
+
+n = 1:   0, 1, 8
+
+n = 2:   11, 69, 88, 96
+
+n = 3:   101, 609, 808, 906, 111, 619, 818, 916, 181, 689, 888, 986
+
+n = 4:   1001, 6009, 8008, 9006, 1111, 6119, 8118, 9116, 1691, 6699, 8698, 9696, 1881, 6889, 8888, 9886, 1961, 6969, 8968, 9966
+
+我们注意观察n=0和n=2，可以发现后者是在前者的基础上，每个数字的左右增加了[1 1], [6 9], [8 8], [9 6]，看n=1和n=3更加明显，在0的左右增加[1 1]，变成了101, 在0的左右增加[6 9]，变成了609, 在0的左右增加[8 8]，变成了808, 在0的左右增加[9 6]，变成了906, 然后在分别在1和8的左右两边加那四组数，我们实际上是从m=0层开始，一层一层往上加的，需要注意的是当加到了n层的时候，左右两边不能加[0 0]，因为0不能出现在两位数及多位数的开头，在中间递归的过程中，需要有在数字左右两边各加上0的那种情况，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<string> findStrobogrammatic(int n) {
+        return find(n, n);
+    }
+    vector<string> find(int m, int n) {
+        if (m == 0) return {""};
+        if (m == 1) return {"0", "1", "8"};
+        vector<string> t = find(m - 2, n), res;
+        for (auto a : t) {
+            if (m != n) res.push_back("0" + a + "0");
+            res.push_back("1" + a + "1");
+            res.push_back("6" + a + "9");
+            res.push_back("8" + a + "8");
+            res.push_back("9" + a + "6");
+        }
+        return res;
+    }
+};
+----
+
+这道题还有迭代的解法，感觉也相当的巧妙，需要从奇偶来考虑，奇数赋为0,1,8，偶数赋为空，如果是奇数，就从i=3开始搭建，因为计算i=3需要i=1，而我们已经初始化了i=1的情况，如果是偶数，我们从i=2开始搭建，我们也已经初始化了i=0的情况，所以我们可以用for循环来搭建到i=n的情况，思路和递归一样，写法不同而已，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<string> findStrobogrammatic(int n) {
+        vector<string> one{"0", "1", "8"}, two{""}, res = two;
+        if (n % 2 == 1) res = one;
+        for (int i = (n % 2) + 2; i <= n; i += 2) {
+            vector<string> t;
+            for (auto a : res) {
+                if (i != n) t.push_back("0" + a + "0");
+                t.push_back("1" + a + "1");
+                t.push_back("6" + a + "9");
+                t.push_back("8" + a + "8");
+                t.push_back("9" + a + "6");
+            }
+            res = t;
+        }
+        return res;
+    }
+};
+----
+
+==== 对称数之三
+
+----
+A strobogrammatic number is a number that looks the same when rotated 180 degrees (looked at upside down).
+
+Write a function to count the total strobogrammatic numbers that exist in the range of low <= num <= high.
+
+For example,
+Given low = "50", high = "100", return 3. Because 69, 88, and 96 are three strobogrammatic numbers.
+
+Note:
+Because the range might be a large number, the low and high numbers are represented as string.
+----
+
+这道题是之前那两道Strobogrammatic Number II和Strobogrammatic Number的拓展，又增加了难度，让我们找到给定范围内的对称数的个数，我们当然不能一个一个的判断是不是对称数，我们也不能直接每个长度调用第二道中的方法，保存所有的对称数，然后再统计个数，这样OJ会提示内存超过允许的范围，所以我们的解法是基于第二道的基础上，不保存所有的结果，而是在递归中直接计数，根据之前的分析，需要初始化n=0和n=1的情况，然后在其基础上进行递归，递归的长度len从low到high之间遍历，然后我们看当前单词长度有没有达到len，如果达到了，我们首先要去掉开头是0的多位数，然后去掉长度和low相同但小于low的数，和长度和high相同但大于high的数，然后结果自增1，然后分别给当前单词左右加上那五对对称数，继续递归调用，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int strobogrammaticInRange(string low, string high) {
+        int res = 0;
+        for (int i = low.size(); i <= high.size(); ++i) {
+            find(low, high, "", i, res);
+            find(low, high, "0", i, res);
+            find(low, high, "1", i, res);
+            find(low, high, "8", i, res);
+        }
+        return res;
+    }
+    void find(string low, string high, string path, int len, int &res) {
+        if (path.size() >= len) {
+            if (path.size() != len || (len != 1 && path[0] == '0')) return;
+            if ((len == low.size() && path.compare(low) < 0) || (len == high.size() && path.compare(high) > 0)) {
+                return;
+            }
+            ++res;
+        }
+        find(low, high, "0" + path + "0", len, res);
+        find(low, high, "1" + path + "1", len, res);
+        find(low, high, "6" + path + "9", len, res);
+        find(low, high, "8" + path + "8", len, res);
+        find(low, high, "9" + path + "6", len, res);
+    }
+};
+----
+
+上述代码可以稍微优化一下，得到如下的代码： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int strobogrammaticInRange(string low, string high) {
+        int res = 0;
+        find(low, high, "", res);
+        find(low, high, "0", res);
+        find(low, high, "1", res);
+        find(low, high, "8", res);
+        return res;
+    }
+    void find(string low, string high, string w, int &res) {
+        if (w.size() >= low.size() && w.size() <= high.size()) {
+            if ((w.size() == low.size() && w.compare(low) < 0) || (w.size() == high.size() && w.compare(high) > 0)) {
+                return;
+            }
+            if (!(w.size() > 1 && w[0] == '0')) ++res;
+        }
+        if (w.size() + 2 > high.size()) return;
+        find(low, high, "0" + w + "0", res);
+        find(low, high, "1" + w + "1", res);
+        find(low, high, "6" + w + "9", res);
+        find(low, high, "8" + w + "8", res);
+        find(low, high, "9" + w + "6", res);
+    }
+};
+----
+
+==== 群组偏移字符串
+
+----
+Given a string, we can "shift" each of its letter to its successive letter, for example: "abc" -> "bcd". We can keep "shifting" which forms the sequence:
+
+"abc" -> "bcd" -> ... -> "xyz"
+Given a list of strings which contains only lowercase alphabets, group all strings that belong to the same shifting sequence.
+
+For example, given: ["abc", "bcd", "acef", "xyz", "az", "ba", "a", "z"],
+Return:
+
+[
+  ["abc","bcd","xyz"],
+  ["az","ba"],
+  ["acef"],
+  ["a","z"]
+]
+
+Note: For the return value, each inner list's elements must follow the lexicographic order.
+----
+
+这道题让我们重组偏移字符串，所谓偏移字符串，就是一个字符串的每个字符按照字母顺序表偏移相同量得到的另一个字符串，两者互为偏移字符串，注意相同字符串是偏移字符串的一种特殊情况，因为偏移量为0。现在给了我们一堆长度不同的字符串，让我们把互为偏移字符串的归并到一起，我最开始想的是建立字符度和该长度的所有偏移字符串的映射，但是很明显的错误是相同长度的不一定都是偏移字符串，比如'ab'和'ba‘，所以只能用哈希表来建立一个字符串和所有和此字符串是偏移字符串的集合之间的映射，由于题目要求结果是按字母顺序的，所以用multiset来保存结果，一来可以保存重复字符串，二来可以自动排序。然后我还写了一个判断二个字符串是否互为偏移字符串的函数，注意在比较两个字母距离时采用了加26，再对26取余的trick。我们遍历给定字符串集，对于遍历到的字符串，我们再遍历哈希表，和每个关键字调用isShifted函数来比较，如果互为偏移字符串，则加入其对应的字符串集，并标记flag，最后遍历完哈希表，没有跟任何关键字互为偏移，那么就新建一个映射，最后要做的就是把multiset转换为vector即可，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<string>> groupStrings(vector<string>& strings) {
+        vector<vector<string> > res;
+        unordered_map<string, multiset<string>> m;
+        for (auto a : strings) {
+            bool b = false;
+            for (auto it = m.begin(); it != m.end(); ++it) {
+                if (isShifted(it->first, a)) {
+                    it->second.insert(a);
+                    b = true;
+                }
+            }
+            if (!b) m[a] = {a};
+        }
+        for (auto it = m.begin(); it != m.end(); ++it) {
+            res.push_back(vector<string>(it->second.begin(), it->second.end()));
+        }
+        return res;
+    }
+    bool isShifted(string s1, string s2) {
+        if (s1.size() != s2.size()) return false;
+        int diff = (s1[0] + 26 - s2[0]) % 26;
+        for (int i = 1; i < s1.size(); ++i) {
+            if ((s1[i] + 26 - s2[i]) % 26 != diff) return false;
+        }
+        return true;
+    }
+};
+----
+
+上面那个方法挺复杂的，其实有更好的方法，网友的智慧无穷啊，上面那个方法的不高效之处在于对于每个遍历到的字符串，都要和哈希表中所有的关键字都比较一次，而其实我们可以更加巧妙的利用偏移字符串的特点，那就是字符串的每个字母和首字符的相对距离都是相等的，比如abc和efg互为偏移，对于abc来说，b和a的距离是1，c和a的距离是2，对于efg来说，f和e的距离是1，g和e的距离是2。再来看一个例子，az和yx，z和a的距离是25，x和y的距离也是25(直接相减是-1，这就是要加26然后取余的原因)，那么这样的话，所有互为偏移的字符串都有个unique的距离差，我们根据这个来建立映射就可以很好的进行单词分组了，这个思路真实太赞了，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<string>> groupStrings(vector<string>& strings) {
+        vector<vector<string> > res;
+        unordered_map<string, multiset<string>> m;
+        for (auto a : strings) {
+            string t = "";
+            for (char c : a) {
+                t += to_string((c + 26 - a[0]) % 26) + ",";
+            }
+            m[t].insert(a);
+        }
+        for (auto it = m.begin(); it != m.end(); ++it) {
+            res.push_back(vector<string>(it->second.begin(), it->second.end()));
+        }
+        return res;
+    }
+};
+----
+
+==== 计数相同值子树的个数
+
+----
+Given a binary tree, count the number of uni-value subtrees.
+
+A Uni-value subtree means all nodes of the subtree have the same value.
+
+For example:
+Given binary tree,
+
+              5
+             / \
+            1   5
+           / \   \
+          5   5   5
+
+
+return 4.
+----
+
+这道题让我们求相同值子树的个数，就是所有节点值都相同的子树的个数，之前有道求最大BST子树的题Largest BST Subtree，感觉挺像的，都是关于子树的问题，解题思路也可以参考一下，我们可以用递归来做，第一种解法的思路是先序遍历树的所有的节点，然后对每一个节点调用判断以当前节点为根的字数的所有节点是否相同，判断方法可以参考之前那题Same Tree，用的是分治法的思想，分别对左右字数分别调用递归，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int res = 0;
+    int countUnivalSubtrees(TreeNode* root) {
+        if (!root) return res;
+        if (isUnival(root, root->val)) ++res;
+        countUnivalSubtrees(root->left);
+        countUnivalSubtrees(root->right);
+        return res;
+    }
+    bool isUnival(TreeNode *root, int val) {
+        if (!root) return true;
+        return root->val == val && isUnival(root->left, val) && isUnival(root->right, val);
+    }
+};
+----
+
+但是上面的那种解法不是很高效，含有大量的重复check，我们想想能不能一次遍历就都搞定，我们这样想，符合条件的相同值的字数肯定是有叶节点的，而且叶节点也都相同(注意单独的一个叶节点也被看做是一个相同值子树)，那么我们可以从下往上check，采用后序遍历的顺序，左右根，我们还是递归调用函数，对于当前遍历到的节点，如果对其左右子节点分别递归调用函数，返回均为true的话，那么说明当前节点的值和左右子树的值都相同，那么又多了一棵树，所以结果自增1，然后返回当前节点值和给定值(其父节点值)是否相同，从而回归上一层递归调用。这里特别说明一下在子函数中要使用的那个单竖杠或，为什么不用双竖杠的或，因为单竖杠的或是位或，就是说左右两部分都需要被计算，然后再或，C++这里将true当作1，false当作0，然后进行Bit OR 运算。不能使用双竖杠或的原因是，如果是双竖杠或，一旦左半边为true了，整个就直接是true了，右半边就不会再计算了，这样的话，一旦右子树中有值相同的子树也不会被计算到结果res中了，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int countUnivalSubtrees(TreeNode* root) {
+        int res = 0;
+        isUnival(root, -1, res);
+        return res;
+    }
+    bool isUnival(TreeNode* root, int val, int& res) {
+        if (!root) return true;
+        if (!isUnival(root->left, root->val, res) | !isUnival(root->right, root->val, res)) {
+            return false;
+        }
+        ++res;
+        return root->val == val;
+    }
+};
+----
+我们还可以变一种写法，让递归函数直接返回以当前节点为根的相同值子树的个数，然后参数里维护一个引用类型的布尔变量，表示以当前节点为根的子树是否为相同值子树，我们首先对当前节点的左右子树分别调用递归函数，然后把结果加起来，我们现在要来看当前节点是不是和其左右子树节点值相同，当前我们首先要确认左右子节点的布尔型变量均为true，这样保证左右子节点分别都是相同值子树的根，然后我们看如果左子节点存在，那么左子节点值需要和当前节点值相同，如果右子节点存在，那么右子节点值要和当前节点值相同，若上述条件均满足的话，说明当前节点也是相同值子树的根节点，返回值再加1，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int countUnivalSubtrees(TreeNode* root) {
+        bool b = true;
+        return isUnival(root, b);
+    }
+    int isUnival(TreeNode *root, bool &b) {
+        if (!root) return 0;
+        bool l = true, r = true;
+        int res = isUnival(root->left, l) + isUnival(root->right, r);
+        b = l && r && (root->left ? root->val == root->left->val : true) && (root->right ? root->val == root->right->val : true);
+        return res + b;
+    }
+};
+----
+
+上面三种都是令人看得头晕的递归写法，那么我们也来看一种迭代的写法，迭代写法是在后序遍历Binary Tree Postorder Traversal的基础上修改而来，我们需要用set来保存所有相同值子树的根节点，对于我们遍历到的节点，如果其左右子节点均不存在，那么此节点为叶节点，符合题意，加入结果set中，如果左子节点不存在，那么右子节点必须已经在结果set中，而且当前节点值需要和右子节点值相同才能将当前节点加入结果set中，同样的，如果右子节点不存在，那么左子节点必须已经存在set中，而且当前节点值要和左子节点值相同才能将当前节点加入结果set中。最后，如果左右子节点均存在，那么必须都已经在set中，并且左右子节点值都要和根节点值相同才能将当前节点加入结果set中，其余部分跟后序遍历的迭代写法一样，参见代码如下： +
+
+**解法4:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int countUnivalSubtrees(TreeNode* root) {
+        set<TreeNode*> res;
+        if (!root) return 0;
+        stack<TreeNode*> s;
+        s.push(root);
+        TreeNode *head = root;
+        while (!s.empty()) {
+            TreeNode *t = s.top();
+            if ((!t->left && !t->right) || t->left == head || t->right == head) {
+                if (!t->left && !t->right) {
+                    res.insert(t);
+                } else if (!t->left && res.find(t->right) != res.end() && t->right->val == t->val) {
+                    res.insert(t);
+                } else if (!t->right && res.find(t->left) != res.end() && t->left->val == t->val) {
+                    res.insert(t);
+                } else if (t->left && t->right && res.find(t->left) != res.end() && res.find(t->right) != res.end() && t->left->val == t->val && t->right->val == t->val) {
+                    res.insert(t);
+                }
+                s.pop();
+                head = t;
+            } else {
+                if (t->right) s.push(t->right);
+                if (t->left) s.push(t->left);
+            }
+        }
+        return res.size();
+    }
+};
+----
+
+==== 压平二维向量
+
+----
+Implement an iterator to flatten a 2d vector.
+
+For example,
+Given 2d vector =
+
+[
+  [1,2],
+  [3],
+  [4,5,6]
+]
+
+
+By calling next repeatedly until hasNext returns false, the order of elements returned by next should be: [1,2,3,4,5,6].
+
+Hint:
+
+How many variables do you need to keep track?
+Two variables is all you need. Try with x and y.
+Beware of empty rows. It could be the first few rows.
+To write correct code, think about the invariant to maintain. What is it?
+The invariant is x and y must always point to a valid point in the 2d vector. Should you maintain your invariant ahead of time or right when you need it?
+Not sure? Think about how you would implement hasNext(). Which is more complex?
+Common logic in two different places should be refactored into a common method.
+Follow up:
+As an added challenge, try to code it using only iterators in C++ or iterators in Java.
+----
+
+这道题让我们压平一个二维向量数组，并且实现一个iterator的功能，包括next和hasNext函数，那么最简单的方法就是将二维数组按顺序先存入到一个一维数组里，然后此时只要维护一个变量i来记录当前遍历到的位置，hasNext函数看当前坐标是否小于元素总数，next函数即为取出当前位置元素，坐标后移一位，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Vector2D {
+public:
+    Vector2D(vector<vector<int>>& vec2d) {
+        for (auto a : vec2d) {
+            v.insert(v.end(), a.begin(), a.end());
+        }
+    }
+    int next() {
+        return v[i++];
+    }
+    bool hasNext() {
+        return i < v.size();
+    }
+private:
+    vector<int> v;
+    int i = 0;
+};
+----
+
+下面我们来看另一种解法，不直接转换为一维数组，而是维护两个变量x和y，我们将x和y初始化为0，对于hasNext函数，我们检查当前x是否小于总行数，y是否和当前行的列数相同，如果相同，说明要转到下一行，则x自增1，y初始化为0，若此时x还是小于总行数，说明下一个值可以被取出来，那么在next函数就可以直接取出行为x，列为y的数字，并将y自增1，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Vector2D {
+public:
+    Vector2D(vector<vector<int>>& vec2d) {
+        v = vec2d;
+        x = y = 0;
+    }
+    int next() {
+        return v[x][y++];
+    }
+    bool hasNext() {
+        while (x < v.size() && y == v[x].size()) {
+            ++x;
+            y = 0;
+        }
+        return x < v.size();
+    }
+private:
+    vector<vector<int>> v;
+    int x, y;
+};
+----
+
+题目中的Follow up让我们用interator来做，C++中iterator不像Java中的那么强大，自己本身并没有包含next和hasNext函数，所以我们得自己来实现，我们将x定义为行的iterator，再用个end指向二维数组的末尾，定义一个整型变量y来指向列位置，实现思路和上一种解法完全相同，只是写法略有不同，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Vector2D {
+public:
+    Vector2D(vector<vector<int>>& vec2d) {
+        x = vec2d.begin();
+        end = vec2d.end();
+    }
+    int next() {
+        return (*x)[y++];
+    }
+    bool hasNext() {
+        while (x != end && y == (*x).size()) {
+            ++x;
+            y = 0;
+        }
+        return x != end;
+    }
+private:
+    vector<vector<int>>::iterator x, end;
+    int y = 0;
+};
+----
+
+==== 会议室
+
+----
+Given an array of meeting time intervals consisting of start and end times [[s1,e1],[s2,e2],...] (si < ei), determine if a person could attend all meetings.
+
+For example,
+Given [[0, 30],[5, 10],[15, 20]],
+return false.
+----
+
+这道题给了我们一堆会议的时间，问我们能不能同时参见所有的会议，这实际上就是求区间是否有交集的问题，那么最简单暴力的方法就是每两个区间比较一下，看是否有overlap，有的话直接返回false就行了。比较两个区间a和b是否有overlap，我们可以检测两种情况，如果a的起始位置大于等于b的起始位置，且此时a的起始位置小于b的结束位置，那么一定有overlap，另一种情况是a和b互换个位置，如果b的起始位置大于等于a的起始位置，且此时b的起始位置小于a的结束位置，那么一定有overlap，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool canAttendMeetings(vector<Interval>& intervals) {
+        for (int i = 0; i < intervals.size(); ++i) {
+            for (int j = i + 1; j < intervals.size(); ++j) {
+                if ((intervals[i].start >= intervals[j].start && intervals[i].start < intervals[j].end) || (intervals[j].start >= intervals[i].start && intervals[j].start < intervals[i].end)) return false;
+            }
+        }
+        return true;
+    }
+};
+----
+
+我们可以先给所有区间排个序，用起始时间的先后来排，然后我们从第二个区间开始，如果开始时间早于前一个区间的结束时间，则说明会议时间有冲突，返回false，遍历完成后没有冲突，则返回true，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool canAttendMeetings(vector<Interval>& intervals) {
+        sort(intervals.begin(), intervals.end(), [](const Interval &a, const Interval &b){return a.start < b.start;});
+        for (int i = 1; i < intervals.size(); ++i) {
+            if (intervals[i].start < intervals[i - 1].end) {
+                return false;
+            }
+        }
+        return true;
+    }
+};
+----
+
+==== 会议室之二
+
+----
+Given an array of meeting time intervals consisting of start and end times [[s1,e1],[s2,e2],...] (si < ei), find the minimum number of conference rooms required.
+
+For example,
+Given [[0, 30],[5, 10],[15, 20]],
+return 2.
+----
+这道题是之前那道Meeting Rooms的拓展，那道题只让我们是否能参加所有的会，也就是看会议之间有没有时间冲突，而这道题让我们求最少需要安排几个会议室，有时间冲突的肯定需要安排在不同的会议室。这道题有好几种解法，我们先来看使用TreeMap来做的，我们遍历时间区间，对于起始时间，映射值自增1，对于结束时间，映射值自减1，然后我们定义结果变量res，和房间数rooms，我们遍历TreeMap，时间从小到大，房间数每次加上映射值，然后更新结果res，遇到起始时间，映射是正数，则房间数会增加，如果一个时间是一个会议的结束时间，也是另一个会议的开始时间，则映射值先减后加仍为0，并不用分配新的房间，而结束时间的映射值为负数更不会增加房间数，利用这种思路我们可以写出代码如下: +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int minMeetingRooms(vector<Interval>& intervals) {
+        map<int, int> m;
+        for (auto a : intervals) {
+            ++m[a.start];
+            --m[a.end];
+        }
+        int rooms = 0, res = 0;
+        for (auto it : m) {
+            res = max(res, rooms += it.second);
+        }
+        return res;
+    }
+};
+----
+
+第二种方法是用两个一维数组来做，分别保存起始时间和结束时间，然后各自排个序，我们定义结果变量res和结束时间指针endpos，然后我们开始遍历，如果当前起始时间小于结束时间指针的时间，则结果自增1，反之结束时间指针自增1，这样我们可以找出重叠的时间段，从而安排新的会议室，参见代码如下： +
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int minMeetingRooms(vector<Interval>& intervals) {
+        vector<int> starts, ends;
+        int res = 0, endpos = 0;
+        for (auto a : intervals) {
+            starts.push_back(a.start);
+            ends.push_back(a.end);
+        }
+        sort(starts.begin(), starts.end());
+        sort(ends.begin(), ends.end());
+        for (int i = 0; i < intervals.size(); ++i) {
+            if (starts[i] < ends[endpos]) ++res;
+            else ++endpos;
+        }
+        return res;
+    }
+};
+----
+
+再来一看一种使用最小堆来解题的方法，这种方法先把所有的时间区间按照起始时间排序，然后新建一个最小堆，开始遍历时间区间，如果堆不为空，且首元素小于等于当前区间的起始时间，我们去掉堆中的首元素，把当前区间的结束时间压入堆，由于最小堆是小的在前面，那么假如首元素小于等于起始时间，说明上一个会议已经结束，可以用该会议室开始下一个会议了，所以不用分配新的会议室，遍历完成后堆中元素的个数即为需要的会议室的个数，参见代码如下: +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int minMeetingRooms(vector<Interval>& intervals) {
+        sort(intervals.begin(), intervals.end(), [](const Interval &a, const Interval &b){return a.start < b.start;});
+        priority_queue<int, vector<int>, greater<int>> q;
+        for (auto a : intervals) {
+            if (!q.empty() && q.top() <= a.start) q.pop();
+            q.push(a.end);
+        }
+        return q.size();
+    }
+};
+----
+
+==== 因子组合
+
+----
+Numbers can be regarded as product of its factors. For example,
+
+8 = 2 x 2 x 2;
+  = 2 x 4.
+Write a function that takes an integer n and return all possible combinations of its factors.
+
+Note:
+
+Each combination's factors must be sorted ascending, for example: The factors of 2 and 6 is [2, 6], not [6, 2].
+You may assume that n is always positive.
+Factors should be greater than 1 and less than n.
+----
+
+这道题给了我们一个正整数n，让我们写出所有的因子相乘的形式，而且规定了因子从小到大的顺序排列，那么对于这种需要列出所有的情况的题目，通常都是用回溯法来求解的，由于题目中说明了1和n本身不能算其因子，那么我们可以从2开始遍历到n，如果当前的数i可以被n整除，说明i是n的一个因子，我们将其存入一位数组out中，然后递归调用n/i，此时不从2开始遍历，而是从i遍历到n/i，停止的条件是当n等于1时，如果此时out中有因子，我们将这个组合存入结果res中，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<int>> getFactors(int n) {
+        vector<vector<int>> res;
+        helper(n, 2, {}, res);
+        return res;
+    }
+    void helper(int n, int start, vector<int> out, vector<vector<int>> &res) {
+        if (n == 1) {
+            if (out.size() > 1) res.push_back(out);
+        } else {
+            for (int i = start; i <= n; ++i) {
+                if (n % i == 0) {
+                    out.push_back(i);
+                    helper(n / i, i, out, res);
+                    out.pop_back();
+                }
+            }
+        }
+    }
+};
+----
+
+下面这种方法用了个小trick，我们仔细观察题目中给的两个例子的结果，可以发现每个组合的第一个数字都没有超过n的平方根，这个也很好理解，由于要求序列是从小到大排列的，那么如果第一个数字大于了n的平方根，而且n本身又不算因子，那么后面那个因子也必然要与n的平方根，这样乘起来就必然会超过n，所以不会出现这种情况。那么我们刚开始在2到n的平方根之间进行遍历，如果遇到因子，先复制原来的一位数组out为一个新的一位数组new_out，然后把此因子i加入new_out，然后再递归调用n/i，并且从i遍历到n/i的平方根，之后再把n/i放入new_out，并且存入结果res，由于层层迭代的调用，凡是本身能继续拆分成更小因数的都能在之后的迭代中拆分出来，并且加上之前结果，最终都会存res中，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<int>> getFactors(int n) {
+        vector<vector<int>> res;
+        helper(n, 2, {}, res);
+        return res;
+    }
+    void helper(int n, int start, vector<int> out, vector<vector<int>> &res) {
+        for (int i = start; i <= sqrt(n); ++i) {
+            if (n % i == 0) {
+                vector<int> new_out = out;
+                new_out.push_back(i);
+                helper(n / i, i, new_out, res);
+                new_out.push_back(n / i);
+                res.push_back(new_out);
+            }
+        }
+    }
+};
+----
+
+上面两种解法虽有些小不同，但是构成结果的顺序都是相同，对于题目中给的两个例子n = 12和n = 32，结果如下： +
+
+----
+n = 12
+2 2 3
+2 6
+3 4
+
+n = 32
+2 2 2 2 2
+2 2 2 4
+2 2 8
+2 4 4
+2 16
+4 8
+----
+上面两种方法得到的结果跟题目中给的答案的顺序不同，虽然顺序不同，但是并不影响其通过OJ。我们下面就给出生成题目中的顺序的解法，这种方法也不难理解，还是从2遍历到n的平方根，如果i是因子，那么我们递归调用n/i，结果用v来保存，然后我们新建一个包含i和n/i两个因子的序列out，然后将其存入结果res, 然后我们再遍历之前递归n/i的所得到的序列，如果i小于等于某个序列的第一个数字，那么我们将其插入该序列的首位置，然后将序列存入结果res中，我们举个例子，比n = 12，那么刚开始i = 2，是因子，然后对6调用递归，得到{2, 3}，然后此时将{2, 6}先存入结果中，然后发现i(此时为2)小于等于{2, 3}中的第一个数字2，那么将2插入首位置得到{2, 2, 3}加入结果，然后此时i变成3，还是因子，对4调用递归，得到{2, 2}，此时先把{3, 4}存入结果，然后发现i(此时为3)大于{2, 2}中的第一个数字2，不做任何处理直接返回，这样我们就得到正确的结果了： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<int>> getFactors(int n) {
+        vector<vector<int>> res;
+        for (int i = 2; i * i <= n; ++i) {
+            if (n % i == 0) {
+                vector<vector<int>> v = getFactors(n / i);
+                vector<int> out{i, n / i};
+                res.push_back(out);
+                for (auto a : v) {
+                    if (i <= a[0]) {
+                        a.insert(a.begin(), i);
+                        res.push_back(a);
+                    }
+                }
+            }
+        }
+        return res;
+    }
+};
+----
+
+这种方法对于对于题目中给的两个例子n = 12和n = 32，结果和题目中给的相同. +
+
+==== 验证二叉搜索树的先序序列
+
+----
+Given an array of numbers, verify whether it is the correct preorder traversal sequence of a binary search tree.
+
+You may assume each number in the sequence is unique.
+
+Follow up:
+Could you do it using only constant space complexity?
+----
+
+这道题让给了我们一个一维数组，让我们验证其是否为一个二叉搜索树的先序遍历出的顺序，我们都知道二叉搜索树的性质是左<根<右，如果用中序遍历得到的结果就是有序数组，而先序遍历的结果就不是有序数组了，但是难道一点规律都没有了吗，其实规律还是有的，根据二叉搜索树的性质，当前节点的值一定大于其左子树中任何一个节点值，而且其右子树中的任何一个节点值都不能小于当前节点值，那么我们可以用这个性质来验证，举个例子，比如下面这棵二叉搜索树： +
+
+----
+5
+/ \
+2   6
+/ \
+1   3
+----
+
+其先序遍历的结果是{5, 2, 1, 3, 6}, 我们先设一个最小值low，然后遍历数组，如果当前值小于这个最小值low，返回false，对于根节点，我们将其压入栈中，然后往后遍历，如果遇到的数字比栈顶元素小，说明是其左子树的点，继续压入栈中，直到遇到的数字比栈顶元素大，那么就是右边的值了，我们需要找到是哪个节点的右子树，所以我们更新low值并删掉栈顶元素，然后继续和下一个栈顶元素比较，如果还是大于，则继续更新low值和删掉栈顶，直到栈为空或者当前栈顶元素大于当前值停止，压入当前值，这样如果遍历完整个数组之前都没有返回false的话，最后返回true即可，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool verifyPreorder(vector<int>& preorder) {
+        int low = INT_MIN;
+        stack<int> s;
+        for (auto a : preorder) {
+            if (a < low) return false;
+            while (!s.empty() && a > s.top()) {
+                low = s.top(); s.pop();
+            }
+            s.push(a);
+        }
+        return true;
+    }
+};
+----
+下面这种方法和上面的思路相同，为了使空间复杂度为常量，我们不能使用stack，所以我们直接修改preorder，将low值存在preorder的特定位置即可，前提是不能影响当前的遍历，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool verifyPreorder(vector<int>& preorder) {
+        int low = INT_MIN, i = -1;
+        for (auto a : preorder) {
+            if (a < low) return false;
+            while (i >= 0 && a > preorder[i]) {
+                low = preorder[i--];
+            }
+            preorder[++i] = a;
+        }
+        return true;
+    }
+};
+----
+
+下面这种方法使用了分治法，跟之前那道验证二叉搜索树的题Validate Binary Search Tree的思路很类似，我们在递归函数中维护一个下界lower和上届upper，那么当前遍历到的节点值必须在(lower, upper)区间之内，然后我们在给定的区间内搜第一个大于当前节点值的点，然后以此为分界，左右两部分分别调用递归函数，注意左半部分的upper更新为当前节点值val，表明左子树的节点值都必须小于当前节点值，而右半部分的递归的lower更新为当前节点值val，表明右子树的节点值都必须大于当前节点值，如果左右两部分的返回结果均为真，则整体返回真，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool verifyPreorder(vector<int>& preorder) {
+        return helper(preorder, 0, preorder.size() - 1, INT_MIN, INT_MAX);
+    }
+    bool helper(vector<int> &preorder, int start, int end, int lower, int upper) {
+        if (start > end) return true;
+        int val = preorder[start], i = 0;
+        if (val <= lower || val >= upper) return false;
+        for (i = start + 1; i <= end; ++i) {
+            if (preorder[i] >= val) break;
+        }
+        return helper(preorder, start + 1, i - 1, lower, val) && helper(preorder, i, end, val, upper);
+    }
+};
+----
+
+==== 粉刷房子
+
+----
+There are a row of n houses, each house can be painted with one of the three colors: red, blue or green. The cost of painting each house with a certain color is different. You have to paint all the houses such that no two adjacent houses have the same color.
+
+The cost of painting each house with a certain color is represented by a n x 3 cost matrix. For example, costs[0][0] is the cost of painting house 0 with color red; costs[1][2] is the cost of painting house 1 with color green, and so on... Find the minimum cost to paint all houses.
+
+Note:
+All costs are positive integers.
+----
+
+----
+这道题说有n个房子，每个房子可以用红绿蓝三种颜色刷，每个房子的用每种颜色刷的花费都不同，限制条件是相邻的房子不能用相同的颜色来刷，现在让我们求刷完所有的房子的最低花费是多少。这题跟House Robber II和House Robber很类似，不过那题不是每个房子都抢，相邻的房子不抢，而这道题是每个房子都刷，相邻的房子不能刷同一种颜色。而Paint Fence那道题主要考察我们有多少种刷法，这几道题很类似，但都不一样，需要我们分别区分。但是它们的解题思想都一样，需要用动态规划Dynamic Programming来做，这道题我们需要维护一个二维的动态数组dp，其中dp[i][j]表示刷到第i+1房子用颜色j的最小花费，递推式为:
+
+dp[i][j] = dp[i][j] + min(dp[i - 1][(j + 1) % 3], dp[i - 1][(j + 2) % 3])；
+
+这个也比较好理解，如果当前的房子要用红色刷，那么上一个房子只能用绿色或蓝色来刷，那么我们要求刷到当前房子，且当前房子用红色刷的最小花费就等于当前房子用红色刷的钱加上刷到上一个房子用绿色和刷到上一个房子用蓝色的较小值，这样当我们算到最后一个房子时，我们只要取出三个累计花费的最小值即可，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int minCost(vector<vector<int>>& costs) {
+        if (costs.empty() || costs[0].empty()) return 0;
+        vector<vector<int>> dp = costs;
+        for (int i = 1; i < dp.size(); ++i) {
+            for (int j = 0; j < 3; ++j) {
+                dp[i][j] += min(dp[i - 1][(j + 1) % 3], dp[i - 1][(j + 2) % 3]);
+            }
+        }
+        return min(min(dp.back()[0], dp.back()[1]), dp.back()[2]);
+    }
+};
+----
+
+由于只有红绿蓝三张颜色，所以我们就可以分别写出各种情况，这样写可能比上面的写法更加一目了然一些，更容易理解一点吧： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int minCost(vector<vector<int>>& costs) {
+        if (costs.empty() || costs[0].empty()) return 0;
+        vector<vector<int>> dp = costs;
+        for (int i = 1; i < dp.size(); ++i) {
+            dp[i][0] += min(dp[i - 1][1], dp[i - 1][2]);
+            dp[i][1] += min(dp[i - 1][0], dp[i - 1][2]);
+            dp[i][2] += min(dp[i - 1][0], dp[i - 1][1]);
+        }
+        return min(min(dp.back()[0], dp.back()[1]), dp.back()[2]);
+    }
+};
+----
+
+==== 二叉树路径
+
+----
+Given a binary tree, return all root-to-leaf paths.
+
+For example, given the following binary tree:
+
+
+
+   1
+ /   \
+2     3
+ \
+  5
+All root-to-leaf paths are:
+
+["1->2->5", "1->3"]
+----
+
+这道题给我们一个二叉树，让我们返回所有根到叶节点的路径，跟之前那道Path Sum II很类似，比那道稍微简单一些，不需要计算路径和，只需要无脑返回所有的路径即可，那么思路还是用递归来解，博主之前就强调过，玩树的题目，十有八九都是递归，而递归的核心就是不停的DFS到叶结点，然后在回溯回去。在递归函数中，当我们遇到叶结点的时候，即没有左右子结点，那么此时一条完整的路径已经形成了，我们加上当前的叶结点后存入结果res中，然后回溯。注意这里结果res需要reference，而out是不需要引用的，不然回溯回去还要删除新添加的结点，很麻烦。为了减少判断空结点的步骤，我们在调用递归函数之前都检验一下非空即可，代码而很简洁，参见如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<string> binaryTreePaths(TreeNode* root) {
+        vector<string> res;
+        if (root) helper(root, "", res);
+        return res;
+    }
+    void helper(TreeNode* node, string out, vector<string>& res) {
+        if (!node->left && !node->right) res.push_back(out + to_string(node->val));
+        if (node->left) helper(node->left, out + to_string(node->val) + "->", res);
+        if (node->right) helper(node->right, out + to_string(node->val) + "->", res);
+    }
+};
+----
+
+下面再来看一种递归的方法，这个方法直接在一个函数中完成递归调用，不需要另写一个helper函数，核心思想和上面没有区别，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<string> binaryTreePaths(TreeNode* root) {
+        if (!root) return {};
+        if (!root->left && !root->right) return {to_string(root->val)};
+        vector<string> left = binaryTreePaths(root->left);
+        vector<string> right = binaryTreePaths(root->right);
+        left.insert(left.end(), right.begin(), right.end());
+        for (auto &a : left) {
+            a = to_string(root->val) + "->" + a;
+        }
+        return left;
+    }
+};
+----
+
+还是递归写法，从论坛中扒下来的解法，核心思路都一样啦，写法各有不同而已，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<string> binaryTreePaths(TreeNode* root) {
+        if (!root) return {};
+        if (!root->left && !root->right) return {to_string(root->val)};
+        vector<string> res;
+        for (string str : binaryTreePaths(root->left)) {
+            res.push_back(to_string(root->val) + "->" + str);
+        }
+        for (string str : binaryTreePaths(root->right)) {
+            res.push_back(to_string(root->val) + "->" + str);
+        }
+        return res;
+    }
+};
+----
+
+==== 加数字
+
+----
+Given a non-negative integer num, repeatedly add all its digits until the result has only one digit.
+
+For example:
+
+Given num = 38, the process is like: 3 + 8 = 11, 1 + 1 = 2. Since 2 has only one digit, return it.
+
+Follow up:
+Could you do it without any loop/recursion in O(1) runtime?
+
+Hint:
+
+A naive implementation of the above process is trivial. Could you come up with other methods?
+What are all the possible results?
+How do they occur, periodically or randomly?
+You may find this Wikipedia article useful.
+----
+这道题让我们求数根，所谓树根，就是将大于10的数的各个位上的数字相加，若结果还大于0的话，则继续相加，直到数字小于10为止。那么根据这个性质，我们可以写出一个解法如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int addDigits(int num) {
+        while (num / 10 > 0) {
+            int sum = 0;
+            while (num > 0) {
+                sum += num % 10;
+                num /= 10;
+            }
+            num = sum;
+        }
+        return num;
+    }
+};
+----
+
+----
+但是这个解法在出题人看来又trivial又naive，需要想点高逼格的解法，一行搞定碉堡了，那么我们先来观察1到20的所有的树根：
+
+1    1
+2    2
+3    3
+4    4
+5    5
+6    6
+7    7
+8    8
+9    9
+10    1
+11    2
+12    3
+13    4
+14    5
+15    6
+16    7
+17    8
+18    9
+19    1
+20    2
+----
+
+根据上面的列举，我们可以得出规律，每9个一循环，所有大于9的数的树根都是对9取余，那么对于等于9的数对9取余就是0了，为了得到其本身，而且同样也要对大于9的数适用，我们就用(n-1)%9+1这个表达式来包括所有的情况，所以解法如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int addDigits(int num) {
+        return (num - 1) % 9 + 1;
+    }
+};
+----
+
+==== 三数之和较小值
+
+----
+Given an array of n integers nums and a target, find the number of index triplets i, j, k with 0 <= i < j < k < n that satisfy the condition nums[i] + nums[j] + nums[k] < target.
+
+For example, given nums = [-2, 0, 1, 3], and target = 2.
+
+Return 2. Because there are two triplets which sums are less than 2:
+
+[-2, 0, 1]
+[-2, 0, 3]
+Follow up:
+Could you solve it in O(n2) runtime?
+----
+
+这道题是3Sum问题的一个变形，让我们求三数之和小于一个目标值，那么最简单的方法就是穷举法，将所有的可能的三个数字的组合都遍历一遍，比较三数之和跟目标值之间的大小，小于的话则结果自增1，参见代码如下: +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int threeSumSmaller(vector<int>& nums, int target) {
+        int res = 0;
+        sort(nums.begin(), nums.end());
+        for (int i = 0; i < int(nums.size() - 2); ++i) {
+            int left = i + 1, right = nums.size() - 1, sum = target - nums[i];
+            for (int j = left; j <= right; ++j) {
+                for (int k = j + 1; k <= right; ++k) {
+                    if (nums[j] + nums[k] < sum) ++res;
+                }
+            }
+        }
+        return res;
+    }
+};
+----
+
+题目中的Follow up让我们在O(n^2)的时间复杂度内实现，那么我们借鉴之前那两道题3Sum Closest和3Sum中的方法，采用双指针来做，这里面有个trick就是当判断三个数之和小于目标值时，此时结果应该加上right-left，以为数组排序了以后，如果加上num[right]小于目标值的话，那么加上一个更小的数必定也会小于目标值，然后我们将左指针右移一位，否则我们将右指针左移一位，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int threeSumSmaller(vector<int>& nums, int target) {
+        if (nums.size() < 3) return 0;
+        int res = 0, n = nums.size();
+        sort(nums.begin(), nums.end());
+        for (int i = 0; i < n - 2; ++i) {
+            int left = i + 1, right = n - 1;
+            while (left < right) {
+                if (nums[i] + nums[left] + nums[right] < target) {
+                    res += right - left;
+                    ++left;
+                } else {
+                    --right;
+                }
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== 单独的数字之三
+
+----
+Given an array of numbers nums, in which exactly two elements appear only once and all the other elements appear exactly twice. Find the two elements that appear only once.
+
+For example:
+
+Given nums = [1, 2, 1, 3, 2, 5], return [3, 5].
+
+Note:
+The order of the result is not important. So in the above example, [5, 3] is also correct.
+Your algorithm should run in linear runtime complexity. Could you implement it using only constant space complexity?
+----
+
+这道题是之前那两道Single Number 单独的数字和 Single Number II 单独的数字之二的再次延伸，说实话，这类位操作Bit Manipulation的题，如果之前没有遇到过类似的题目，楞想是很难相出来的，于是我只能上网搜大神们的解法，发现还真是巧妙啊。这道题其实是很巧妙的利用了Single Number 单独的数字的解法，因为那道解法是可以准确的找出只出现了一次的数字，但前提是其他数字必须出现两次才行。而这题有两个数字都只出现了一次，那么我们如果能想办法把原数组分为两个小数组，不相同的两个数字分别在两个小数组中，这样分别调用Single Number 单独的数字的解法就可以得到答案。那么如何实现呢，首先我们先把原数组全部异或起来，那么我们会得到一个数字，这个数字是两个不相同的数字异或的结果，我们取出其中任意一位为‘1’的位，为了方便起见，我们用 a &= -a 来取出最右端为‘1’的位，然后和原数组中的数字挨个相与，那么我们要求的两个不同的数字就被分到了两个小组中，分别将两个小组中的数字都异或起来，就可以得到最终结果了，参见代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> singleNumber(vector<int>& nums) {
+        int diff = accumulate(nums.begin(), nums.end(), 0, bit_xor<int>());
+        diff &= -diff;
+        vector<int> res(2, 0);
+        for (auto &a : nums) {
+            if (a & diff) res[0] ^= a;
+            else res[1] ^= a;
+        }
+        return res;
+    }
+};
+----

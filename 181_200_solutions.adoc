@@ -1,0 +1,1379 @@
+==== 员工挣得比经理多
+
+----
+The Employee table holds all employees including their managers. Every employee has an Id, and there is also a column for the manager Id.
+
++----+-------+--------+-----------+
+| Id | Name  | Salary | ManagerId |
++----+-------+--------+-----------+
+| 1  | Joe   | 70000  | 3         |
+| 2  | Henry | 80000  | 4         |
+| 3  | Sam   | 60000  | NULL      |
+| 4  | Max   | 90000  | NULL      |
++----+-------+--------+-----------+
+Given the Employee table, write a SQL query that finds out employees who earn more than their managers. For the above table, Joe is the only employee who earns more than his manager.
+
++----------+
+| Employee |
++----------+
+| Joe      |
++----------+
+----
+
+这道题给我们了一个Employee表，里面有员工的薪水信息和其经理的信息，经理也属于员工，其经理Id为空，
+让我们找出薪水比其经理高的员工，那么就是一个很简单的比较问题了，我们可以生成两个实例对象进行内交通过ManagerId和Id，
+然后限制条件是一个Salary大于另一个即可： +
+
+**解法1:** +
+[source, sql, linenums]
+----
+SELECT e1.Name FROM Employee e1
+JOIN Employee e2 ON e1.ManagerId = e2.Id
+WHERE e1.Salary > e2.Salary;
+----
+
+我们也可以不用Join，直接把条件都写到where里也行： +
+**解法2:** +
+[source, sql, linenums]
+----
+SELECT e1.Name FROM Employee e1, Employee e2
+WHERE e1.ManagerId = e2.Id AND e1.Salary > e2.Salary;
+----
+
+==== 重复的邮箱
+
+----
+Write a SQL query to find all duplicate emails in a table named Person.
+
++----+---------+
+| Id | Email   |
++----+---------+
+| 1  | a@b.com |
+| 2  | c@d.com |
+| 3  | a@b.com |
++----+---------+
+For example, your query should return the following for the above table:
+
++---------+
+| Email   |
++---------+
+| a@b.com |
++---------+
+Note: All emails are in lowercase.
+----
+
+
+这道题让我们求重复的邮箱，那么最直接的方法就是用Group by...Having Count(*)...的固定搭配来做，代码如下： +
+
+**解法1:** +
+[source, sql, linenums]
+----
+SELECT Email FROM Person GROUP BY Email
+HAVING COUNT(*) > 1;
+----
+
+我们还可以用内交来做，用Email来内交两个表，然后返回Id不同的行，则说明两个不同的人使用了相同的邮箱： +
+
+**解法2:** +
+[source, sql, linenums]
+----
+SELECT DISTINCT p1.Email FROM Person p1
+JOIN Person p2 ON p1.Email = p2.Email
+WHERE p1.Id <> p2.Id;
+----
+
+==== 从未下单订购的顾客
+
+----
+Suppose that a website contains two tables, the Customers table and the Orders table. Write a SQL query to find all customers who never order anything.
+
+Table: Customers.
+
++----+-------+
+| Id | Name  |
++----+-------+
+| 1  | Joe   |
+| 2  | Henry |
+| 3  | Sam   |
+| 4  | Max   |
++----+-------+
+Table: Orders.
+
++----+------------+
+| Id | CustomerId |
++----+------------+
+| 1  | 3          |
+| 2  | 1          |
++----+------------+
+Using the above tables as example, return the following:
+
++-----------+
+| Customers |
++-----------+
+| Henry     |
+| Max       |
++-----------+
+----
+
+这道题让我们给了我们一个Customers表和一个Orders表，让我们找到从来没有下单的顾客，那么我们最直接的方法就是找没有在Orders表中出现的顾客Id就行了，用Not in关键字，如下所示： +
+
+**解法1:** +
+[source, sql, linenums]
+----
+SELECT Name AS Customers FROM Customers
+WHERE Id NOT IN (SELECT CustomerId FROM Orders);
+----
+
+或者我们也可以用左交来联合两个表，只要找出右边的CustomerId为Null的顾客就是木有下单的： +
+
+**解法2:** +
+[source, sql, linenums]
+----
+SELECT Name AS Customers FROM Customers
+LEFT JOIN Orders ON Customers.Id = Orders.CustomerId
+WHERE Orders.CustomerId IS NULL;
+----
+
+我们还可以用Not exists关键字来做，原理和Not in很像，参见代码如下： +
+**解法3:** +
+[source, sql, linenums]
+----
+SELECT Name AS Customers FROM Customers c
+WHERE NOT EXISTS (SELECT * FROM Orders o WHERE o.CustomerId = c.Id);
+----
+
+==== 系里最高薪水
+
+----
+The Employee table holds all employees. Every employee has an Id, a salary, and there is also a column for the department Id.
+
++----+-------+--------+--------------+
+| Id | Name  | Salary | DepartmentId |
++----+-------+--------+--------------+
+| 1  | Joe   | 70000  | 1            |
+| 2  | Henry | 80000  | 2            |
+| 3  | Sam   | 60000  | 2            |
+| 4  | Max   | 90000  | 1            |
++----+-------+--------+--------------+
+The Department table holds all departments of the company.
+
++----+----------+
+| Id | Name     |
++----+----------+
+| 1  | IT       |
+| 2  | Sales    |
++----+----------+
+Write a SQL query to find employees who have the highest salary in each of the departments. For the above tables, Max has the highest salary in the IT department and Henry has the highest salary in the Sales department.
+
++------------+----------+--------+
+| Department | Employee | Salary |
++------------+----------+--------+
+| IT         | Max      | 90000  |
+| Sales      | Henry    | 80000  |
++------------+----------+--------+
+----
+
+这道题让给了我们两张表，Employee表和Department表，让我们找系里面薪水最高的人的，
+实际上这题是Second Highest Salary和Combine Two Tables的结合题，我们既需要联合两表，又要找到最高薪水，
+那么我们首先让两个表内交起来，然后将结果表需要的列都标明，然后就是要找最高的薪水，我们用Max关键字来实现，参见代码如下： +
+
+**解法1:** +
+[source, sql, linenums]
+----
+SELECT d.Name AS Department, e1.Name AS Employee, e1.Salary FROM Employee e1
+JOIN Department d ON e1.DepartmentId = d.Id WHERE Salary IN
+(SELECT MAX(Salary) FROM Employee e2 WHERE e1.DepartmentId = e2.DepartmentId);
+----
+
+我们也可以不用Join关键字，直接用Where将两表连起来，然后找最高薪水的方法和上面相同： +
+**解法2:** +
+[source, sql, linenums]
+----
+SELECT d.Name AS Department, e.Name AS Employee, e.Salary FROM Employee e, Department d
+WHERE e.DepartmentId = d.Id AND e.Salary = (SELECT MAX(Salary) FROM Employee e2 WHERE e2.DepartmentId = d.Id);
+----
+
+下面这种方法没用用到Max关键字，而是用了>=符号，实现的效果跟Max关键字相同，参见代码如下： +
+
+**解法3:** +
+[source, sql, linenums]
+----
+SELECT d.Name AS Department, e.Name AS Employee, e.Salary FROM Employee e, Department d
+WHERE e.DepartmentId = d.Id AND e.Salary >= ALL (SELECT Salary FROM Employee e2 WHERE e2.DepartmentId = d.Id);
+----
+
+==== 系里前三高薪水
+
+----
+The Employee table holds all employees. Every employee has an Id, and there is also a column for the department Id.
+
++----+-------+--------+--------------+
+| Id | Name  | Salary | DepartmentId |
++----+-------+--------+--------------+
+| 1  | Joe   | 70000  | 1            |
+| 2  | Henry | 80000  | 2            |
+| 3  | Sam   | 60000  | 2            |
+| 4  | Max   | 90000  | 1            |
+| 5  | Janet | 69000  | 1            |
+| 6  | Randy | 85000  | 1            |
++----+-------+--------+--------------+
+The Department table holds all departments of the company.
+
++----+----------+
+| Id | Name     |
++----+----------+
+| 1  | IT       |
+| 2  | Sales    |
++----+----------+
+Write a SQL query to find employees who earn the top three salaries in each of the department. For the above tables, your SQL query should return the following rows.
+
++------------+----------+--------+
+| Department | Employee | Salary |
++------------+----------+--------+
+| IT         | Max      | 90000  |
+| IT         | Randy    | 85000  |
+| IT         | Joe      | 70000  |
+| Sales      | Henry    | 80000  |
+| Sales      | Sam      | 60000  |
++------------+----------+--------+
+----
+
+这道题是之前那道Department Highest Salary的拓展，难度标记为Hard，还是蛮有难度的一道题，综合了前面很多题的知识点，
+首先看使用Select Count(Distinct)的方法，我们内交Employee和Department两张表，然后我们找出比当前薪水高的最多只能有两个，
+那么前三高的都能被取出来了，参见代码如下： +
+
+**解法1:** +
+[source, sql, linenums]
+----
+SELECT d.Name AS Department, e.Name AS Employee, e.Salary FROM Employee e
+JOIN Department d on e.DepartmentId = d.Id
+WHERE (SELECT COUNT(DISTINCT Salary) FROM Employee WHERE Salary > e.Salary
+AND DepartmentId = d.Id) < 3 ORDER BY d.Name, e.Salary DESC;
+----
+
+下面这种方法将上面方法中的<3换成了IN (0, 1, 2)，是一样的效果： +
+
+**解法2:** +
+[source, sql, linenums]
+----
+SELECT d.Name AS Department, e.Name AS Employee, e.Salary FROM Employee e, Department d
+WHERE (SELECT COUNT(DISTINCT Salary) FROM Employee WHERE Salary > e.Salary
+AND DepartmentId = d.Id) IN (0, 1, 2) AND e.DepartmentId = d.Id ORDER BY d.Name, e.Salary DESC;
+----
+
+或者我们也可以使用Group by Having Count(Distinct ..) 关键字来做： +
+
+**解法3:** +
+[source, sql, linenums]
+----
+SELECT d.Name AS Department, e.Name AS Employee, e.Salary FROM
+(SELECT e1.Name, e1.Salary, e1.DepartmentId FROM Employee e1 JOIN Employee e2
+ON e1.DepartmentId = e2.DepartmentId AND e1.Salary <= e2.Salary GROUP BY e1.Id
+HAVING COUNT(DISTINCT e2.Salary) <= 3) e JOIN Department d ON e.DepartmentId = d.Id
+ORDER BY d.Name, e.Salary DESC;
+----
+
+下面这种方法略微复杂一些，用到了变量，跟Consecutive Numbers中的解法三使用的方法一样，目的是为了给每个人都按照薪水的高低增加一个rank，最后返回rank值小于等于3的项即可，参见代码如下： +
+
+**解法4:** +
+[source, sql, linenums]
+----
+
+SELECT d.Name AS Department, e.Name AS Employee, e.Salary FROM
+(SELECT Name, Salary, DepartmentId,
+@rank := IF(@pre_d = DepartmentId, @rank + (@pre_s <> Salary), 1) AS rank,
+@pre_d := DepartmentId, @pre_s := Salary
+FROM Employee, (SELECT @pre_d := -1, @pre_s := -1, @rank := 1) AS init
+ORDER BY DepartmentId, Salary DESC) e JOIN Department d ON e.DepartmentId = d.Id
+WHERE e.rank <= 3 ORDER BY d.Name, e.Salary DESC;
+----
+
+==== 翻转字符串中的单词之二
+
+----
+Given an input string, reverse the string word by word. A word is defined as a sequence of non-space characters.
+The input string does not contain leading or trailing spaces and the words are always separated by a single space.
+For example,
+Given s = "the sky is blue",
+return "blue is sky the".
+Could you do it in-place without allocating extra space?
+----
+
+这道题让我们翻转一个字符串中的单词，跟之前那题Reverse Words in a String没有区别，
+由于之前那道题我们就是用in-place的方法做的，而这道题反而更简化了题目，因为不考虑首尾空格了和单词之间的多空格了，
+方法还是很简单，先把每个单词翻转一遍，再把整个字符串翻转一遍，或者也可以调换个顺序，先翻转整个字符串，再翻转每个单词，
+参见代码如下： +
+
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    void reverseWords(string &s) {
+        int left = 0;
+        for (int i = 0; i <= s.size(); ++i) {
+            if (i == s.size() || s[i] == ' ') {
+                reverse(s, left, i - 1);
+                left = i + 1;
+            }
+        }
+        reverse(s, 0, s.size() - 1);
+    }
+    void reverse(string &s, int left, int right) {
+        while (left < right) {
+            char t = s[left];
+            s[left] = s[right];
+            s[right] = t;
+            ++left; --right;
+        }
+    }
+};
+----
+
+==== 求重复的DNA序列
+
+----
+All DNA is composed of a series of nucleotides abbreviated as A, C, G, and T, for example: "ACGAATTCCG". When studying DNA, it is sometimes useful to identify repeated sequences within the DNA.
+
+Write a function to find all the 10-letter-long sequences (substrings) that occur more than once in a DNA molecule.
+
+For example,
+
+Given s = "AAAAACCCCCAAAAACCCCCCAAAAAGGGTTT",
+
+Return:
+["AAAAACCCCC", "CCCCCAAAAA"].
+----
+
+----
+看到这道题想到这应该属于CS的一个重要分支生物信息Bioinformatics研究的内容，研究DNA序列特征的重要意义自然不用多说，但是对于我们广大码农来说，还是专注于算法吧，此题还是用位操作Bit Manipulation来求解，计算机由于其二进制存储的特点可以很巧妙的解决一些问题，像之前的Single Number 单独的数字和Single Number II 单独的数字之二都是很巧妙利用位操作来求解。此题由于构成输入字符串的字符只有四种，分别是A, C, G, T，下面我们来看下它们的ASCII码用二进制来表示：
+
+A: 0100 0001　　C: 0100 0011　　G: 0100 0111　　T: 0101 0100
+
+由于我们的目的是利用位来区分字符，当然是越少位越好，通过观察发现，每个字符的后三位都不相同，故而我们可以用末尾三位来区分这四个字符。而题目要求是10个字符长度的串，每个字符用三位来区分，10个字符需要30位，在32位机上也OK。为了提取出后30位，我们还需要用个mask，取值为0x7ffffff，用此mask可取出后27位，再向左平移三位即可。算法的思想是，当取出第十个字符时，将其存在哈希表里，和该字符串出现频率映射，之后每向左移三位替换一个字符，查找新字符串在哈希表里出现次数，如果之前刚好出现过一次，则将当前字符串存入返回值的数组并将其出现次数加一，如果从未出现过，则将其映射到1。为了能更清楚的阐述整个过程，我们用题目中给的例子来分析整个过程：
+
+首先我们取出前九个字符AAAAACCCC，根据上面的分析，我们用三位来表示一个字符，所以这九个字符可以用二进制表示为001001001001011011011，然后我们继续遍历字符串，下一个进来的是C，则当前字符为AAAAACCCCC，二进制表示为001001001001011011011011，然后我们将其存入哈希表中，用二进制的好处是可以用一个int变量来表示任意十个字符序列，比起直接存入字符串大大的节省了内存空间，然后再读入下一个字符C，则此时字符串为AAAACCCCCA，我们还是存入其二进制的表示形式，以此类推，当某个序列之前已经出现过了，我们将其存入结果res中即可，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<string> findRepeatedDnaSequences(string s) {
+        vector<string> res;
+        if (s.size() <= 10) return res;
+        int mask = 0x7ffffff;
+        unordered_map<int, int> m;
+        int cur = 0, i = 0;
+        while (i < 9) {
+            cur = (cur << 3) | (s[i++] & 7);
+        }
+        while (i < s.size()) {
+            cur = ((cur & mask) << 3) | (s[i++] & 7);
+            if (m.find(cur) != m.end()) {
+                if (m[cur] == 1) res.push_back(s.substr(i - 10, 10));
+                ++m[cur];
+            } else {
+                m[cur] = 1;
+            }
+        }
+        return res;
+    }
+};
+----
+
+上面的方法可以写的更简洁一些，这里我们可以用set来代替哈希表，只要当前的数已经在哈希表中存在了，我们就将其加入res中，这里我们res也定义成set，这样就可以利用set的不能有重复项的特点，从而得到正确的答案，最后我们将set转为vector即可，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<string> findRepeatedDnaSequences(string s) {
+        unordered_set<string> res;
+        unordered_set<int> st;
+        int cur = 0, i = 0;
+        while (i < 9) cur = cur << 3 | (s[i++] & 7);
+        while (i < s.size()) {
+            cur = ((cur & 0x7ffffff) << 3) | (s[i++] & 7);
+            if (st.count(cur)) res.insert(s.substr(i - 10, 10));
+            else st.insert(cur);
+        }
+        return vector<string>(res.begin(), res.end());
+    }
+};
+----
+
+上面的方法都是用三位来表示一个字符，这里我们可以用两位来表示一个字符，00表示A，01表示C，10表示G，11表示T，那么我们总共需要20位就可以表示十个字符流，其余的思路跟上面的方法完全相同，注意这里的mask只需要表示18位，所以变成了0x3ffff，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<string> findRepeatedDnaSequences(string s) {
+        unordered_set<string> res;
+        unordered_set<int> st;
+        unordered_map<int, int> m{{'A', 0}, {'C', 1}, {'G', 2}, {'T', 3}};
+        int cur = 0, i = 0;
+        while (i < 9) cur = cur << 2 | m[s[i++]];
+        while (i < s.size()) {
+            cur = ((cur & 0x3ffff) << 2) | (m[s[i++]]);
+            if (st.count(cur)) res.insert(s.substr(i - 10, 10));
+            else st.insert(cur);
+        }
+        return vector<string>(res.begin(), res.end());
+    }
+};
+----
+
+如果我们不需要考虑节省内存空间，那我们可以直接将10个字符组成字符串存入set中，那么也就不需要mask啥的了，但是思路还是跟上面的方法相同: +
+
+**解法4:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<string> findRepeatedDnaSequences(string s) {
+        set<string> res, st;
+        for (int i = 0; i + 9 < s.size(); ++i) {
+            string t = s.substr(i, 10);
+            if (st.count(t)) res.insert(t);
+            else st.insert(t);
+        }
+        return vector<string>{res.begin(), res.end()};
+    }
+};
+----
+
+==== 买卖股票的最佳时间之四
+
+----
+Say you have an array for which the ith element is the price of a given stock on day i.
+
+Design an algorithm to find the maximum profit. You may complete at most k transactions.
+
+Note:
+You may not engage in multiple transactions at the same time (ie, you must sell the stock before you buy again).
+
+Credits:
+Special thanks to @Freezen for adding this problem and creating all test cases.
+----
+
+----
+这道题实际上是之前那道 Best Time to Buy and Sell Stock III 买股票的最佳时间之三的一般情况的推广，还是需要用动态规划Dynamic programming来解决，具体思路如下：
+
+这里我们需要两个递推公式来分别更新两个变量local和global，参见网友Code Ganker的博客，我们其实可以求至少k次交易的最大利润。我们定义local[i][j]为在到达第i天时最多可进行j次交易并且最后一次交易在最后一天卖出的最大利润，此为局部最优。然后我们定义global[i][j]为在到达第i天时最多可进行j次交易的最大利润，此为全局最优。它们的递推式为：
+
+local[i][j] = max(global[i - 1][j - 1] + max(diff, 0), local[i - 1][j] + diff)
+
+global[i][j] = max(local[i][j], global[i - 1][j])，
+
+其中局部最优值是比较前一天并少交易一次的全局最优加上大于0的差值，和前一天的局部最优加上差值后相比，两者之中取较大值，而全局最优比较局部最优和前一天的全局最优。
+
+但这道题还有个坑，就是如果k的值远大于prices的天数，比如k是好几百万，而prices的天数就为若干天的话，上面的DP解法就非常的没有效率，应该直接用Best Time to Buy and Sell Stock II 买股票的最佳时间之二的方法来求解，所以实际上这道题是之前的二和三的综合体，代码如下：
+----
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int maxProfit(int k, vector<int> &prices) {
+        if (prices.empty()) return 0;
+        if (k >= prices.size()) return solveMaxProfit(prices);
+        int g[k + 1] = {0};
+        int l[k + 1] = {0};
+        for (int i = 0; i < prices.size() - 1; ++i) {
+            int diff = prices[i + 1] - prices[i];
+            for (int j = k; j >= 1; --j) {
+                l[j] = max(g[j - 1] + max(diff, 0), l[j] + diff);
+                g[j] = max(g[j], l[j]);
+            }
+        }
+        return g[k];
+    }
+    int solveMaxProfit(vector<int> &prices) {
+        int res = 0;
+        for (int i = 1; i < prices.size(); ++i) {
+            if (prices[i] - prices[i - 1] > 0) {
+                res += prices[i] - prices[i - 1];
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== 旋转数组
+
+----
+Rotate an array of n elements to the right by k steps.
+
+For example, with n = 7 and k = 3, the array [1,2,3,4,5,6,7] is rotated to [5,6,7,1,2,3,4].
+
+Note:
+Try to come up as many solutions as you can, there are at least 3 different ways to solve this problem.
+
+[show hint]
+
+Hint:
+Could you do it in-place with O(1) extra space?
+Credits:
+Special thanks to @Freezen for adding this problem and creating all test cases.
+----
+
+新题抢先刷，这道题标为Easy，应该不是很难，我们先来看一种O(n)的空间复杂度的方法，我们复制一个和nums一样的数组，然后利用映射关系i -> (i+k)%n来交换数字。代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    void rotate(vector<int>& nums, int k) {
+        vector<int> t = nums;
+        for (int i = 0; i < nums.size(); ++i) {
+            nums[(i + k) % nums.size()] = t[i];
+        }
+    }
+};
+----
+
+----
+由于提示中要求我们空间复杂度为O(1)，所以我们不能用辅助数组，上面的思想还是可以使用的，但是写法就复杂的多，而且需要用到很多的辅助变量，我们用题目中的例子来展示下面这种算法的nums的变化过程：
+
+1 2 3 4 5 6 7
+1 2 3 1 5 6 7
+1 2 3 1 5 6 4
+1 2 7 1 5 6 4
+1 2 7 1 5 3 4
+1 6 7 1 5 3 4
+1 6 7 1 2 3 4
+5 6 7 1 2 3 4
+----
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    void rotate(vector<int>& nums, int k) {
+        if (nums.empty() || (k %= nums.size()) == 0) return;
+        int n = nums.size(), start = 0, i = 0, cur = nums[i], cnt = 0;
+        while (cnt++ < n) {
+            i = (i + k) % n;
+            int t = nums[i];
+            nums[i] = cur;
+            if (i == start) {
+                ++start; ++i;
+                cur = nums[i];
+            } else {
+                cur = t;
+            }
+        }
+    }
+};
+----
+
+----
+根据热心网友waruzhi的留言，这道题其实还有种类似翻转字符的方法，思路是先把前n-k个数字翻转一下，再把后k个数字翻转一下，最后再把整个数组翻转一下：
+
+1 2 3 4 5 6 7
+4 3 2 1 5 6 7
+4 3 2 1 7 6 5
+5 6 7 1 2 3 4
+----
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    void rotate(vector<int>& nums, int k) {
+        if (nums.empty() || (k %= nums.size()) == 0) return;
+        int n = nums.size();
+        reverse(nums.begin(), nums.begin() + n - k);
+        reverse(nums.begin() + n - k, nums.end());
+        reverse(nums.begin(), nums.end());
+    }
+};
+----
+
+由于旋转数组的操作也可以看做从数组的末尾取k个数组放入数组的开头，所以我们用STL的push_back和erase可以很容易的实现这些操作。 +
+
+**解法4:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    void rotate(vector<int>& nums, int k) {
+        if (nums.empty() || (k %= nums.size()) == 0) return;
+        int n = nums.size();
+        for (int i = 0; i < n - k; ++i) {
+            nums.push_back(nums[0]);
+            nums.erase(nums.begin());
+        }
+    }
+};
+----
+
+----
+下面这种方法其实还蛮独特的，通过不停的交换某两个数字的位置来实现旋转，根据网上这个帖子的思路改写而来，数组改变过程如下：
+
+1 2 3 4 5 6 7
+5 2 3 4 1 6 7
+5 6 3 4 1 2 7
+5 6 7 4 1 2 3
+5 6 7 1 4 2 3
+5 6 7 1 2 4 3
+5 6 7 1 2 3 4
+----
+
+**解法5:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    void rotate(vector<int>& nums, int k) {
+        if (nums.empty()) return;
+        int n = nums.size(), start = 0;
+        while (n && (k %= n)) {
+            for (int i = 0; i < k; ++i) {
+                swap(nums[i + start], nums[n - k + i + start]);
+            }
+            n -= k;
+            start += k;
+        }
+    }
+};
+----
+
+==== 翻转位
+
+----
+Reverse bits of a given 32 bits unsigned integer.
+
+For example, given input 43261596 (represented in binary as 00000010100101000001111010011100), return 964176192 (represented in binary as00111001011110000010100101000000).
+
+Follow up:
+If this function is called many times, how would you optimize it?
+
+Related problem: Reverse Integer
+
+Credits:
+Special thanks to @ts for adding this problem and creating all test cases.
+----
+
+这道题又是在考察位操作Bit Operation，LeetCode中有关位操作的题也有不少，比如 Repeated DNA Sequences，Single Number,   Single Number II ，和 Grey Code 等等。跟上面那些题比起来，这道题简直不能再简单了。那么对于这道题，我们只需要把要翻转的数从右向左一位位的取出来，如果取出来的是1，我们将结果res左移一位并且加上1；如果取出来的是0，我们将结果res左移一位，然后将n右移一位即可，代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    uint32_t reverseBits(uint32_t n) {
+        uint32_t res = 0;
+        for (int i = 0; i < 32; ++i) {
+            if (n & 1 == 1) {
+                res = (res << 1) + 1;
+            } else {
+                res = res << 1;
+            }
+            n = n >> 1;
+        }
+        return res;
+    }
+};
+----
+
+我们可以简化上面的代码，去掉if...else...结构，可以结果res左移一位，然后再判断n的最低位是否为1，是的话那么结果res加上1，然后将n右移一位即可，代码如下： +
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    uint32_t reverseBits(uint32_t n) {
+        uint32_t res = 0;
+        for (int i = 0; i < 32; ++i) {
+            res <<= 1;
+            if ((n & 1) == 1) ++res;
+            n >>= 1;
+        }
+        return res;
+    }
+};
+----
+
+我们继续简化上面的解法，将if判断句直接揉进去，通过‘或’上一个n的最低位即可，用n‘与’1提取最低位，然后将n右移一位即可，代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    uint32_t reverseBits(uint32_t n) {
+        uint32_t res = 0;
+        for (int i = 0; i < 32; ++i) {
+            res = (res << 1) | (n & 1);
+            n >>= 1;
+        }
+        return res;
+    }
+};
+----
+
+博主还能进一步简化，这里我们不更新n的值，而是直接将n右移i位，然后通过‘与’1来提取出该位，加到左移一位后的结果res中即可，参加代码如下： +
+
+**解法4:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    uint32_t reverseBits(uint32_t n) {
+        uint32_t res = 0;
+        for (int i = 0; i < 32; ++i) {
+            res = (res << 1) + (n >> i & 1);
+        }
+        return res;
+    }
+};
+----
+
+我们也可以换一种角度来做，首先将n右移i位，然后通过‘与’1来提取出该位，然后将其左移 (32 - i) 位，然后‘或’上结果res，就是其翻转后应该在的位置，参见代码如下：  +
+
+**解法5:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    uint32_t reverseBits(uint32_t n) {
+        uint32_t res = 0;
+        for (int i = 0; i < 32; ++i) {
+            res |= ((n >> i) & 1) << (31 - i);
+        }
+        return res;
+    }
+};
+----
+
+----
+得票最高的大神的解题方案参考：
+for 8 bit binary number abcdefgh, the process is as follow:
+abcdefgh -> efghabcd -> ghefcdab -> hgfedcba
+----
+
+**解法6:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    uint32_t reverseBits(uint32_t n) {
+        n = (n >> 16) | (n << 16);
+        n = ((n & 0xff00ff00) >> 8) | ((n & 0x00ff00ff) << 8);
+        n = ((n & 0xf0f0f0f0) >> 4) | ((n & 0x0f0f0f0f) << 4);
+        n = ((n & 0xcccccccc) >> 2) | ((n & 0x33333333) << 2);
+        n = ((n & 0xaaaaaaaa) >> 1) | ((n & 0x55555555) << 1);
+        return n;
+    }
+};
+----
+
+==== 位1的个数
+
+----
+Write a function that takes an unsigned integer and returns the number of ’1' bits it has (also known as the Hamming weight).
+
+For example, the 32-bit integer ’11' has binary representation 00000000000000000000000000001011, so the function should return 3.
+----
+
+很简单的一道位操作Bit Manipulation的题，最近新出的三道题都没有啥难度啊，这样会误导新人的，做了这三道得出个LeetCode没啥难度的结论，其实里面好题真的不少，难题也很多，经典题也多，反正就是赞赞赞，32个赞。 +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int hammingWeight(uint32_t n) {
+        int res = 0;
+        for (int i = 0; i < 32; ++i) {
+            res += (n & 1);
+            n = n >> 1;
+        }
+        return res;
+    }
+};
+----
+
+==== 单词频率
+
+----
+Write a bash script to calculate the frequency of each word in a text file words.txt.
+
+For simplicity sake, you may assume:
+
+words.txt contains only lowercase characters and space ' ' characters.
+Each word must consist of lowercase characters only.
+Words are separated by one or more whitespace characters.
+For example, assume that words.txt has the following content:
+
+the day is sunny the the
+the sunny is is
+Your script should output the following, sorted by descending frequency:
+
+the 4
+is 3
+sunny 2
+day 1
+Note:
+Don't worry about handling ties, it is guaranteed that each word's frequency count is unique.
+
+[show hint]
+
+Hint:
+Could you write it in one-line using Unix pipes?
+----
+
+
+----
+这道题给了我们一个文本文件，让我们统计里面单词出现的个数，提示中让我们用管道Pipes来做，在之前那道Tenth Line中，我们使用过管道命令，管道命令的讲解请参见这个帖子。提示中让我们用管道连接各种命令，然后一行搞定，那么我们先来看第一种解法，乍一看啥都不明白，咋办？没关系，容我慢慢来讲解。首先用的关键字是grep命令，该命令一种强大的文本搜索工具，它能使用正则表达式搜索文本，并把匹配的行打印出来，详解请参见这个帖子。后面紧跟的-oE '[a-z]+'参数表示原文本内容变成一个单词一行的存储方式，于是此时文本的内容就变成了：
+
+the
+day
+is
+sunny
+the
+the
+the
+sunny
+is
+
+下面的sort命令就是用来排序的，参见这个帖子。排完序的结果为：
+
+day
+is
+is
+is
+sunny
+sunny
+the
+the
+the
+the
+
+后面的uniq命令是表示去除重复行命令(参见这个帖子)，后面的参数-c表示在每行前加上表示相应行目出现次数的前缀编号，得到结果如下：
+
+   1 day
+   3 is
+   2 sunny
+   4 the
+
+然后我们再sort一下，后面的参数-nr表示按数值进行降序排列，得到结果：
+
+   4 the
+   3 is
+   2 sunny
+   1 day
+
+而最后的awk命令就是将结果输出，两列颠倒位置即可：
+----
+
+**解法1:** +
+[source, sql, linenums]
+----
+grep -oE '[a-z]+' words.txt | sort | uniq -c | sort -nr | awk '{print $2" "$1}'
+----
+
+下面这种方法用的关键字是tr命令，该命令主要用来进行字符替换或者大小写替换，详解请参见这个帖子。后面紧跟的-s参数表示如果发现连续的字符，就把它们缩减为1个，而后面的‘ ’和‘\n'就是空格和回车，意思是把所有的空格都换成回车，那么第一段命令tr -s ' ' '\n' < words.txt 就好理解了，将单词之间的空格都换成回车，跟上面的第一段实现的作用相同，后面就完全一样了，参见上面的讲解： +
+
+**解法2:** +
+[source, sql, linenums]
+----
+tr -s ' ' '\n' < words.txt | sort | uniq -c | sort -nr | awk '{print $2, $1}'
+----
+
+下面这种方法就没有用管道命令进行一行写法了，而是使用了强大的文本分析工具awk进行写类C的代码来实现，这种写法在之前的那道Transpose File已经讲解过了，这里就不多说了，最后要注意的是sort命令的参数-nr -k 2表示按第二列的降序数值排列： +
+
+**解法3:** +
+[source, sql, linenums]
+----
+awk '{
+    for (i = 1; i <= NF; ++i) ++s[$i];
+} END {
+    for (i in s) print i, s[i];
+}' words.txt | sort -nr -k 2
+----
+
+==== 验证电话号码
+
+----
+Given a text file file.txt that contains list of phone numbers (one per line), write a one liner bash script to print all valid phone numbers.
+
+You may assume that a valid phone number must appear in one of the following two formats: (xxx) xxx-xxxx or xxx-xxx-xxxx. (x means a digit)
+
+You may also assume each line in the text file must not contain leading or trailing white spaces.
+
+For example, assume that file.txt has the following content:
+
+987-123-4567
+123 456 7890
+(123) 456-7890
+Your script should output the following valid phone numbers:
+
+987-123-4567
+(123) 456-7890
+----
+
+这道题让我们验证数字串是否为正确的电话号码的格式，而且规定了正确的格式只有两种(xxx) xxx-xxxx or xxx-xxx-xxxx，那么我们可以看出来区别就是在前几个字符，而后八个字符都相同。这题有多种解法，我们首先来看使用awk命令的解法，关于awk的介绍可以参见这个帖子。这道题是难点是如何写匹配的正则表达式，关于Bash脚本的正则表达式讲解请参见这个贴子。那么首先来看‘/.../'表示中间的是要匹配的正则表达式，然后脱字符^匹配一行的开头，美元符$在正则表达式中匹配行尾，然后再看中间的部分，[0-9]{3}表示匹配三个数字，圆括号括起一组正则表达式. 它和"|"操作符或在用expr进行子字符串提取(substring extraction)一起使用很有用。那么([0-9]{3}-|[0−9]3 )就可以理解了，它匹配了xxx-和(xxx) 这两种形式的字符串，然后后面的就好理解了，匹配xxx-xxxx这样的字符串，参见代码如下： +
+
+**解法1:** +
+[source, sql, linenums]
+----
+awk '/^([0-9]{3}-|\([0-9]{3}\) )[0-9]{3}-[0-9]{4}$/' file.txt
+----
+
+下面来看使用sed命令的解法，关于sed的讲解可以参见这个帖子。那么我们先来看后面的两个参数，-n表示关闭默认输出，默认将自动打印所有行，这样就不会打印出不符合要求的数字串了。-r表示支持扩展正则+ ? () {} |。后面的正则表达式和上面都相同，就是后面多了一个p，在用sed时，p和-n合用，表示打印某一行，这样才能把符合要求的行打印出来： +
+
+**解法2:** +
+[source, sql, linenums]
+----
+sed -n -r '/^([0-9]{3}-|\([0-9]{3}\) )[0-9]{3}-[0-9]{4}$/p' file.txt
+----
+
+再来看使用grep命令的做法，关于grep的讲解可以参见这个帖子。我没有查到那个-P参数的用法，有没有大神来点拨一下，后面的正则表达式思路根上面的相同，只不过用d{3}来表示[0-9]{3}，道理都一样，参见代码如下： +
+
+**解法3:** +
+[source, sql, linenums]
+----
+grep -P '^(\d{3}-|\(\d{3}\) )\d{3}-\d{4}$' file.txt
+----
+
+==== 转置文件
+
+----
+Given a text file file.txt, transpose its content.
+
+You may assume that each row has the same number of columns and each field is separated by the ' ' character.
+
+For example, if file.txt has the following content:
+
+name age
+alice 21
+ryan 30
+
+
+Output the following:
+
+name alice ryan
+age 21 30
+----
+
+----
+这道题让我们转置一个文件，其实感觉就是把文本内容当做了一个矩阵，每个单词空格隔开看做是矩阵中的一个元素，然后将转置后的内容打印出来。那么我们先来看使用awk关键字的做法，关于awk的介绍可以参见这个帖子。其中NF表示当前记录中的字段个数，就是有多少列，NR表示已经读出的记录数，就是行号，从1开始。那么在这里NF是2，因为文本只有两列，这里面这个for循环还跟我们通常所熟悉for循环不太一样，通常我们以为i只能是1和2，然后循环就结束了，而这里的i实际上遍历的数字为1,2,1,2,1,2，我们可能看到实际上循环了3遍1和2，而行数正好是3，可能人家就是这个机制吧。知道了上面这些，那么下面的代码就不难理解了，遍历过程如下：
+
+i = 1, s = [name]
+
+i = 2, s = [name; age]
+
+i = 1, s = [name alice; age]
+
+i = 2, s = [name alice; age 21]
+
+i = 1, s = [name alice ryan; age 21]
+
+i = 2, s = [name alice ryan; age 21 30]
+
+然后我们再将s中的各行打印出来即可，参见代码如下：
+----
+
+**解法1:** +
+[source, sql, linenums]
+----
+awk '{
+    for (i = 1; i <= NF; ++i) {
+        if (NR == 1) s[i] = $i;
+        else s[i] = s[i] " " $i;
+    }
+} END {
+    for (i = 1; s[i] != ""; ++i) {
+        print s[i];
+    }
+}' file.txt
+----
+
+下面这种方法和上面的思路完全一样，但是代码风格不一样，上面是C语言风格，而这个完全就是Bash脚本的风格了，我们用read关键字，我们可以查看read的用法read: usage: read [-ers] [-u fd] [-t timeout] [-p prompt] [-a array] [-n nchars] [-d delim] [name ...]。那么我们知道-a表示数组，将读出的每行内容存入数组line中，那么下一行for中的一堆特殊字符肯定让你头晕眼花，关于shell中的特殊变量可以参见这个帖子，其实我也不能算特别理解下面的代码，大概觉得跟上面的思路一样，求大神来具体给讲解下哈： +
+
+**解法2:** +
+[source, sql, linenums]
+----
+while read -a line; do
+    for ((i = 0; i < "${#line[@]}"; ++i)); do
+        a[$i]="${a[$i]} ${line[$i]}"
+    done
+done < file.txt
+for ((i = 0; i < ${#a[@]}; ++i)); do
+    echo ${a[i]}
+done
+----
+
+
+==== 第十行
+
+----
+How would you print just the 10th line of a file?
+
+For example, assume that file.txt has the following content:
+
+Line 1
+Line 2
+Line 3
+Line 4
+Line 5
+Line 6
+Line 7
+Line 8
+Line 9
+Line 10
+Your script should output the tenth line, which is:
+
+Line 10
+[show hint]
+
+Hint:
+1. If the file contains less than 10 lines, what should you output?
+2. There's at least three different solutions. Try to explore all possibilities.
+----
+
+这道题让我们用Bash脚本来打印一个txt文件的第十行，可以用很多种方法来实现，我们先来看一种是用awk来实现的方法，awk是强大的文本分析工具，具有流控制、数学运算、进程控制、内置的变量和函数、循环和判断的功能，具体可以参见这个帖子。其中NR表示行数，$0表示当前记录，所以我们可以用if来判断行数为第十行时，将内容打印出来即可： +
+
+**解法1:** +
+[source, sql, linenums]
+----
+awk '{if(NR == 10) print $0}' file.txt
+----
+
+我们也可以用更简洁的写法来打印出第十行如下： +
+**解法2:** +
+[source, sql, linenums]
+----
+awk 'NR == 10' file.txt
+----
+
+我们也可以使用流编辑工具sed来做，关于sed的讲解可以参见这个帖子。-n默认表示打印所有行，p限定了具体打印的行数： +
+
+**解法3:** +
+[source, sql, linenums]
+----
+sed -n 10p file.txt
+----
+
+----
+我们也可以使用tail和head关键字来打印，关于tail和head的用法详解请参见这个帖子。其中head表示从头开始打印，tail表示从结尾开始打印，-你表示根据文件行数进行打印，一些区别与联系请见下列例子：
+
+tail -n 3 file.txt: 打印file文件的最后三行内容　　　　　　
+
+tail -n +3 file.txt： 从file文件第三行开始打印所有内容
+
+head -n 3 file.txt： 打印file文件的前三行
+
+head -n -3 file.txt： 打印file文件除了最后三行的所有内容
+
+至于竖杠|为管道命令，讲解参见这个帖子，用法: command 1 | command 2 他的功能是把第一个命令command1执行的结果作为command 2的输入传给command 2。了解了这些知识，那么下面一行命令就很好理解了，首先输入file文件从第十行开始的所有内容，然后将输出内容的第一行打印出来即为第十行：
+----
+
+**解法4:** +
+[source, sql, linenums]
+----
+tail -n +10 file.txt | head -n 1
+----
+
+下面这种方法跟上面刚好相反，先输出file文件的前十行，然后从输出的第十行开始打印，那么也能正好打印第十行的内容： +
+
+**解法5:** +
+[source, sql, linenums]
+----
+head -n 10 file.txt | tail -n +10
+----
+
+==== 删除重复邮箱
+
+----
+Write a SQL query to delete all duplicate email entries in a table named Person, keeping only unique emails based on its smallest Id.
+
++----+------------------+
+| Id | Email            |
++----+------------------+
+| 1  | john@example.com |
+| 2  | bob@example.com  |
+| 3  | john@example.com |
++----+------------------+
+Id is the primary key column for this table.
+For example, after running your query, the above Person table should have the following rows:
+
++----+------------------+
+| Id | Email            |
++----+------------------+
+| 1  | john@example.com |
+| 2  | bob@example.com  |
++----+------------------+
+----
+
+这道题让我们删除重复邮箱，那我们可以首先找出所有不重复的邮箱，然后取个反就是重复的邮箱，都删掉即可，那么我们如何找出所有不重复的邮箱呢，我们可以按照邮箱群组起来，然后用Min关键字挑出较小的，然后取补集删除即可： +
+
+**解法1:** +
+[source, sql, linenums]
+----
+DELETE FROM Person WHERE Id NOT IN
+(SELECT Id FROM (SELECT MIN(Id) Id FROM Person GROUP BY Email) p);
+----
+
+我们也可以使用内交让两个表以邮箱关联起来，然后把相同邮箱且Id大的删除掉，参见代码如下： +
+
+**解法2:** +
+[source, sql, linenums]
+----
+DELETE p2 FROM Person p1 JOIN Person p2
+ON p2.Email = p1.Email WHERE p2.Id > p1.Id;
+----
+
+我们也可以不用Join，而直接用where将两表关联起来也行： +
+**解法3:** +
+[source, sql, linenums]
+----
+DELETE p2 FROM Person p1, Person p2
+WHERE p1.Email = p2.Email AND p2.Id > p1.Id;
+----
+
+==== 上升温度
+
+----
+Given a Weather table, write a SQL query to find all dates' Ids with higher temperature compared to its previous (yesterday's) dates.
+
++---------+------------+------------------+
+| Id(INT) | Date(DATE) | Temperature(INT) |
++---------+------------+------------------+
+|       1 | 2015-01-01 |               10 |
+|       2 | 2015-01-02 |               25 |
+|       3 | 2015-01-03 |               20 |
+|       4 | 2015-01-04 |               30 |
++---------+------------+------------------+
+For example, return the following Ids for the above Weather table:
+
++----+
+| Id |
++----+
+|  2 |
+|  4 |
++----+
+----
+
+
+这道题给了我们一个Weather表，让我们找出比前一天温度高的Id，由于Id的排列未必是按顺序的，所以我们要找前一天就得根据日期来找，我们可以使用MySQL的函数Datadiff来计算两个日期的差值，我们的限制条件是温度高且日期差1，参见代码如下：  +
+
+**解法1:** +
+[source, sql, linenums]
+----
+SELECT w1.Id FROM Weather w1, Weather w2
+WHERE w1.Temperature > w2.Temperature AND DATEDIFF(w1.Date, w2.Date) = 1;
+----
+
+下面这种解法我们使用了MySQL的TO_DAYS函数，用来将日期换算成天数，其余跟上面相同： +
+
+**解法2:** +
+[source, sql, linenums]
+----
+SELECT w1.Id FROM Weather w1, Weather w2
+WHERE w1.Temperature > w2.Temperature AND TO_DAYS(w1.Date) = TO_DAYS(w2.Date) + 1;
+----
+
+我们也可以使用Subdate函数，来实现日期减1，参见代码如下： +
+**解法3:** +
+[source, sql, linenums]
+----
+SELECT w1.Id FROM Weather w1, Weather w2
+WHERE w1.Temperature > w2.Temperature AND SUBDATE(w1.Date, 1) = w2.Date;
+----
+
+最后来一种完全不一样的解法，使用了两个变量pre_t和pre_d分别表示上一个温度和上一个日期，然后当前温度要大于上一温度，且日期差为1，满足上述两条件的话选出来为Id，否则为NULL，然后更新pre_t和pre_d为当前的值，最后选出的Id不为空即可： +
+
+**解法4:** +
+[source, sql, linenums]
+----
+SELECT Id FROM (
+SELECT CASE WHEN Temperature > @pre_t AND DATEDIFF(Date, @pre_d) = 1 THEN Id ELSE NULL END AS Id,
+@pre_t := Temperature, @pre_d := Date
+FROM Weather, (SELECT @pre_t := NULL, @pre_d := NULL) AS init ORDER BY Date ASC
+) id WHERE Id IS NOT NULL;
+----
+
+==== 打家劫舍
+
+----
+You are a professional robber planning to rob houses along a street. Each house has a certain amount of money stashed, the only constraint stopping you from robbing each of them is that adjacent houses have security system connected and it will automatically contact the police if two adjacent houses were broken into on the same night.
+
+Given a list of non-negative integers representing the amount of money of each house, determine the maximum amount of money you can rob tonight without alerting the police.
+
+Credits:
+Special thanks to @ifanchu for adding this problem and creating all test cases. Also thanks to @ts for adding additional test cases.
+----
+
+这道题的本质相当于在一列数组中取出一个或多个不相邻数，使其和最大。那么我们对于这类求极值的问题首先考虑动态规划Dynamic Programming来解，我们维护一个一位数组dp，其中dp[i]表示到i位置时不相邻数能形成的最大和，那么状态转移方程怎么写呢，我们先拿一个简单的例子来分析一下，比如说nums为{3, 2, 1, 5}，那么我们来看我们的dp数组应该是什么样的，首先dp[0]=3没啥疑问，再看dp[1]是多少呢，由于3比2大，所以我们抢第一个房子的3，当前房子的2不抢，所以dp[1]=3，那么再来看dp[2]，由于不能抢相邻的，所以我们可以用再前面的一个的dp值加上当前的房间值，和当前房间的前面一个dp值比较，取较大值当做当前dp值，所以我们可以得到状态转移方程dp[i] = max(num[i] + dp[i - 2], dp[i - 1]), 由此看出我们需要初始化dp[0]和dp[1]，其中dp[0]即为num[0]，dp[1]此时应该为max(num[0], num[1])，代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int rob(vector<int> &num) {
+        if (num.size() <= 1) return num.empty() ? 0 : num[0];
+        vector<int> dp = {num[0], max(num[0], num[1])};
+        for (int i = 2; i < num.size(); ++i) {
+            dp.push_back(max(num[i] + dp[i - 2], dp[i - 1]));
+        }
+        return dp.back();
+    }
+};
+----
+
+还有一种解法，核心思想还是用DP，分别维护两个变量a和b，然后按奇偶分别来更新a和b，这样就可以保证组成最大和的数字不相邻，代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int rob(vector<int> &nums) {
+        int a = 0, b = 0;
+        for (int i = 0; i < nums.size(); ++i) {
+            if (i % 2 == 0) {
+                a = max(a + nums[i], b);
+            } else {
+                b = max(a, b + nums[i]);
+            }
+        }
+        return max(a, b);
+    }
+};
+----
+
+上述方法还可以进一步简洁如下: +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int rob(vector<int> &nums) {
+        int a = 0, b = 0;
+        for (int i = 0; i < nums.size(); ++i) {
+            int m = a, n = b;
+            a = n + nums[i];
+            b = max(m, n);
+        }
+        return max(a, b);
+    }
+};
+----
+
+==== 二叉树的右侧视图
+
+----
+Given a binary tree, imagine yourself standing on the right side of it, return the values of the nodes you can see ordered from top to bottom.
+
+For example:
+Given the following binary tree,
+
+   1            <---
+ /   \
+2     3         <---
+ \     \
+  5     4       <---
+
+
+You should return [1, 3, 4].
+
+Credits:
+Special thanks to @amrsaqr for adding this problem and creating all test cases.
+----
+
+这道题要求我们打印出二叉树每一行最右边的一个数字，实际上是求二叉树层序遍历的一种变形，我们只需要保存每一层最右边的数字即可，可以参考我之前的博客 Binary Tree Level Order Traversal 二叉树层序遍历，这道题只要在之前那道题上稍加修改即可得到结果，还是需要用到数据结构队列queue，遍历每层的节点时，把下一层的节点都存入到queue中，每当开始新一层节点的遍历之前，先把新一层最后一个节点值存到结果中，代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> rightSideView(TreeNode *root) {
+        vector<int> res;
+        if (!root) return res;
+        queue<TreeNode*> q;
+        q.push(root);
+        while (!q.empty()) {
+            res.push_back(q.back()->val);
+            int size = q.size();
+            for (int i = 0; i < size; ++i) {
+                TreeNode *node = q.front();
+                q.pop();
+                if (node->left) q.push(node->left);
+                if (node->right) q.push(node->right);
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== 岛屿的数量
+
+----
+Given a 2d grid map of '1's (land) and '0's (water), count the number of islands. An island is surrounded by water and is formed by connecting adjacent lands horizontally or vertically. You may assume all four edges of the grid are all surrounded by water.
+
+Example 1:
+
+11110
+11010
+11000
+00000
+Answer: 1
+
+Example 2:
+
+11000
+11000
+00100
+00011
+Answer: 3
+
+Credits:
+Special thanks to @mithmatt for adding this problem and creating all test cases.
+----
+
+这道求岛屿数量的题的本质是求矩阵中连续区域的个数，很容易想到需要用深度优先搜索DFS来解，我们需要建立一个visited数组用来记录某个位置是否被访问过，对于一个为‘1’且未被访问过的位置，我们递归进入其上下左右位置上为‘1’的数，将其visited对应值赋为true，继续进入其所有相连的邻位置，这样可以将这个连通区域所有的数找出来，并将其对应的visited中的值赋true，找完次区域后，我们将结果res自增1，然后我们在继续找下一个为‘1’且未被访问过的位置，以此类推直至遍历完整个原数组即可得到最终结果，代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int numIslands(vector<vector<char> > &grid) {
+        if (grid.empty() || grid[0].empty()) return 0;
+        int m = grid.size(), n = grid[0].size(), res = 0;
+        vector<vector<bool> > visited(m, vector<bool>(n, false));
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                if (grid[i][j] == '1' && !visited[i][j]) {
+                    numIslandsDFS(grid, visited, i, j);
+                    ++res;
+                }
+            }
+        }
+        return res;
+    }
+    void numIslandsDFS(vector<vector<char> > &grid, vector<vector<bool> > &visited, int x, int y) {
+        if (x < 0 || x >= grid.size()) return;
+        if (y < 0 || y >= grid[0].size()) return;
+        if (grid[x][y] != '1' || visited[x][y]) return;
+        visited[x][y] = true;
+        numIslandsDFS(grid, visited, x - 1, y);
+        numIslandsDFS(grid, visited, x + 1, y);
+        numIslandsDFS(grid, visited, x, y - 1);
+        numIslandsDFS(grid, visited, x, y + 1);
+    }
+};
+----

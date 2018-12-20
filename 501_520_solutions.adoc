@@ -1,0 +1,1596 @@
+==== 找二分搜索数的众数
+
+----
+Given a binary search tree (BST) with duplicates, find all the mode(s) (the most frequently occurred element) in the given BST.
+
+Assume a BST is defined as follows:
+
+The left subtree of a node contains only nodes with keys less than or equal to the node's key.
+The right subtree of a node contains only nodes with keys greater than or equal to the node's key.
+Both the left and right subtrees must also be binary search trees.
+----
+
+这道题让我们求二分搜索树中的众数，这里定义的二分搜索树中左根右结点之间的关系是小于等于的，有些题目中是严格小于的，所以一定要看清题目要求。所谓的众数就是出现最多次的数字，可以有多个，那么这道题比较直接点思路就是利用一个哈希表来记录数字和其出现次数之前的映射，然后维护一个变量mx来记录当前最多的次数值，这样在遍历完树之后，根据这个mx值就能把对应的元素找出来。那么用这种方法的话就不需要用到二分搜索树的性质了，随意一种遍历方式都可以，下面我们来看递归的中序遍历的解法如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> findMode(TreeNode* root) {
+        vector<int> res;
+        int mx = 0;
+        unordered_map<int, int> m;
+        inorder(root, m, mx);
+        for (auto a : m) {
+            if (a.second == mx) {
+                res.push_back(a.first);
+            }
+        }
+        return res;
+    }
+    void inorder(TreeNode* node, unordered_map<int, int>& m, int& mx) {
+        if (!node) return;
+        inorder(node->left, m, mx);
+        mx = max(mx, ++m[node->val]);
+        inorder(node->right, m, mx);
+    }
+};
+----
+
+下面这种解法是上面方法的迭代形式，也是用的中序遍历的方法，有兴趣的童鞋可以实现其他的遍历方法： +
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> findMode(TreeNode* root) {
+        if (!root) return {};
+        vector<int> res;
+        TreeNode *p = root;
+        stack<TreeNode*> s;
+        unordered_map<int, int> m;
+        int mx = 0;
+        while (!s.empty() || p) {
+            while (p) {
+                s.push(p);
+                p = p->left;
+            }
+            p = s.top(); s.pop();
+            mx = max(mx, ++m[p->val]);
+            p = p->right;
+        }
+        for (auto a : m) {
+            if (a.second == mx) {
+                res.push_back(a.first);
+            }
+        }
+        return res;
+    }
+};
+----
+
+题目中的follow up说了让我们不用除了递归中的隐含栈之外的额外空间，那么我们就不能用哈希表了，不过这也不难，由于是二分搜索树，那么我们中序遍历出来的结果就是有序的，这样我们只要比较前后两个元素是否相等，就等统计出现某个元素出现的次数，因为相同的元素肯定是都在一起的。我们需要一个结点变量pre来记录上一个遍历到的结点，然后mx还是记录最大的次数，cnt来计数当前元素出现的个数，我们在中序遍历的时候，如果pre不为空，说明当前不是第一个结点，我们和之前一个结点值比较，如果相等，cnt自增1，如果不等，cnt重置1。如果此时cnt大于了mx，那么我们清空结果res，并把当前结点值加入结果res，如果cnt等于mx，那我们直接将当前结点值加入结果res，然后mx赋值为cnt。最后我们要把pre更新为当前结点，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> findMode(TreeNode* root) {
+        vector<int> res;
+        int mx = 0, cnt = 1;
+        TreeNode *pre = NULL;
+        inorder(root, pre, cnt, mx, res);
+        return res;
+    }
+    void inorder(TreeNode* node, TreeNode*& pre, int& cnt, int& mx, vector<int>& res) {
+        if (!node) return;
+        inorder(node->left, pre, cnt, mx, res);
+        if (pre) {
+            cnt = (node->val == pre->val) ? cnt + 1 : 1;
+        }
+        if (cnt >= mx) {
+            if (cnt > mx) res.clear();
+            res.push_back(node->val);
+            mx = cnt;
+        }
+        pre = node;
+        inorder(node->right, pre, cnt, mx, res);
+    }
+};
+----
+
+下面这种方法是上面解法的迭代写法，思路基本相同，可以参考上面的讲解，参见代码如下： +
+
+**解法4:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> findMode(TreeNode* root) {
+        if (!root) return {};
+        vector<int> res;
+        TreeNode *p = root, *pre = NULL;
+        stack<TreeNode*> s;
+        int mx = 0, cnt = 1;;
+        while (!s.empty() || p) {
+            while (p) {
+                s.push(p);
+                p = p->left;
+            }
+            p = s.top(); s.pop();
+            if (pre) {
+                cnt = (p->val == pre->val) ? cnt + 1 : 1;
+            }
+            if (cnt >= mx) {
+                if (cnt > mx) res.clear();
+                res.push_back(p->val);
+                mx = cnt;
+            }
+            pre = p;
+            p = p->right;
+        }
+        return res;
+    }
+};
+----
+
+==== IPO 上市
+
+----
+Suppose LeetCode will start its IPO soon. In order to sell a good price of its shares to Venture Capital, LeetCode would like to work on some projects to increase its capital before the IPO. Since it has limited resources, it can only finish at most k distinct projects before the IPO. Help LeetCode design the best way to maximize its total capital after finishing at most k distinct projects.
+
+You are given several projects. For each project i, it has a pure profit Pi and a minimum capital of Ci is needed to start the corresponding project. Initially, you have W capital. When you finish a project, you will obtain its pure profit and the profit will be added to your total capital.
+
+To sum up, pick a list of at most k distinct projects from given projects to maximize your final capital, and output your final maximized capital.
+----
+
+这道题上来就让人眼前一亮，剑指上市，每个创业公司都有一个上市的梦想吧，博主认为照现在这种发展趋势，感觉上市并非遥不可及，资瓷一下。这道题说初始时我们的资本为0，可以交易k次，并且给了我们提供了交易所需的资本和所能获得的利润，让我们求怎样选择k次交易，使我们最终的资本最大。虽然题目中给我们的资本数组是有序的，但是OJ里的test case肯定不都是有序的，还有就是不一定需要资本大的交易利润就多，该遍历的时候还得遍历。我们可以用贪婪算法来解，每一次都选择资本范围内最大利润的进行交易，那么我们首先应该建立资本和利润对，然后根据资本的大小进行排序，然后我们根据自己当前的资本，用二分搜索法在有序数组中找第一个大于当前资本的交易的位置，然后往前退一步就是最后一个不大于当前资本的交易，然后向前遍历，找到利润最大的那个的进行交易，把利润加入资本W中，然后将这个交易对删除，这样我们就可以保证在进行k次交易后，我们的总资本最大，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findMaximizedCapital(int k, int W, vector<int>& Profits, vector<int>& Capital) {
+        vector<pair<int, int>> v;
+        for (int i = 0; i < Capital.size(); ++i) {
+            v.push_back({Capital[i], Profits[i]});
+        }
+        sort(v.begin(), v.end());
+        for (int i = 0; i < k; ++i) {
+            int left = 0, right = v.size(), mx = 0, idx = 0;
+            while (left < right) {
+                int mid = left + (right - left) / 2;
+                if (v[mid].first <= W) left = mid + 1;
+                else right = mid;
+            }
+            for (int j = right - 1; j >= 0; --j) {
+                if (mx < v[j].second) {
+                    mx = v[j].second;
+                    idx = j;
+                }
+            }
+            W += mx;
+            v.erase(v.begin() + idx);
+        }
+        return W;
+    }
+};
+----
+
+看论坛上的大神们都比较喜欢用一些可以自动排序的数据结构来做，比如我们可以使用一个最大堆和一个最小堆，把资本利润对放在最小堆中，这样需要资本小的交易就在队首，然后从队首按顺序取出资本小的交易，如果所需资本不大于当前所拥有的资本，那么就把利润资本存入最大堆中，注意这里资本和利润要翻个，因为我们希望把利润最大的交易放在队首，便于取出，这样也能实现我们的目的，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findMaximizedCapital(int k, int W, vector<int>& Profits, vector<int>& Capital) {
+        priority_queue<pair<int, int>> maxH;
+        priority_queue<pair<int, int>, vector<pair<int, int>>, greater<pair<int, int>>> minH;
+        for (int i = 0; i < Capital.size(); ++i) {
+            minH.push({Capital[i], Profits[i]});
+        }
+        for (int i = 0; i < k; ++i) {
+            while (!minH.empty() && minH.top().first <= W) {
+                auto t = minH.top(); minH.pop();
+                maxH.push({t.second, t.first});
+            }
+            if (maxH.empty()) break;
+            W += maxH.top().first; maxH.pop();
+        }
+        return W;
+    }
+};
+----
+
+下面这种方法跟上面的解法思路完全一样，就是数据结构有些变化，我们用multiset来模拟最小堆，然后最大堆还是用优先队列来实现，不过是需要存利润值就行了，不需要存对应的资本了，参见代码如下：  +
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findMaximizedCapital(int k, int W, vector<int>& Profits, vector<int>& Capital) {
+        priority_queue<int> q;
+        multiset<pair<int, int>> s;
+        for (int i = 0; i < Capital.size(); ++i) {
+            s.insert({Capital[i], Profits[i]});
+        }
+        for (int i = 0; i < k; ++i) {
+            for (auto it = s.begin(); it != s.end(); ++it) {
+                if (it->first > W) break;
+                q.push(it->second);
+                s.erase(it);
+            }
+            if (q.empty()) break;
+            W += q.top(); q.pop();
+        }
+        return W;
+    }
+};
+----
+
+==== 下一个较大的元素之二
+
+----
+Greater Number for every element. The Next Greater Number of a number x is the first greater number to its traversing-order next in the array, which means you could search circularly to find its next greater number. If it doesn't exist, output -1 for this number.
+
+Example 1:
+
+Input: [1,2,1]
+Output: [2,-1,2]
+----
+
+这道题是之前那道Next Greater Element I的拓展，不同的是，此时数组是一个循环数组，就是说某一个元素的下一个较大值可以在其前面，那么对于循环数组的遍历，为了使下标不超过数组的长度，我们需要对n取余，下面先来看暴力破解的方法，遍历每一个数字，然后对于每一个遍历到的数字，遍历所有其他数字，注意不是遍历到数组末尾，而是通过循环数组遍历其前一个数字，遇到较大值则存入结果res中，并break，再进行下一个数字的遍历，参见代码如下：  +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> nextGreaterElements(vector<int>& nums) {
+        int n = nums.size();
+        vector<int> res(n, -1);
+        for (int i = 0; i < n; ++i) {
+            for (int j = i + 1; j < i + n; ++j) {
+                if (nums[j % n] > nums[i]) {
+                    res[i] = nums[j % n];
+                    break;
+                }
+            }
+        }
+        return res;
+    }
+};
+----
+
+我们可以使用栈来进行优化上面的算法，我们遍历两倍的数组，然后还是坐标i对n取余，取出数字，如果此时栈不为空，且栈顶元素小于当前数字，说明当前数字就是栈顶元素的右边第一个较大数，那么建立二者的映射，并且去除当前栈顶元素，最后如果i小于n，则把i压入栈。因为res的长度必须是n，超过n的部分我们只是为了给之前栈中的数字找较大值，所以不能压入栈，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> nextGreaterElements(vector<int>& nums) {
+        int n = nums.size();
+        vector<int> res(n, -1);
+        stack<int> st;
+        for (int i = 0; i < 2 * n; ++i) {
+            int num = nums[i % n];
+            while (!st.empty() && nums[st.top()] < num) {
+                res[st.top()] = num; st.pop();
+            }
+            if (i < n) st.push(i);
+        }
+        return res;
+    }
+};
+----
+
+==== 基数七
+
+----
+Given an integer, return its base 7 string representation.
+
+Example 1:
+
+Input: 100
+Output: "202"
+----
+
+这道题给了我们一个数，让我们转为七进制的数，而且这个可正可负。那么我们想如果给一个十进制的100，怎么转为七进制。我会先用100除以49，商2余2。在除以7，商0余2，于是就得到七进制的202。其实我们还可以反过来算，先用100除以7，商14余2，然后用14除以7，商2余0，再用2除以7，商0余2，这样也可以得到202。这种方法更适合于代码实现，要注意的是，我们要处理好负数的情况，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string convertToBase7(int num) {
+        if (num == 0) return "0";
+        string res = "";
+        bool positive = num > 0;
+        while (num != 0) {
+            res = to_string(abs(num % 7)) + res;
+            num /= 7;
+        }
+        return positive ? res : "-" + res;
+    }
+};
+----
+
+上面的思路也可以写成迭代方式，非常的简洁，仅要三行就搞定了，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+
+class Solution {
+public:
+    string convertToBase7(int num) {
+        if (num < 0) return "-" + convertToBase7(-num);
+        if (num < 7) return to_string(num);
+        return convertToBase7(num / 7) + to_string(num % 7);
+    }
+};
+----
+
+==== 迷宫之二
+
+----
+There is a ball in a maze with empty spaces and walls. The ball can go through empty spaces by rolling up, down, left or right, but it won't stop rolling until hitting a wall. When the ball stops, it could choose the next direction.
+
+Given the ball's start position, the destination and the maze, find the shortest distance for the ball to stop at the destination. The distance is defined by the number of empty spaces traveled by the ball from the start position (excluded) to the destination (included). If the ball cannot stop at the destination, return -1.
+
+The maze is represented by a binary 2D array. 1 means the wall and 0 means the empty space. You may assume that the borders of the maze are all walls. The start and destination coordinates are represented by row and column indexes.
+----
+
+这道题是之前那道The Maze的拓展，那道题只让我们判断能不能在终点位置停下，而这道题让我们求出到达终点的最少步数。其实本质都是一样的，难点还是在于对于一滚到底的实现方法，唯一不同的是，这里我们用一个二位数组dists，其中dists[i][j]表示到达(i,j)这个位置时需要的最小步数，我们都初始化为整型最大值，在后在遍历的过程中不断用较小值来更新每个位置的步数值，最后我们来看终点位置的步数值，如果还是整型最大值的话，说明没法在终点处停下来，返回-1，否则就返回步数值。注意在压入栈的时候，我们对x和y进行了判断，只有当其不是终点的时候才压入栈，这样是做了优化，因为如果小球已经滚到终点了，我们就不要让它再滚了，就不把终点位置压入栈，免得它还滚，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int shortestDistance(vector<vector<int>>& maze, vector<int>& start, vector<int>& destination) {
+        int m = maze.size(), n = maze[0].size();
+        vector<vector<int>> dists(m, vector<int>(n, INT_MAX));
+        vector<vector<int>> dirs{{0,-1},{-1,0},{0,1},{1,0}};
+        queue<pair<int, int>> q;
+        q.push({start[0], start[1]});
+        dists[start[0]][start[1]] = 0;
+        while (!q.empty()) {
+            auto t = q.front(); q.pop();
+            for (auto d : dirs) {
+                int x = t.first, y = t.second, dist = dists[t.first][t.second];
+                while (x >= 0 && x < m && y >= 0 && y < n && maze[x][y] == 0) {
+                    x += d[0];
+                    y += d[1];
+                    ++dist;
+                }
+                x -= d[0];
+                y -= d[1];
+                --dist;
+                if (dists[x][y] > dist) {
+                    dists[x][y] = dist;
+                    if (x != destination[0] || y != destination[1]) q.push({x, y});
+                }
+            }
+        }
+        int res = dists[destination[0]][destination[1]];
+        return (res == INT_MAX) ? -1 : res;
+    }
+};
+----
+
+下面这种写法是DFS的解法，可以看出来思路基本上跟上面的解法没有啥区别，写法上稍有不同，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<int>> dirs{{0,-1},{-1,0},{0,1},{1,0}};
+    int shortestDistance(vector<vector<int>>& maze, vector<int>& start, vector<int>& destination) {
+        int m = maze.size(), n = maze[0].size();
+        vector<vector<int>> dists(m, vector<int>(n, INT_MAX));
+        dists[start[0]][start[1]] = 0;
+        helper(maze, start[0], start[1], destination, dists);
+        int res = dists[destination[0]][destination[1]];
+        return (res == INT_MAX) ? -1 : res;
+    }
+    void helper(vector<vector<int>>& maze, int i, int j, vector<int>& destination, vector<vector<int>>& dists) {
+        if (i == destination[0] && j == destination[1]) return;
+        int m = maze.size(), n = maze[0].size();
+        for (auto d : dirs) {
+            int x = i, y = j, dist = dists[x][y];
+            while (x >= 0 && x < m && y >= 0 && y < n && maze[x][y] == 0) {
+                x += d[0];
+                y += d[1];
+                ++dist;
+            }
+            x -= d[0];
+            y -= d[1];
+            --dist;
+            if (dists[x][y] > dist) {
+                dists[x][y] = dist;
+                helper(maze, x, y, destination, dists);
+            }
+        }
+    }
+};
+----
+
+==== 相对排名
+
+Given scores of N athletes, find their relative ranks and the people with the top three highest scores, who will be awarded medals: "Gold Medal", "Silver Medal" and "Bronze Medal". +
+
+这道题给了我们一组分数，让我们求相对排名，前三名分别是金银铜牌，后面的就是名次数，不是一道难题，我们可以利用堆来排序，建立一个优先队列，把分数和其坐标位置放入队列中，会自动按其分数高低排序，然后我们从顶端开始一个一个取出数据，由于保存了其在原数组的位置，我们可以直接将其存到结果res中正确的位置，用一个变量cnt来记录名词，前三名给奖牌，后面就是名次数，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<string> findRelativeRanks(vector<int>& nums) {
+        int n = nums.size(), cnt = 1;
+        vector<string> res(n, "");
+        priority_queue<pair<int, int>> q;
+        for (int i = 0; i < n; ++i) {
+            q.push({nums[i], i});
+        }
+        for (int i = 0; i < n; ++i) {
+            int idx = q.top().second; q.pop();
+            if (cnt == 1) res[idx] = "Gold Medal";
+            else if (cnt == 2) res[idx] = "Silver Medal";
+            else if (cnt == 3) res[idx] = "Bronze Medal";
+            else res[idx] = to_string(cnt);
+            ++cnt;
+        }
+        return res;
+    }
+};
+----
+
+下面这种方法思路和上面一样，不过数据结构用的不同，这里利用map的自动排序的功能，不过map是升序排列的，所以我们遍历的时候就要从最后面开始遍历，最后一个是金牌，然后往前一次是银牌，铜牌，名次数等，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<string> findRelativeRanks(vector<int>& nums) {
+        int n = nums.size(), cnt = 1;
+        vector<string> res(n, "");
+        map<int, int> m;
+        for (int i = 0; i < n; ++i) {
+            m[nums[i]] = i;
+        }
+        for (auto it = m.rbegin(); it != m.rend(); ++it) {
+            if (cnt == 1) res[it->second] = "Gold Medal";
+            else if (cnt == 2) res[it->second] = "Silver Medal";
+            else if (cnt == 3) res[it->second] = "Bronze Medal";
+            else res[it->second] = to_string(cnt);
+            ++cnt;
+        }
+        return res;
+    }
+};
+----
+
+下面这种方法没用什么炫的数据结构，就是数组，建立一个坐标数组，不过排序的时候比较的不是坐标，而是该坐标位置上对应的数字，后面的处理方法和之前的并没有什么不同，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<string> findRelativeRanks(vector<int>& nums) {
+        int n = nums.size();
+        vector<int> idx(n);
+        vector<string> res(n, "");
+        for (int i = 0; i < n; ++i) idx[i] = i;
+        sort(idx.begin(), idx.end(), [&](int a, int b){return nums[a] > nums[b];});
+        for (int i = 0; i < n; ++i) {
+            if (i == 0) res[idx[i]] = "Gold Medal";
+            else if (i == 1) res[idx[i]] = "Silver Medal";
+            else if (i == 2) res[idx[i]] = "Bronze Medal";
+            else res[idx[i]] = to_string(i + 1);
+        }
+        return res;
+    }
+};
+----
+
+==== 完美数字
+
+----
+We define the Perfect Number is a positive integer that is equal to the sum of all its positive divisors except itself.
+
+Now, given an integer n, write a function that returns true when it is a perfect number and false when it is not.
+
+Example:
+Input: 28
+Output: True
+Explanation: 28 = 1 + 2 + 4 + 7 + 14
+----
+
+这道题让我们判断给定数字是否为完美数字，并给来完美数字的定义，就是一个整数等于除其自身之外的所有的因子之和。那么由于不能包含自身，所以n必定大于1。其实这道题跟之前的判断质数的题蛮类似的，都是要找因子。由于1肯定是因子，可以提前加上，那么我们找其他因子的范围是[2, sqrt(n)]。我们遍历这之间所有的数字，如果可以被n整除，那么我们把i和num/i都加上，对于n如果是平方数的话，那么我们此时相同的因子加来两次，所以我们要减掉一次。还有就是在遍历的过程中如果累积和sum大于n了，直接返回false即可。在循环结束后，我们看sum是否和num相等，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool checkPerfectNumber(int num) {
+        if (num == 1) return false;
+        int sum = 1;
+        for (int i = 2; i * i <= num; ++i) {
+            if (num % i == 0) sum += (i + num / i);
+            if (i * i == num) sum -= i;
+            if (sum > num) return false;
+        }
+        return sum == num;
+    }
+};
+----
+
+下面这种方法叼的不行，在给定的n的范围内其实只有五个符合要求的完美数字，于是就有这种枚举的解法，那么套用一句诸葛孔明的名言就是，我从未见过如此厚颜无耻之解法。哈哈，开个玩笑。写这篇博客的时候，国足正和伊朗进行十二强赛，上半场0比0，希望国足下半场能进球，好运好运，不忘初心，方得始终～ +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool checkPerfectNumber(int num) {
+        return num==6 || num==28 || num==496 || num==8128 || num==33550336;
+    }
+};
+----
+
+==== 出现频率最高的子树和
+
+----
+Given the root of a tree, you are asked to find the most frequent subtree sum. The subtree sum of a node is defined as the sum of all the node values formed by the subtree rooted at that node (including the node itself). So what is the most frequent subtree sum value? If there is a tie, return all the values with the highest frequency in any order.
+
+Examples 1
+Input:
+
+  5
+ /  \
+2   -3
+return [2, -3, 4], since all the values happen only once, return all of them in any order.
+----
+
+这道题给了我们一个二叉树，让我们求出现频率最高的子树之和，求树的结点和并不是很难，就是遍历所有结点累加起来即可。那么这道题的暴力解法就是遍历每个结点，对于每个结点都看作子树的根结点，然后再遍历子树所有结点求和，这样也许可以通过OJ，但是绝对不是最好的方法。我们想下子树有何特点，必须是要有叶结点，单独的一个叶结点也可以当作是子树，那么子树是从下往上构建的，这种特点很适合使用后序遍历，我们使用一个哈希表来建立子树和跟其出现频率的映射，用一个变量cnt来记录当前最多的次数，递归函数返回的是以当前结点为根结点的子树结点值之和，然后在递归函数中，我们先对当前结点的左右子结点调用递归函数，然后加上当前结点值，然后更新对应的哈希表中的值，然后看此时哈希表中的值是否大于等于cnt，大于的话首先要清空res，等于的话不用，然后将sum值加入结果res中即可，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> findFrequentTreeSum(TreeNode* root) {
+        vector<int> res;
+        unordered_map<int, int> m;
+        int cnt = 0;
+        postorder(root, m, cnt, res);
+        return res;
+    }
+    int postorder(TreeNode* node, unordered_map<int, int>& m, int& cnt, vector<int>& res) {
+        if (!node) return 0;
+        int left = postorder(node->left, m, cnt, res);
+        int right = postorder(node->right, m, cnt, res);
+        int sum = left + right + node->val;
+        ++m[sum];
+        if (m[sum] >= cnt) {
+            if (m[sum] > cnt) res.clear();
+            res.push_back(sum);
+            cnt = m[sum];
+        }
+        return sum;
+    }
+};
+----
+
+下面这种解法跟上面的基本一样，就是没有在递归函数中更新结果res，更是利用cnt，最后再更新res，这样做能略微高效一些，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> findFrequentTreeSum(TreeNode* root) {
+        vector<int> res;
+        unordered_map<int, int> m;
+        int cnt = 0;
+        postorder(root, m, cnt);
+        for (auto a : m) {
+            if (a.second == cnt) res.push_back(a.first);
+        }
+        return res;
+    }
+    int postorder(TreeNode* node, unordered_map<int, int>& m, int& cnt) {
+        if (!node) return 0;
+        int left = postorder(node->left, m, cnt);
+        int right = postorder(node->right, m, cnt);
+        int sum = left + right + node->val;
+        cnt = max(cnt, ++m[sum]);
+        return sum;
+    }
+};
+----
+
+开始我还在想能不能利用后序遍历的迭代形式来解，后来想了半天发现不太容易实现，因为博主无法想出有效的机制来保存左子树结点之和，而计算完对应的右子树结点之和后要用到对应的左子树结点之和，才能继续往上算。可能博主不够smart，有大神如果知道如何用迭代的形式来解，请一定要留言告知博主啊，多谢啦～ +
+
+==== 寻找最左下树结点的值
+
+----
+Given a binary tree, find the leftmost value in the last row of the tree.
+----
+
+这道题让我们求二叉树的最左下树结点的值，也就是最后一行左数第一个值，那么我首先想的是用先序遍历来做，我们维护一个最大深度和该深度的结点值，由于先序遍历遍历的顺序是根-左-右，所以每一行最左边的结点肯定最先遍历到，那么由于是新一行，那么当前深度肯定比之前的最大深度大，所以我们可以更新最大深度为当前深度，结点值res为当前结点值，这样在遍历到该行其他结点时就不会更新结果res了，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findBottomLeftValue(TreeNode* root) {
+        if (!root) return 0;
+        int max_depth = 1, res = root->val;
+        helper(root, 1, max_depth, res);
+        return res;
+    }
+    void helper(TreeNode* node, int depth, int& max_depth, int& res) {
+        if (!node) return;
+        if (depth > max_depth) {
+            max_depth = depth;
+            res = node->val;
+        }
+        helper(node->left, depth + 1, max_depth, res);
+        helper(node->right, depth + 1, max_depth, res);
+    }
+};
+----
+
+其实这道题用层序遍历更直接一些，因为层序遍历时遍历完当前行所有结点之后才去下一行，那么我们再遍历每行第一个结点时更新结果res即可，根本不用维护最大深度了，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findBottomLeftValue(TreeNode* root) {
+        if (!root) return 0;
+        int res = 0;
+        queue<TreeNode*> q;
+        q.push(root);
+        while (!q.empty()) {
+            int n = q.size();
+            for (int i = 0; i < n; ++i) {
+                TreeNode *t = q.front(); q.pop();
+                if (i == 0) res = t->val;
+                if (t->left) q.push(t->left);
+                if (t->right) q.push(t->right);
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== 自由之路
+
+----
+In the video game Fallout 4, the quest "Road to Freedom" requires players to reach a metal dial called the "Freedom Trail Ring", and use the dial to spell a specific keyword in order to open the door.
+
+Given a string ring, which represents the code engraved on the outer ring and another string key, which represents the keyword needs to be spelled. You need to find the minimum number of steps in order to spell all the characters in the keyword.
+
+Initially, the first character of the ring is aligned at 12:00 direction. You need to spell all the characters in the string key one by one by rotating the ring clockwise or anticlockwise to make each character of the string key aligned at 12:00 direction and then by pressing the center button.
+At the stage of rotating the ring to spell the key character key[i]:
+
+You can rotate the ring clockwise or anticlockwise one place, which counts as 1 step. The final purpose of the rotation is to align one of the string ring's characters at the 12:00 direction, where this character must equal to the character key[i].
+If the character key[i] has been aligned at the 12:00 direction, you need to press the center button to spell, which also counts as 1 step. After the pressing, you could begin to spell the next character in the key (next stage), otherwise, you've finished all the spelling.
+----
+
+这道题是关于辐射4这款游戏出的，博主虽然没有玩过这款游戏，但是知道确实有些游戏中需要破解一些谜题才能继续通关，像博主很早以前玩过的恐龙危机啊，生化危机啊啥的，都有一些机关需要破解，博主大部分都要靠看攻略来通关哈哈。这道题讲的是一种叫做自由之路的机关，我们需要将密码字符串都转出来，让我们求最短的转动步数。博主最先尝试的用贪婪算法来做，就是每一步都选最短的转法，但是OJ中总有些test case会引诱贪婪算法得出错误的结果，因为全局最优解不一定都是局部最优解，而贪婪算法一直都是在累加局部最优解，这也是为啥DP解法这么叼的原因。贪婪算法好想好实现，但是不一定能得到正确的结果。DP解法难想不好写，但往往才是正确的解法，这也算一个trade off吧。这道题可以用DP来解，难点还是写递推公式，博主在充分研究网上大神们的帖子后尝试着自己理理思路，如果有不正确或者不足的地方，也请各位不吝赐教。此题需要使用一个二维数组dp，其中dp[i][j]表示转动从i位置开始的key串所需要的最少步数(这里不包括spell的步数，因为spell可以在最后统一加上)，此时表盘的12点位置是ring中的第j个字符。不得不佩服这样的设计的确很巧妙，我们可以从key的末尾往前推，这样dp[0][0]就是我们所需要的结果，因为此时是从key的开头开始转动，而且表盘此时的12点位置也是ring的第一个字符。现在我们来看如何找出递推公式，对于dp[i][j]，我们知道此时要将key[i]转动到12点的位置，而此时表盘的12点位置是ring[j]，我们有两种旋转的方式，顺时针和逆时针，我们的目标肯定是要求最小的转动步数，而顺时针和逆时针的转动次数之和刚好为ring的长度n，这样我们求出来一个方向的次数，就可以迅速得到反方向的转动次数。为了将此时表盘上12点位置上的ring[j]转动到key[i]，我们要将表盘转动一整圈，当转到key[i]的位置时，我们计算出转动步数diff，然后计算出反向转动步数，并取二者较小值为整个转动步数step，此时我们更新dp[i][j]，更新对比值为step + dp[i+1][k]，这个也不难理解，因为key的前一个字符key[i+1]的转动情况suppose已经计算好了，那么dp[i+1][k]就是当时表盘12点位置上ring[k]的情况的最短步数，step就是从ring[k]转到ring[j]的步数，也就是key[i]转到ring[j]的步数，用语言来描述就是，从key的i位置开始转动并且此时表盘12点位置为ring[j]的最小步数(dp[i][j])就等价于将ring[k]转动到12点位置的步数(step)加上从key的i+1位置开始转动并且ring[k]已经在表盘12点位置上的最小步数(dp[i+1][k])之和。突然发现这不就是之前那道Reverse Pairs中解法一中归纳的顺序重现关系的思路吗，都做了总结，可换个马甲就又不认识了，泪目中。。。 +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findRotateSteps(string ring, string key) {
+        int n = ring.size(), m = key.size();
+        vector<vector<int>> dp(m + 1, vector<int>(n));
+        for (int i = m - 1; i >= 0; --i) {
+            for (int j = 0; j < n; ++j) {
+                dp[i][j] = INT_MAX;
+                for (int k = 0; k < n; ++k) {
+                    if (ring[k] == key[i]) {
+                        int diff = abs(j - k);
+                        int step = min(diff, n - diff);
+                        dp[i][j] = min(dp[i][j], step + dp[i + 1][k]);
+                    }
+                }
+            }
+        }
+        return dp[0][0] + m;
+    }
+};
+----
+
+下面这种解法是用DFS来解的，我们需要做优化，也就是用memo数组来保存已经计算过的结果，否则大量的重复运算是无法通过OJ的。其实这里的memo数组也起到了跟上面解法中的dp数组相类似的作用，还有就是要注意数组v的作用，记录了每个字母在ring中的出现位置，由于ring中可能有重复字符，而且麻烦的情况是当前位置向两个方向分别转动相同的步数会分别到达两个相同的字符，这也是贪婪算法会失效的一个重要原因，而且也是上面的解法在找到ring[k] == key[i]并处理完之后不break的原因，因为后面还有可能找到。上面的迭代解法中使用到的变量i和j可以直接访问到，而在递归的写法中必须要把位置变量x和y当作参数导入进去，这样才能更新正确的地方，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findRotateSteps(string ring, string key) {
+        int n = ring.size(), m = key.size();
+        vector<vector<int>> v(26);
+        vector<vector<int>> memo(n, vector<int>(m));
+        for (int i = 0; i < n; ++i) v[ring[i] - 'a'].push_back(i);
+        return helper(ring, key, 0, 0, v, memo);
+    }
+    int helper(string ring, string key, int x, int y, vector<vector<int>>&v, vector<vector<int>>& memo) {
+        if (y == key.size()) return 0;
+        if (memo[x][y]) return memo[x][y];
+        int res = INT_MAX, n = ring.size();
+        for (int k : v[key[y] - 'a']) {
+            int diff = abs(x - k);
+            int step = min(diff, n - diff);
+            res = min(res, step + helper(ring, key, k, y + 1, v, memo));
+        }
+        return memo[x][y] = res + 1;
+    }
+};
+----
+
+==== 找树每行最大的结点值
+
+You need to find the largest value in each row of a binary tree. +
+
+这道题让我们找二叉树每行的最大的结点值，那么实际上最直接的方法就是用层序遍历，然后在每一层中找到最大值，加入结果res中即可，参见代码如下： +
+
+**解法1:** +
+[source,cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> largestValues(TreeNode* root) {
+        if (!root) return {};
+        vector<int> res;
+        queue<TreeNode*> q;
+        q.push(root);
+        while (!q.empty()) {
+            int n = q.size(), mx = INT_MIN;
+            for (int i = 0; i < n; ++i) {
+                TreeNode *t = q.front(); q.pop();
+                mx = max(mx, t->val);
+                if (t->left) q.push(t->left);
+                if (t->right) q.push(t->right);
+            }
+            res.push_back(mx);
+        }
+        return res;
+    }
+};
+----
+
+如果我们想用迭代的方法来解，可以用先序遍历，这样的话就需要维护一个深度变量depth，来记录当前结点的深度，如果当前深度大于结果res的长度，说明这个新一层，我们将当前结点值加入结果res中，如果不大于res的长度的话，我们用当前结点值和结果res中对应深度的那个结点值相比较，取较大值赋给结果res中的对应深度位置，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+
+class Solution {
+public:
+    vector<int> largestValues(TreeNode* root) {
+        if (!root) return {};
+        vector<int> res;
+        helper(root, 1, res);
+        return res;
+    }
+    void helper(TreeNode* root, int depth, vector<int>& res) {
+        if (depth > res.size()) res.push_back(root->val);
+        else res[depth - 1] = max(res[depth - 1], root->val);
+        if (root->left) helper(root->left, depth + 1, res);
+        if (root->right) helper(root->right, depth + 1, res);
+    }
+};
+----
+
+==== 最长回文子序列
+----
+Given a string s, find the longest palindromic subsequence's length in s. You may assume that the maximum length of s is 1000.
+----
+
+----
+这道题给了我们一个字符串，让我们求最大的回文子序列，子序列和子字符串不同，不需要连续。而关于回文串的题之前也做了不少，处理方法上就是老老实实的两两比较吧。像这种有关极值的问题，最应该优先考虑的就是贪婪算法和动态规划，这道题显然使用DP更加合适。我们建立一个二维的DP数组，其中dp[i][j]表示[i,j]区间内的字符串的最长回文子序列，那么对于递推公式我们分析一下，如果s[i]==s[j]，那么i和j就可以增加2个回文串的长度，我们知道中间dp[i + 1][j - 1]的值，那么其加上2就是dp[i][j]的值。如果s[i] != s[j]，那么我们可以去掉i或j其中的一个字符，然后比较两种情况下所剩的字符串谁dp值大，就赋给dp[i][j]，那么递推公式如下：
+
+              /  dp[i + 1][j - 1] + 2                       if (s[i] == s[j])
+
+dp[i][j] =
+
+              \  max(dp[i + 1][j], dp[i][j - 1])        if (s[i] != s[j])
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int longestPalindromeSubseq(string s) {
+        int n = s.size();
+        vector<vector<int>> dp(n, vector<int>(n));
+        for (int i = n - 1; i >= 0; --i) {
+            dp[i][i] = 1;
+            for (int j = i + 1; j < n; ++j) {
+                if (s[i] == s[j]) {
+                    dp[i][j] = dp[i + 1][j - 1] + 2;
+                } else {
+                    dp[i][j] = max(dp[i + 1][j], dp[i][j - 1]);
+                }
+            }
+        }
+        return dp[0][n - 1];
+    }
+};
+----
+
+我们可以对空间进行优化，只用一个一维的dp数组，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int longestPalindromeSubseq(string s) {
+        int n = s.size(), res = 0;
+        vector<int> dp(n, 1);
+        for (int i = n - 1; i >= 0; --i) {
+            int len = 0;
+            for (int j = i + 1; j < n; ++j) {
+                int t = dp[j];
+                if (s[i] == s[j]) {
+                    dp[j] = len + 2;
+                }
+                len = max(len, t);
+            }
+        }
+        for (int num : dp) res = max(res, num);
+        return res;
+    }
+};
+----
+
+下面是递归形式的解法，memo数组这里起到了一个缓存已经计算过了的结果，这样能提高运算效率，使其不会TLE，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int longestPalindromeSubseq(string s) {
+        int n = s.size();
+        vector<vector<int>> memo(n, vector<int>(n, -1));
+        return helper(s, 0, n - 1, memo);
+    }
+    int helper(string& s, int i, int j, vector<vector<int>>& memo) {
+        if (memo[i][j] != -1) return memo[i][j];
+        if (i > j) return 0;
+        if (i == j) return 1;
+        if (s[i] == s[j]) {
+            memo[i][j] = helper(s, i + 1, j - 1, memo) + 2;
+        } else {
+            memo[i][j] = max(helper(s, i + 1, j, memo), helper(s, i, j - 1, memo));
+        }
+        return memo[i][j];
+    }
+};
+----
+
+==== 超级洗衣机
+
+----
+You have n super washing machines on a line. Initially, each washing machine has some dresses or is empty.
+
+For each move, you could choose any m (1 ≤ m ≤ n) washing machines, and pass one dress of each washing machine to one of its adjacent washing machines at the same time .
+
+Given an integer array representing the number of dresses in each washing machine from left to right on the line, you should find the minimum number of moves to make all the washing machines have the same number of dresses. If it is not possible to do it, return -1.
+----
+
+----
+这道题题给了我们一堆工藤新一，噢不，是滚筒洗衣机。我们有许多洗衣机，每个洗衣机里的衣服数不同，每个洗衣机每次只允许向相邻的洗衣机转移一件衣服，问要多少次才能使所有洗衣机的衣服数相等。注意这里的一次移动是说所有洗衣机都可以移动一件衣服到其相邻的洗衣机。这道题的代码量其实不多，难点是在于解题思路，难的是对问题的等价转换等。博主也没有做出这道题，博主想到了要先验证衣服总数是否能整除洗衣机的数量，然后计算出每个洗衣机最终应该放的衣服数，返回跟初始状态衣服数之差的最大值，但这种解法是不对的，无法通过这个test case [0, 0, 11, 5]，最终每个洗衣机会留4件衣服，我想的那方法会返回7，然后正确答案是8。想想也是，如果这么是这么简单的思路，这题怎么会标记为Hard呢，还是图样图森破啊。这里直接参照大神Chidong的帖子来做，我们就用上面那个例子，有四个洗衣机，装的衣服数为[0, 0, 11, 5]，最终的状态会变为[4, 4, 4, 4]，那么我们将二者做差，得到[-4, -4, 7, 1]，这里负数表示当前洗衣机还需要的衣服数，正数表示当前洗衣机多余的衣服数。我们要做的是要将这个差值数组每一项都变为0，对于第一个洗衣机来说，需要四件衣服可以从第二个洗衣机获得，那么就可以把-4移给二号洗衣机，那么差值数组变为[0, -8, 7, 1]，此时二号洗衣机需要八件衣服，那么至少需要移动8次。然后二号洗衣机把这八件衣服从三号洗衣机处获得，那么差值数组变为[0, 0, -1, 1]，此时三号洗衣机还缺1件，就从四号洗衣机处获得，此时差值数组成功变为了[0, 0, 0, 0]，成功。那么移动的最大次数就是差值数组中出现的绝对值最大的数字，8次，参见代码如下：
+----
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findMinMoves(vector<int>& machines) {
+        int sum = accumulate(machines.begin(), machines.end(), 0);
+        if (sum % machines.size() != 0) return -1;
+        int res = 0, cnt = 0, avg = sum / machines.size();
+        for (int m : machines) {
+            cnt += m - avg;
+            res = max(res, max(abs(cnt), m - avg));
+        }
+        return res;
+    }
+};
+----
+
+==== 硬币找零之二
+
+----
+You are given coins of different denominations and a total amount of money. Write a function to compute the number of combinations that make up that amount. You may assume that you have infinite number of each kind of coin.
+
+Note: You can assume that
+
+0 <= amount <= 5000
+1 <= coin <= 5000
+the number of coins is less than 500
+the answer is guaranteed to fit into signed 32-bit integer
+
+Example 1:
+Input: amount = 5, coins = [1, 2, 5]
+Output: 4
+Explanation: there are four ways to make up the amount:
+5=5
+5=2+2+1
+5=2+1+1+1
+5=1+1+1+1+1
+----
+
+----
+这道题是之前那道Coin Change的拓展，那道题问我们最少能用多少个硬币组成给定的钱数，而这道题问的是组成给定钱数总共有多少种不同的方法。那么我们还是要使用DP来做，首先我们来考虑最简单的情况，如果只有一个硬币的话，那么给定钱数的组成方式就最多有1种，就看此钱数能否整除该硬币值。那么当有两个硬币的话，那么组成某个钱数的方式就可能有多种，比如可能由每种硬币单独来组成，或者是两种硬币同时来组成。那么我们怎么量化呢，比如我们有两个硬币[1,2]，钱数为5，那么钱数的5的组成方法是可以看作两部分组成，一种是由硬币1单独组成，那么仅有一种情况(1+1+1+1+1)；另一种是由1和2共同组成，说明我们的组成方法中至少需要由一个2，所以此时我们先取出一个硬币2，那么我们只要拼出钱数为3即可，这个3还是可以用硬币1和2来拼，所以就相当于求由硬币[1,2]组成的钱数为3的总方法。是不是不太好理解，多想想。那么我们的需要一个二维的dp数组，其中dp[i][j]表示用前i个硬币组成钱数为j的不同组合方法，那么怎么算才不会重复，也不会漏掉呢？我们采用的方法是一个硬币一个硬币的增加，每增加一个硬币，都从1遍历到amount，对于遍历到的当前钱数j，组成方法就是不加上当前硬币的频发dp[i-1][j]，还要加上，去掉当前硬币值的钱数的组成方法，当然钱数j要大于当前硬币值，那么我们的递推公式也在上面的分析中得到了：
+
+dp[i][j] = dp[i - 1][j] + (j >= coins[i - 1] ? dp[i][j - coins[i - 1]] : 0)
+
+注意我们要初始化每行的第一个位置为0，参见代码如下：
+----
+
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int change(int amount, vector<int>& coins) {
+        vector<vector<int>> dp(coins.size() + 1, vector<int>(amount + 1, 0));
+        dp[0][0] = 1;
+        for (int i = 1; i <= coins.size(); ++i) {
+            dp[i][0] = 1;
+            for (int j = 1; j <= amount; ++j) {
+                dp[i][j] = dp[i - 1][j] + (j >= coins[i - 1] ? dp[i][j - coins[i - 1]] : 0);
+            }
+        }
+        return dp[coins.size()][amount];
+    }
+};
+----
+
+我们可以对空间进行优化，我们发现dp[i][j]仅仅依赖于dp[i - 1][j] 和 dp[i][j - coins[i - 1]] 这两项，那么我们可以使用一个一维dp数组来代替，此时的dp[i]表示组成钱数i的不同方法。其实最开始的时候，博主就想着用一维的dp数组来写，但是博主开始想的方法是把里面两个for循环调换了一个位置，结果计算的种类数要大于正确答案，所以一定要注意for循环的顺序不能搞反，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int change(int amount, vector<int>& coins) {
+        vector<int> dp(amount + 1, 0);
+        dp[0] = 1;
+        for (int coin : coins) {
+            for (int i = coin; i <= amount; ++i) {
+                dp[i] += dp[i - coin];
+            }
+        }
+        return dp[amount];
+    }
+};
+----
+
+在CareerCup中，有一道极其相似的题9.8 Represent N Cents 美分的组成，书里面用的是那种递归的方法，博主想将其解法直接搬到这道题里，但是失败了，博主发现使用那种的递归的解法必须要有值为1的硬币存在，这点无法在这道题里满足。你以为这样博主就没有办法了吗？当然有，博主加了判断，当用到最后一个硬币时，我们判断当前还剩点钱数是否能整除这个硬币，不能的话就返回0，否则返回1。还有就是用二维数组的memo会TLE，所以博主换成了map，就可以通过啦～ +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int change(int amount, vector<int>& coins) {
+        if (amount == 0) return 1;
+        if (coins.empty()) return 0;
+        map<pair<int, int>, int> memo;
+        return helper(amount, coins, 0, memo);
+    }
+    int helper(int amount, vector<int>& coins, int idx, map<pair<int, int>, int>& memo) {
+        if (amount == 0) return 1;
+        else if (idx >= coins.size()) return 0;
+        else if (idx == coins.size() - 1) return amount % coins[idx] == 0;
+        if (memo.count({amount, idx})) return memo[{amount, idx}];
+        int val = coins[idx], res = 0;
+        for (int i = 0; i * val <= amount; ++i) {
+            int rem = amount - i * val;
+            res += helper(rem, coins, idx + 1, memo);
+        }
+        return memo[{amount, idx}] = res;
+    }
+};
+----
+
+==== 检测大写格式
+
+----
+Given a word, you need to judge whether the usage of capitals in it is right or not.
+
+We define the usage of capitals in a word to be right when one of the following cases holds:
+
+All letters in this word are capitals, like "USA".
+All letters in this word are not capitals, like "leetcode".
+Only the first letter in this word is capital if it has more than one letter, like "Google".
+Otherwise, we define that this word doesn't use capitals in a right way.
+----
+
+这道题给了我们一个单词，让我们检测大写格式是否正确，规定了三种正确方式，要么都是大写或小写，要么首字母大写，其他情况都不正确。那么我们要做的就是统计出单词中所有大写字母的个数cnt，再来判断是否属于这三种情况，如果cnt为0，说明都是小写，正确；如果cnt和单词长度相等，说明都是大写，正确；如果cnt为1，且首字母为大写，正确，其他情况均返回false，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool detectCapitalUse(string word) {
+        int cnt = 0, n = word.size();
+        for (int i = 0; i < n; ++i) {
+            if (word[i] <= 'Z') ++cnt;
+        }
+        return cnt == 0 || cnt == n || (cnt == 1 && word[0] <= 'Z');
+    }
+};
+----
+
+下面这种方法利用了STL的内置方法count_if，根据条件来计数，这样使得code非常简洁，两行就搞定了，丧心病狂啊～ +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool detectCapitalUse(string word) {
+        int cnt = count_if(word.begin(), word.end(), [](char c){return c <= 'Z';});
+        return cnt == 0 || cnt == word.size() || (cnt == 1 && word[0] <= 'Z');
+    }
+};
+----
+
+==== 最长非共同子序列之一
+
+====
+Given a group of two strings, you need to find the longest uncommon subsequence of this group of two strings. The longest uncommon subsequence is defined as the longest subsequence of one of these strings and this subsequence should not be any subsequence of the other strings.
+
+A subsequence is a sequence that can be derived from one sequence by deleting some characters without changing the order of the remaining elements. Trivially, any string is a subsequence of itself and an empty string is a subsequence of any string.
+
+The input will be two strings, and the output needs to be the length of the longest uncommon subsequence. If the longest uncommon subsequence doesn't exist, return -1
+====
+
+这道题是在4月1号出的，有人说这是愚人节最好的礼物，哈哈～这道题只是为了后面那道题做铺垫，不过这题确实简单啊，两个字符串的情况很少，如果两个字符串相等，那么一定没有非共同子序列，反之，如果两个字符串不等，那么较长的那个字符串就是最长非共同子序列，参见代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findLUSlength(string a, string b) {
+        return a == b ? -1 : max(a.size(), b.size());
+    }
+};
+----
+
+==== 最长非共同子序列之二
+
+----
+Given a list of strings, you need to find the longest uncommon subsequence among them. The longest uncommon subsequence is defined as the longest subsequence of one of these strings and this subsequence should not be any subsequence of the other strings.
+
+A subsequence is a sequence that can be derived from one sequence by deleting some characters without changing the order of the remaining elements. Trivially, any string is a subsequence of itself and an empty string is a subsequence of any string.
+
+The input will be a list of strings, and the output needs to be the length of the longest uncommon subsequence. If the longest uncommon subsequence doesn't exist, return -1.
+----
+
+这道题是之前那道Longest Uncommon Subsequence I的拓展，那道题因为只有两个字符串为大家所不屑。那么这道题有多个字符串，这次大家满足了吧。令我吃惊的是，这次的OJ异常的大度，连暴力搜索的解法也让过，那么还等什么，无脑暴力破解吧。遍历所有的字符串，对于每个遍历到的字符串，再和所有的其他的字符串比较，看是不是某一个字符串的子序列，如果都不是的话，那么当前字符串就是一个非共同子序列，用其长度来更新结果res，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findLUSlength(vector<string>& strs) {
+        int res = -1, j = 0, n = strs.size();
+        for (int i = 0; i < n; ++i) {
+            for (j = 0; j < n; ++j) {
+                if (i == j) continue;
+                if (checkSubs(strs[i], strs[j])) break;
+            }
+            if (j == n) res = max(res, (int)strs[i].size());
+        }
+        return res;
+    }
+    int checkSubs(string subs, string str) {
+        int i = 0;
+        for (char c : str) {
+            if (c == subs[i]) ++i;
+            if (i == subs.size()) break;
+        }
+        return i == subs.size();
+    }
+};
+----
+
+下面这种解法使用一些博主能想到的优化手段，首先我们给字符串按长度来排序，将长度大的放到前面，这样我们如果找到了非共同子序列，那么直接返回其长度即可，因为当前找到的肯定是最长的。然后我们用一个集合来记录已经遍历过的字符串，利用集合的去重复特性，这样在有大量的重复字符串的时候可以提高效率，然后我们开始遍历字符串，对于当前遍历到的字符串，我们和集合中的所有字符串相比，看其是否是某个的子序列，如果都不是，说明当前的就是最长的非共同子序列。注意如果当前的字符串是集合中某个字符串的子序列，那么直接break出来，不用再和其他的比较了，这样在集合中有大量的字符串时可以提高效率，最后别忘了将遍历过的字符串加入集合中，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findLUSlength(vector<string>& strs) {
+        int n = strs.size();
+        unordered_set<string> s;
+        sort(strs.begin(), strs.end(), [](string a, string b){
+            if (a.size() == b.size()) return a > b;
+            return a.size() > b.size();
+        });
+        for (int i = 0; i < n; ++i) {
+            if (i == n - 1 || strs[i] != strs[i + 1]) {
+                bool found = true;
+                for (auto a : s) {
+                    int j = 0;
+                    for (char c : a) {
+                        if (c == strs[i][j]) ++j;
+                        if (j == strs[i].size()) break;
+                    }
+                    if (j == strs[i].size()) {
+                        found = false;
+                        break;
+                    }
+                }
+                if (found) return strs[i].size();
+            }
+            s.insert(strs[i]);
+        }
+        return -1;
+    }
+};
+----
+
+==== 连续的子数组之和
+
+----
+Given a list of non-negative numbers and a target integer k, write a function to check if the array has a continuous subarray of size at least 2 that sums up to the multiple of k, that is, sums up to n*k where n is also an integer.
+
+Example 1:
+Input: [23, 2, 4, 6, 7],  k=6
+Output: True
+----
+
+这道题给了我们一个数组和一个数字k，让我们求是否存在这样的一个连续的子数组，该子数组的数组之和可以整除k。遇到除法问题，我们肯定不能忘了除数为0的情况等处理。还有就是我们如何能快速的遍历所有的子数组，并且求和，我们肯定不能完全的暴力破解，这样OJ肯定不答应。我们需要适当的优化，如果是刷题老司机的话，遇到这种求子数组或者子矩阵之和的题，应该不难想到要建立累加和数组或者累加和矩阵来做。没错，这道题也得这么做，我们要遍历所有的子数组，然后利用累加和来快速求和。在得到每个子数组之和时，我们先和k比较，如果相同直接返回true，否则再判断，若k不为0，且sum能整除k，同样返回true，最后遍历结束返回false，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool checkSubarraySum(vector<int>& nums, int k) {
+        for (int i = 0; i < nums.size(); ++i) {
+            int sum = nums[i];
+            for (int j = i + 1; j < nums.size(); ++j) {
+                sum += nums[j];
+                if (sum == k) return true;
+                if (k != 0 && sum % k == 0) return true;
+            }
+        }
+        return false;
+    }
+};
+----
+
+下面这种方法用了些技巧，那就是，若数字a和b分别除以数字c，若得到的余数相同，那么(a-b)必定能够整除c。这里就不证明了，博主也不会证明。明白了这条定理，那么我们用一个集合set来保存所有出现过的余数，如果当前的累加和除以k得到的余数在set中已经存在了，那么说明之前必定有一段子数组和可以整除k。需要注意的是k为0的情况，由于无法取余，我们就把当前累加和放入set中。还有就是题目要求子数组至少需要两个数字，那么我们需要一个变量pre来记录之前的和，我们每次存入set中的是pre，而不是当前的累积和，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool checkSubarraySum(vector<int>& nums, int k) {
+        int n = nums.size(), sum = 0, pre = 0;
+        unordered_set<int> st;
+        for (int i = 0; i < n; ++i) {
+            sum += nums[i];
+            int t = (k == 0) ? sum : (sum % k);
+            if (st.count(t)) return true;
+            st.insert(pre);
+            pre = t;
+        }
+        return false;
+    }
+};
+----
+
+既然set可以做，一般来说用哈希表也可以做，这里我们建立余数和当前位置之间的映射，由于有了位置信息，我们就不需要pre变量了，之前用保存的坐标和当前位置i比较判断就可以了，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool checkSubarraySum(vector<int>& nums, int k) {
+        int n = nums.size(), sum = 0;
+        unordered_map<int, int> m{{0,-1}};
+        for (int i = 0; i < n; ++i) {
+            sum += nums[i];
+            int t = (k == 0) ? sum : (sum % k);
+            if (m.count(t)) {
+                if (i - m[t] > 1) return true;
+            } else m[t] = i;
+        }
+        return false;
+    }
+};
+----
+
+==== 优美排列
+
+----
+Suppose you have N integers from 1 to N. We define a beautiful arrangement as an array that is constructed by these N numbers successfully if one of the following is true for the ith position (1 ≤ i ≤ N) in this array:
+
+The number at the ith position is divisible by i.
+i is divisible by the number at the ith position.
+
+Now given N, how many beautiful arrangements can you construct?
+----
+
+这道题给了我们1到N，总共N个正数，然后定义了一种优美排列方式，对于该排列中的所有数，如果数字可以整除下标，或者下标可以整除数字，那么我们就是优美排列，让我们求出所有优美排列的个数。那么对于求种类个数，或者是求所有情况，这种问题通常要用递归来做，递归简直是暴力的不能再暴力的方法了。而递归方法等难点在于写递归函数，如何确定终止条件，还有for循环中变量的起始位置如何确定。那么这里我们需要一个visited数组来记录数字是否已经访问过，因为优美排列中不能有重复数字。我们用变量pos来标记已经生成的数字的个数，如果大于N了，说明已经找到了一组排列，结果res自增1。在for循环中，i应该从1开始，因为我们遍历1到N中的所有数字，如果该数字未被使用过，且满足和坐标之间的整除关系，那么我们标记该数字已被访问过，再调用下一个位置的递归函数，之后不要忘记了恢复初始状态，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int countArrangement(int N) {
+        int res = 0;
+        vector<int> visited(N + 1, 0);
+        helper(N, visited, 1, res);
+        return res;
+    }
+    void helper(int N, vector<int>& visited, int pos, int& res) {
+        if (pos > N) {
+            ++res;
+            return;
+        }
+        for (int i = 1; i <= N; ++i) {
+            if (visited[i] == 0 && (i % pos == 0 || pos % i == 0)) {
+                visited[i] = 1;
+                helper(N, visited, pos + 1, res);
+                visited[i] = 0;
+            }
+        }
+    }
+};
+----
+
+----
+上面的解法在N=4时产生的优美序列如下：
+
+1 2 3 4
+1 4 3 2
+2 1 3 4
+2 4 3 1
+3 2 1 4
+3 4 1 2
+4 1 3 2
+4 2 3 1
+
+通过看上面的分析，是不是觉得这道题的本质其实是求全排列，然后在所有全排列中筛选出符合题意的排列。那么求全排列的另一种经典解法就是交换数组中任意两个数字的位置，来形成新的排列，参见代码如下：
+----
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int countArrangement(int N) {
+        vector<int> nums(N);
+        for (int i = 0; i < N; ++i) nums[i] = i + 1;
+        return helper(N, nums);
+    }
+    int helper(int n, vector<int>& nums) {
+        if (n <= 0) return 1;
+        int res = 0;
+        for (int i = 0; i < n; ++i) {
+            if (n % nums[i] == 0 || nums[i] % n == 0) {
+                swap(nums[i], nums[n - 1]);
+                res += helper(n - 1, nums);
+                swap(nums[i], nums[n - 1]);
+            }
+        }
+        return res;
+    }
+};
+----
+
+----
+上面的解法在N=4时产生的优美序列如下：
+
+2 4 3 1
+4 2 3 1
+3 4 1 2
+4 1 3 2
+1 4 3 2
+3 2 1 4
+2 1 3 4
+1 2 3 4
+----
+
+==== 单词缩写
+
+----
+Given an array of n distinct non-empty strings, you need to generate minimal possible abbreviations for every word following rules below.
+
+Begin with the first character and then the number of characters abbreviated, which followed by the last character.
+If there are any conflict, that is more than one words share the same abbreviation, a longer prefix is used instead of only the first character until making the map from word to abbreviation become unique. In other words, a final abbreviation cannot map to more than one original words.
+If the abbreviation doesn't make the word shorter, then keep it as original.
+----
+
+这道题让我们求单词的缩写形式，就是首尾字母加上中间字符的个数组成的新字符串，但是要求是不能有重复的缩写字符串，而且说明如果缩写字符串的长度并没有减小的话就保留原来的字符串，比如god，缩写成g1d也没啥用，所以仍是god。博主刚开始在研究题目中给的例子的时候有些疑惑，虽然知道internal和interval的缩写形式都是i6l，会冲突，博主刚开始不明白的是，为什么不能一个是i6l，一个是in5l，这样不就不冲突了么，而题目中的缩写形式居然都是原字符串。后来才搞清楚题目原来是说只要有冲突的都不能用，而internal和interval是典型的死杠上的一对，i6l，in5l，int4l，inte3l，inter2l，统统冲突，而再往后的缩写长度就和原字符串一样了，所以二者就都保留了原样。理解了题意就好办了，由于每个单词的缩写形式中数字前面的字母个数不一定相同，所以我们用一个pre数组来记录每个单词缩写形式开头字母的长度，初始化都为1，然后先求出所有单词pre为1的缩写形式，再来进行冲突处理。我们遍历每一个缩写字符串，进行while循环，新建一个集合set，然后遍历其他所有字符串，所有发现冲突字符串，就把冲突字符串的坐标存入集合中，如果没有冲突，那么集合为空，直接break掉，如果由冲突，那么还要把当前遍历的位置i加入结合中，然后遍历集合中所有的位置，对其调用缩写函数，此时pre对应的值自增1，直到没有冲突存在为止，参见代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<string> wordsAbbreviation(vector<string>& dict) {
+        int n = dict.size();
+        vector<string> res(n);
+        vector<int> pre(n, 1);
+        for (int i = 0; i < n; ++i) {
+            res[i] = abbreviate(dict[i], pre[i]);
+        }
+        for (int i = 0; i < n; ++i) {
+            while (true) {
+                set<int> s;
+                for (int j = i + 1; j < n; ++j) {
+                    if (res[j] == res[i]) s.insert(j);
+                }
+                if (s.empty()) break;
+                s.insert(i);
+                for (auto a : s) {
+                    res[a] = abbreviate(dict[a], ++pre[a]);
+                }
+            }
+        }
+        return res;
+    }
+    string abbreviate(string s, int k) {
+        return (k >= s.size() - 2) ? s : s.substr(0, k) + to_string(s.size() - k - 1) + s.back();
+    }
+};
+----
+
+==== 扫雷游戏
+
+----
+Let's play the minesweeper game (Wikipedia, online game)!
+
+You are given a 2D char matrix representing the game board. 'M' represents an unrevealed mine, 'E' represents an unrevealed empty square, 'B' represents a revealed blank square that has no adjacent (above, below, left, right, and all 4 diagonals) mines, digit ('1' to '8') represents how many mines are adjacent to this revealed square, and finally 'X' represents a revealed mine.
+
+Now given the next click position (row and column indices) among all the unrevealed squares ('M' or 'E'), return the board after revealing this position according to the following rules:
+
+If a mine ('M') is revealed, then the game is over - change it to 'X'.
+If an empty square ('E') with no adjacent mines is revealed, then change it to revealed blank ('B') and all of its adjacent unrevealed squares should be revealed recursively.
+If an empty square ('E') with at least one adjacent mine is revealed, then change it to a digit ('1' to '8') representing the number of adjacent mines.
+Return the board when no more squares will be revealed.
+----
+
+这道题就是经典的扫雷游戏啦，经典到不能再经典，从Win98开始，附件中始终存在的游戏，和纸牌、红心大战、空当接龙一起称为四大天王，曾经消耗了博主太多的时间。小时侯一直不太会玩扫雷，就是瞎点，完全不根据数字分析，每次点几下就炸了，就觉得这个游戏好无聊。后来长大了一些，慢慢的理解了游戏的玩法，才发现这个游戏果然很经典，就像破解数学难题一样，充满了挑战与乐趣。花样百出的LeetCode这次把扫雷出成题，让博主借机回忆了一把小时侯，不错不错，那么来做题吧。题目中图文并茂，相信就算是没玩过扫雷的也能弄懂了，而且规则也说的比较详尽了，那么我们相对应的做法也就明了了。对于当前需要点击的点，我们先判断是不是雷，是的话直接标记X返回即可。如果不是的话，我们就数该点周围的雷个数，如果周围有雷，则当前点变为雷的个数并返回。如果没有的话，我们再对周围所有的点调用递归函数再点击即可。参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<char>> updateBoard(vector<vector<char>>& board, vector<int>& click) {
+        if (board.empty() || board[0].empty()) return {};
+        int m = board.size(), n = board[0].size(), row = click[0], col = click[1], cnt = 0;
+        if (board[row][col] == 'M') {
+            board[row][col] = 'X';
+        } else {
+            for (int i = -1; i < 2; ++i) {
+                for (int j = -1; j < 2; ++j) {
+                    int x = row + i, y = col + j;
+                    if (x < 0 || x >= m || y < 0 || y >= n) continue;
+                    if (board[x][y] == 'M') ++cnt;
+                }
+            }
+            if (cnt > 0) {
+                board[row][col] = cnt + '0';
+            } else {
+                board[row][col] = 'B';
+                for (int i = -1; i < 2; ++i) {
+                    for (int j = -1; j < 2; ++j) {
+                        int x = row + i, y = col + j;
+                        if (x < 0 || x >= m || y < 0 || y >= n) continue;
+                        if (board[x][y] == 'E') {
+                            vector<int> nextPos{x, y};
+                            updateBoard(board, nextPos);
+                        }
+                    }
+                }
+            }
+        }
+        return board;
+    }
+};
+----
+
+下面这种解法跟上面的解法思路基本一样，写法更简洁了一些。可以看出上面的解法中的那两个for循环出现了两次，这样显得代码比较冗余，一般来说对于重复代码是要抽离成函数的，但那样还要多加个函数，也麻烦。我们可以根据第一次找周围雷个数的时候，若此时cnt个数为0并且标识是E的位置记录下来，那么如果最后雷个数确实为0了的话，我们直接遍历我们保存下来为E的位置调用递归函数即可，就不用再写两个for循环了，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<char>> updateBoard(vector<vector<char>>& board, vector<int>& click) {
+        if (board.empty() || board[0].empty()) return {};
+        int m = board.size(), n = board[0].size(), row = click[0], col = click[1], cnt = 0;
+        if (board[row][col] == 'M') {
+            board[row][col] = 'X';
+        } else {
+            vector<vector<int>> neighbors;
+            for (int i = -1; i < 2; ++i) {
+                for (int j = -1; j < 2; ++j) {
+                    int x = row + i, y = col + j;
+                    if (x < 0 || x >= m || y < 0 || y >= n) continue;
+                    if (board[x][y] == 'M') ++cnt;
+                    else if (cnt == 0 && board[x][y] == 'E') neighbors.push_back({x, y});
+                }
+            }
+            if (cnt > 0) {
+                board[row][col] = cnt + '0';
+            } else {
+                for (auto a : neighbors) {
+                    board[a[0]][a[1]] = 'B';
+                    updateBoard(board, a);
+                }
+            }
+        }
+        return board;
+    }
+};
+----
+
+下面这种方法是上面方法的迭代写法，用queue来存储之后要遍历的位置，这样就不用递归调用函数了，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<char>> updateBoard(vector<vector<char>>& board, vector<int>& click) {
+        if (board.empty() || board[0].empty()) return {};
+        int m = board.size(), n = board[0].size();
+        queue<pair<int, int>> q({{click[0], click[1]}});
+        while (!q.empty()) {
+            int row = q.front().first, col = q.front().second, cnt = 0; q.pop();
+            vector<pair<int, int>> neighbors;
+            if (board[row][col] == 'M') board[row][col] = 'X';
+            else {
+                for (int i = -1; i < 2; ++i) {
+                    for (int j = -1; j < 2; ++j) {
+                        int x = row + i, y = col + j;
+                        if (x < 0 || x >= m || y < 0 || y >= n) continue;
+                        if (board[x][y] == 'M') ++cnt;
+                        else if (cnt == 0 && board[x][y] == 'E') neighbors.push_back({x, y});
+                    }
+                }
+            }
+            if (cnt > 0) board[row][col] = cnt + '0';
+            else {
+                for (auto a : neighbors) {
+                    board[a.first][a.second] = 'B';
+                    q.push(a);
+                }
+            }
+        }
+        return board;
+    }
+};
+----
+
+==== 二叉搜索树的最小绝对差
+
+----
+Given a binary search tree with non-negative values, find the minimum absolute difference between values of any two nodes.
+
+Example:
+
+Input:
+
+   1
+    \
+     3
+    /
+   2
+
+Output:
+1
+----
+
+这道题给了我们一棵二叉搜索树，让我们求任意个节点值之间的最小绝对差。由于BST的左<根<右的性质可知，如果按照中序遍历会得到一个有序数组，那么最小绝对差肯定在相邻的两个节点值之间产生。所以我们的做法就是对BST进行中序遍历，然后当前节点值和之前节点值求绝对差并更新结果res。这里需要注意的就是在处理第一个节点值时，由于其没有前节点，所以不能求绝对差。这里我们用变量pre来表示前节点值，这里由于题目中说明了所以节点值不为负数，所以我们给pre初始化-1，这样我们就知道pre是否存在。如果没有题目中的这个非负条件，那么就不能用int变量来，必须要用指针，通过来判断是否为指向空来判断前结点是否存在。还好这里简化了问题，用-1就能搞定了，这里我们先来看中序遍历的递归写法，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int getMinimumDifference(TreeNode* root) {
+        int res = INT_MAX, pre = -1;
+        inorder(root, pre, res);
+        return res;
+    }
+    void inorder(TreeNode* root, int& pre, int& res) {
+        if (!root) return;
+        inorder(root->left, pre, res);
+        if (pre != -1) res = min(res, root->val - pre);
+        pre = root->val;
+        inorder(root->right, pre, res);
+    }
+};
+----
+
+其实我们也不必非要用中序遍历不可，用先序遍历同样可以利用到BST的性质，我们带两个变量low和high来分别表示上下界，初始化为int的极值，然后我们在递归函数中，分别用上下界和当前节点值的绝对差来更新结果res，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int getMinimumDifference(TreeNode* root) {
+        int res = INT_MAX;
+        helper(root, INT_MIN, INT_MAX, res);
+        return res;
+    }
+    void helper(TreeNode* root, int low, int high, int& res) {
+        if (!root) return;
+        if (low != INT_MIN) res = min(res, root->val - low);
+        if (high != INT_MAX) res = min(res, high - root->val);
+        helper(root->left, low, root->val, res);
+        helper(root->right, root->val, high, res);
+    }
+};
+----
+
+下面这种方法是解法一的迭代的写法，思路跟之前的解法没有什么区别，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int getMinimumDifference(TreeNode* root) {
+        int res = INT_MAX, pre = -1;
+        stack<TreeNode*> st;
+        TreeNode *p = root;
+        while (p || !st.empty()) {
+            while (p) {
+                st.push(p);
+                p = p->left;
+            }
+            p = st.top(); st.pop();
+            if (pre != -1) res = min(res, p->val - pre);
+            pre = p->val;
+            p = p->right;
+        }
+        return res;
+    }
+};
+----

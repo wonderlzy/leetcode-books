@@ -1,0 +1,1389 @@
+==== 将IP地址转为CIDR无类别域间路由
+
+----
+Given a start IP address ip and a number of ips we need to cover n, return a representation of the range as a list (of smallest possible length) of CIDR blocks.
+A CIDR block is a string consisting of an IP, followed by a slash, and then the prefix length. For example: "123.45.67.89/20". That prefix length "20" represents the number of common prefix bits in the specified range.
+
+Example 1:
+Input: ip = "255.0.0.7", n = 10
+Output: ["255.0.0.7/32","255.0.0.8/29","255.0.0.16/32"]
+----
+
+这道题博主刚开始做的时候，看了半天，读不懂题目的意思，结果一看是一道Easy的题，直接？？？尼克杨问号脸？？？后来通过研究论坛上大家的解法，才总算明白了这道题让我们做什么。此题给了我们一个用字符串表示的ip地址，还有一个整数n，让我们以给定的ip地址为起点，需要覆盖n个ip地址。而这n个ip地址的写法使用无类别域间路由CIDR块来写，所谓的CIDR块，是由一个正常的ip地址，加上斜杠数字，斜杠后面的数字表示这些ip地址具有相同的前缀的个数，比如"255.0.0.7/32"，如果有32个相同的前缀，说明只有唯一的一个ip地址，因为IPv4总共就只有32位。再比如"255.0.0.8/29"，表示有29个相同的前缀，那么最后3位可以自由发挥，2的3次方为8，所以就共有8个ip地址。同理，"255.0.0.16/32"只表示一个地址，那么这三个CIDR块总共覆盖了10个地址，就是我们要求的结果。 +
+
+由于题目中要求尽可能少的使用CIDR块，那么在n确定的情况下，CIDR块能覆盖的越多越好。根据我们前面的分析，当CIDR块斜杠后面的数字越小，该块覆盖的ip地址越多。那么就是说相同前缀的个数越少越好，但是我们的ip地址又不能小于给定的ip地址，所以我们只能将0变为1，而不能将1变为0。所以我们的选择就是有将最低位1后面的0进行变换，比如"255.0.0.8"末尾有3个0，可以变换出8个不同的地址。那么我们只要找出末尾1的位置，就知道能覆盖多少个地址了。找末尾1有个trick，就是利用 x & -x 来快速找到，这个trick在之前做的题中也有应用。知道了最多能覆盖地址的数量，还要考虑到n的大小，不能超过n，因为题目只要求覆盖n个。确定了覆盖的个数，我们就可以进行生成CIDR块的操作了，之前我们为了求 x & -x，将ip地址转为了一个十进制的数，现在我们要把每一块拆分出来，直接按对应位数量进行右移并与上255即可，斜杠后的数字计算通过覆盖的个数进行log2运算，再被32减去即可，参见代码如下：  +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<string> ipToCIDR(string ip, int n) {
+        vector<string> res;
+        long x = 0;
+        istringstream is(ip);
+        string t;
+        while (getline(is, t, '.')) {
+            x = x * 256 + stoi(t);
+        }
+        while (n > 0) {
+            long step = x & -x;
+            while (step > n) step /= 2;
+            res.push_back(convert(x, step));
+            x += step;
+            n -= step;
+        }
+        return res;
+    }
+    string convert(long x, int step) {
+        return to_string((x >> 24) & 255) + "." + to_string((x >> 16) & 255) + "." + to_string((x >> 8) & 255) + "." + to_string(x & 255) + "/" + to_string(32 - (int)log2(step));
+    }
+};
+----
+
+==== 开锁
+
+----
+You have a lock in front of you with 4 circular wheels. Each wheel has 10 slots: '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'. The wheels can rotate freely and wrap around: for example we can turn '9' to be '0', or '0' to be '9'. Each move consists of turning one wheel one slot.
+The lock initially starts at '0000', a string representing the state of the 4 wheels.
+You are given a list of deadends dead ends, meaning if the lock displays any of these codes, the wheels of the lock will stop turning and you will be unable to open it.
+Given a target representing the value of the wheels that will unlock the lock, return the minimum total number of turns required to open the lock, or -1 if it is impossible.
+----
+
+这道题说有一种可滑动的四位数的锁，貌似行李箱上比较常见这种锁。给了我们一个目标值，还有一些死锁的情况，就是说如果到达这些死锁的位置，就不能再动了，相当于迷宫中的障碍物。然后问我们最少多少步可以从初始的0000位置滑动到给定的target位置。如果各位足够老辣的话，应该能发现其实本质就是个迷宫遍历的问题，只不过相邻位置不再是上下左右四个位置，而是四位数字每个都加一减一，总共有八个相邻的位置。遍历迷宫问题中求最短路径要用BFS来做，那么这道题也就是用BFS来解啦，和经典BFS遍历迷宫解法唯一不同的就是找下一个位置的地方，这里我们要遍历四位数字的每一位，然后分别加1减1，我们用j从-1遍历到1，遇到0跳过，也就是实现了加1减1的过程。然后我们要计算要更新位上的数字，为了处理9加1变0，和0减1变9的情况，我们统一给该位数字加上个10，然后再加或减1，最后再对10取余即可，注意字符和整型数之间通过加或减'0'来转换。我们用结果res来记录BFS遍历的层数，如果此时新生成的字符串等于target了，直接返回结果res，否则我们看如果该字符串不在死锁集合里，且之前没有遍历过，那么加入队列queue中，之后将该字符串加入visited集合中即可。注意这里在while循环中，由于要一层一层的往外扩展，一般的做法是会用一个变量len来记录当前的q.size()，博主为了简洁，使用了一个trick，就是从q.size()往0遍历，千万不能反回来，因为在计算的过程中q的大小会变化，如果让k < q.size() 为终止条件，绝b会出错，而我们初始化为q.size()就没事，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int openLock(vector<string>& deadends, string target) {
+        unordered_set<string> deadlock(deadends.begin(), deadends.end());
+        if (deadlock.count("0000")) return -1;
+        int res = 0;
+        unordered_set<string> visited{{"0000"}};
+        queue<string> q{{"0000"}};
+        while (!q.empty()) {
+            ++res;
+            for (int k = q.size(); k > 0; --k) {
+                auto t = q.front(); q.pop();
+                for (int i = 0; i < t.size(); ++i) {
+                    for (int j = -1; j <= 1; ++j) {
+                        if (j == 0) continue;
+                        string str = t;
+                        str[i] = ((t[i] - '0') + 10 + j) % 10 + '0';
+                        if (str == target) return res;
+                        if (!visited.count(str) && !deadlock.count(str)) q.push(str);
+                        visited.insert(str);
+                    }
+                }
+            }
+        }
+        return -1;
+    }
+};
+----
+
+下面这种方法也是用的BFS遍历，不同之处在于生成新字符串的方法，这里我们采用拼接法来生成新字符串，而不是像上面那样使用置换字符串的方法。我们对于加一和减一分别进行拼接，注意处理9加1变0，和0减1变9的情况。然后剩下的部分就和经典的BFS遍历写法没有什么太大的区别了，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int openLock(vector<string>& deadends, string target) {
+        unordered_set<string> deadlock(deadends.begin(), deadends.end());
+        if (deadlock.count("0000")) return -1;
+        int res = 0;
+        unordered_set<string> visited{{"0000"}};
+        queue<string> q{{"0000"}};
+        while (!q.empty()) {
+            ++res;
+            for (int k = q.size(); k > 0; --k) {
+                auto t = q.front(); q.pop();
+                for (int i = 0; i < t.size(); ++i) {
+                    char c = t[i];
+                    string str1 = t.substr(0, i) + to_string(c == '9' ? 0 : c - '0' + 1) + t.substr(i + 1);
+                    string str2 = t.substr(0, i) + to_string(c == '0' ? 9 : c - '0' - 1) + t.substr(i + 1);
+                    if (str1 == target || str2 == target) return res;
+                    if (!visited.count(str1) && !deadlock.count(str1)) q.push(str1);
+                    if (!visited.count(str2) && !deadlock.count(str2)) q.push(str2);
+                    visited.insert(str1);
+                    visited.insert(str2);
+                }
+            }
+        }
+        return -1;
+    }
+};
+----
+
+==== 破解密码
+
+----
+There is a box protected by a password. The password is n digits, where each letter can be one of the first k digits 0, 1, ..., k-1.
+You can keep inputting the password, the password will automatically be matched against the last n digits entered.
+For example, assuming the password is "345", I can open it when I type "012345", but I enter a total of 6 digits.
+Please return any string of minimum length that is guaranteed to open the box after the entire string is inputted.
+----
+
+----
+这道题说的是给了k个数字，值为0到k-1，让我们组成n位密码。让我们找一个万能钥匙串，能破解任意的n位密码组合，这里对于破解的定义为只要密码是钥匙串的子串就可以破解了，然我们求出最短的一个万能钥匙串。来看一个例子，n=2，k=2，那么密码的组合有四种，
+
+00，01，10，11
+
+所以 00110 就是一种钥匙串，因为密码 00 (00110), 01 (00110), 10 (00110), 11 (00110), 分别都包括在钥匙串中。我们可以发现，为了尽可能的使钥匙串变短，所以我们的密码之间尽可能要相互重叠，比如00和01，就共享一个0，如果是3个数，012和120共享两个数"12"，那么我们可以发现，两个长度为n的密码最好能共享n-1个数字，这样累加出来的钥匙串肯定是最短的。
+
+密码共有n位，每一个位可以有k个数字，那么总共不同的密码总数就有k的n次方个。我们的思路是先从n位都是0的密码开始，取出钥匙串的最后n个数字，然后将最后一个数字依次换成其他数字，我们用一个HashSet来记录所有遍历过的密码，这样如果不在集合中，说明是一个新密码，而生成这个新密码也只是多加了一个数字，这样能保证我们的钥匙串最短，这是一种贪婪的解法，相当的巧妙，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string crackSafe(int n, int k) {
+        string res = string(n, '0');
+        unordered_set<string> visited{{res}};
+        for (int i = 0; i < pow(k, n); ++i) {
+            string pre = res.substr(res.size() - n + 1, n - 1);
+            for (int j = k - 1; j >= 0; --j) {
+                string cur = pre + to_string(j);
+                if (!visited.count(cur)) {
+                    visited.insert(cur);
+                    res += to_string(j);
+                    break;
+                }
+            }
+        }
+        return res;
+    }
+};
+----
+
+来看同一种解法的递归写法，思路和迭代的写法一模一样，写法略有不同而已，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string crackSafe(int n, int k) {
+        string res = string(n, '0');
+        unordered_set<string> visited{{res}};
+        helper(n, k, pow(k, n), visited, res);
+        return res;
+    }
+    void helper(int n, int k, int total, unordered_set<string>& visited, string& res) {
+        if (visited.size() == total) return;
+        string pre = res.substr(res.size() - n + 1, n - 1);
+        for (int i = k - 1; i >= 0; --i) {
+            string cur = pre + to_string(i);
+            if (visited.count(cur)) continue;
+            visited.insert(cur);
+            res += to_string(i);
+            helper(n, k, total, visited, res);
+        }
+    }
+};
+----
+
+==== 达到一个数字
+
+----
+You are standing at position 0 on an infinite number line. There is a goal at position target.
+On each move, you can either go left or right. During the n-th move (starting from 1), you take n steps.
+Return the minimum number of steps required to reach the destination.
+----
+
+----
+这道题让我们从起点0开始，每次可以向数轴的左右两个方向中的任意一个走，第一步走距离1，第二步走距离2，以此类推，第n步走距离n，然后给了我们一个目标值target，问我们最少用多少步可以到达这个值。博主分析了给的两个例子后，开始想的是用贪婪算法来做，就是如果加上距离大于目标值的话，就减去这个距离，到是当目标值是4的话，贪婪算法会fail。后来博主尝试用BFS来做，就是每次都把当前能到大的所有的点，都加上和减去当前距离，形成新的位置，加入数组中，当某个新的位置达到目标值时返回，但是这种解法会TLE，当目标值很大的话，相当的不高效。其实这道题的正确解法用到了些数学知识，还有一些小trick，首先来说说小trick，第一个trick是到达target和-target的步数相同，因为数轴是对称的，只要将到达target的没步的距离都取反，就能到达-target。下面来说第二个trick，这个是解题的关键，比如说目标值是4，那么如果我们一直累加步数，直到其正好大于等于target时，有：
+
+0 + 1 = 1
+
+1 + 2 = 3
+
+3 + 3 = 6
+
+第三步加上3，得到了6，超过了目标值4，超过了的距离为2，是偶数，那么实际上我们只要将加上距离为1的时候，不加1，而是加-1，那么此时累加和就损失了2，那么正好能到目标值4，如下：
+
+0 - 1 = -1
+
+-1 + 2 = 1
+
+1 + 3 = 4
+
+那么，我们的第二个trick就是，当超过目标值的差值d为偶数时，只要将第d/2步的距离取反，就能得到目标值，此时的步数即为到达目标值的步数。那么，如果d为奇数时，且当前为第n步，那么我们看下一步n+1的奇偶，如果n+1为奇数，那么加上n+1再做差，得到的差值就为偶数了，问题解决，如果n+1为偶数，那么还得加上n+2这个奇数，才能让差值为偶数，这样就多加了两步。分析到这里，我们的解题思路也就明晰了吧：
+我们先对target取绝对值，因为正负不影响最小步数。然后我们求出第n步，使得从1累加到n刚好大于等于target，我们可以反向利用求和公式，来求解出n，然后算出当前n的累加和sum，如果此时sum和target正好相等，perfect！直接返回n，否则就是计算差值，如果差值时偶数，那么也直接返回n，如果是奇数，判断此时n的奇偶，如果n是奇数，则返回n+2，若n是偶数，返回n+1，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int reachNumber(int target) {
+        target = abs(target);
+        long n = ceil((-1.0 + sqrt(1 + 8.0 * target)) / 2);
+        long sum = n * (n + 1) / 2;
+        if (sum == target) return n;
+        long res = sum - target;
+        if ((res & 1) == 0) return n;
+        else return n + ((n & 1) ? 2 : 1);
+    }
+};
+----
+
+我们也可以不用求和公式来快速定位n，而是通过累加来做，res为我们的当前步数，也是最终需要返回的结果，sum是加上每步距离的累加值，如果sum小于target，或者sum减去target的差值为奇数，我们进行循环，步数res自增1，然后sum加上步数res，最后跳出循环的条件就是差值为偶数，也符合我们上的分析，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int reachNumber(int target) {
+        target = abs(target);
+        int res = 0, sum = 0;
+        while (sum < target || (sum - target) % 2 == 1) {
+            ++res;
+            sum += res;
+        }
+        return res;
+    }
+};
+----
+
+下面这种解法是解法一的精简版，两行搞定碉堡了！ +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int reachNumber(int target) {
+        int n = ceil((sqrt(1 + 8.0 * abs(target)) - 1) / 2), d = n * (n + 1) / 2 - target;
+        return n + (d % 2) * (n % 2 + 1);
+    }
+};
+----
+
+==== 金字塔转变矩阵
+
+----
+We are stacking blocks to form a pyramid. Each block has a color which is a one letter string, like `'Z'`.
+For every block of color `C` we place not in the bottom row, we are placing it on top of a left block of color `A` and right block of color `B`. We are allowed to place the block there only if `(A, B, C)` is an allowed triple.
+We start with a bottom row of bottom, represented as a single string. We also start with a list of allowed triples allowed. Each allowed triple is represented as a string of length 3.
+Return true if we can build the pyramid all the way to the top, otherwise false.
+----
+
+----
+这道题让我们累一个金字塔，用字母来代表每块砖的颜色，给了一个allowed数组，里面都是长度为三的字符串，比如“ABC”表示C可以放在A和B的上方，注意AB上面也可以放其他的，比如“ABD”也可以同时出现，不过搭积木的时候只能选择一种。给了我们一个bottom字符串，是金字塔的底层，问我们能不能搭出一个完整的金字塔。那么实际上我们就是从底层开始，一层一层的向上来累加，直到搭出整个金字塔。我们先来看递归的解法，首先由于我们想快速知道两个字母上方可以放的字母，需要建立基座字符串和上方字符集合之间的映射，由于上方字符可以不唯一，所以用个HashSet来放字符。我们的递归函数有三个参数，当前层字符串cur，上层字符串above，还有我们的HashMap。如果cur的大小为2，above的大小为1，那么说明当前已经达到金字塔的顶端了，已经搭出来了，直接返回true。否则看，如果上一层的长度比当前层的长度正好小一个，说明上一层也搭好了，我们现在去搭上上层，于是调用递归函数，将above当作当前层，空字符串为上一层，将调用的递归函数结果直接返回。否则表示我们还需要继续去搭above层，我们先算出above层的长度pos，然后从当前层的pos位置开始取两个字符，就是above层接下来需要搭的字符的基座字符，举个例子如下：
+
+  D
+ / \ / \
+A   B   C
+我们看到现在above层只有一个D，那么pos为1，在cur层1位置开始取两个字符，得到"BC"，即是D的下一个位置的字符的基座字符串base。取出了base后，如果HashMap中有映射，则我们遍历其映射的字符集合中的所有字符，对每个字符都调用递归函数，此时above字符串需要加上这个遍历到的字符，因为我们在尝试填充这个位置，如果有返回true的，那么当前递归函数就返回true了，否则最终返回false，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool pyramidTransition(string bottom, vector<string>& allowed) {
+        unordered_map<string, unordered_set<char>> m;
+        for (string str : allowed) {
+            m[str.substr(0, 2)].insert(str[2]);
+        }
+        return helper(bottom, "", m);
+    }
+    bool helper(string cur, string above, unordered_map<string, unordered_set<char>>& m) {
+        if (cur.size() == 2 && above.size() == 1) return true;
+        if (above.size() == cur.size() - 1) return helper(above, "", m);
+        int pos = above.size();
+        string base = cur.substr(pos, 2);
+        if (m.count(base)) {
+            for (char ch : m[base]) {
+                if (helper(cur, above + string(1, ch), m)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+};
+----
+
+----
+下面来看一种迭代的写法，这是一种DP的解法，建立一个三维的dp数组，其中dp[i][j][ch]表示在金字塔(i, j)位置上是否可以放字符ch，金字塔的宽和高已经确定了，都是n。每个位置对应着nxn的数组的左半边，如下所示：
+F _ _
+D E _
+A B C
+除了底层，每个位置可能可以放多个字符，所以这里dp数组是一个三维数组，第三维的长度为7，因为题目中限定了字母只有A到G共7个，如果dp值为true，表示该位置放该字母，我们根据bottom字符串来初始化dp数组的底层。这里还是需要一个HashMap，不过跟上面的解法略有不同的是，我们建立上方字母跟其能放的基座字符串集合的映射，因为一个字母可能可以放多个位置，所以用个集合来表示。然后我们就开始从倒数第二层开始往顶部更新啦，对于金字塔的每个位置，我们都遍历A到G中所有的字母，如果当前字母在HashMap中有映射，则我们遍历对应的基座字符串集合中的所有字符串，基座字符串共有两个字母，左边的字母对应的金字塔中的位置是(i + 1, j)，右边的字母对应的位置是(i + 1, j + 1)，我们只要在这两个位置上分别查询对应的字母的dp值是否为true，是的话，说明当前位置有字母可以放，我们将当前位置的字母对应的dp值赋值为true。这样，当我们整个更新完成了之后，我们只要看金字塔顶端位置(0, 0)是否有字母可以放，有的话，说明可以搭出金字塔，返回true，否则返回false，参见代码如下：
+----
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool pyramidTransition(string bottom, vector<string>& allowed) {
+        int n = bottom.size();
+        vector<vector<vector<bool>>> dp(n, vector<vector<bool>>(n, vector<bool>(7, false)));
+        unordered_map<char, unordered_set<string>> m;
+        for (string str : allowed) {
+            m[str[2]].insert(str.substr(0, 2));
+        }
+        for (int i = 0; i < n; ++i) {
+            dp[n - 1][i][bottom[i] - 'A'] = true;
+        }
+        for (int i = n - 2; i >= 0; --i) {
+            for (int j = 0; j <= i; ++j) {
+                for (char ch = 'A'; ch <= 'G'; ++ch) {
+                    if (!m.count(ch)) continue;
+                    for (string str : m[ch]) {
+                        if (dp[i + 1][j][str[0] - 'A'] && dp[i + 1][j + 1][str[1] - 'A']) {
+                            dp[i][j][ch - 'A'] = true;
+                        }
+                    }
+                }
+            }
+        }
+        for (int i = 0; i < 7; ++i) {
+            if (dp[0][0][i]) return true;
+        }
+        return false;
+    }
+};
+----
+
+==== 设置交集大小至少为2
+
+----
+An integer interval [a, b] (for integers a < b) is a set of all consecutive integers from a to b, including a and b.
+
+Find the minimum size of a set S such that for every integer interval A in intervals, the intersection of S with A has size at least 2.
+----
+
+----
+这道题给了我们一些区间，让我们求一个集合S，使得S和每个区间的交集至少为2，即至少有两个相同的数字。博主最开始分析题目中的例子的时候，以为要求的集合S也必须是一个连续的区间，其实不需要的，离散的数字就可以了。比如如果区间是[1,3], [5,6]的话，那么返回的集合长度是4，而不是5。这道题可以是用贪婪算法来解，一般来说Hard的题目能用贪婪算法而不是DP解的是少之又少，这道题为我大Greedy算法正名了～！为了使得集合S中的数字尽可能的小，我们希望处理区间的时候从小区间开始，如果区间b完全覆盖了区间a，那么和区间a有两个相同数字的集合，一定和区间b也有两个相同数字。同样，我们不希望一会处理一个前面的区间，一会又处理一个很后面的区间，我们希望区间是有序的。那么如何给区间排序呢，是按起始位置排，还是按结束位置排，这里我们按结束位置从小往大排，当两个结束位置相同时，起始位置大的排前面先处理，这也符合我们先处理小区间的原则。那么遍历区间的时候，当前区间就和我们维护的集合S有三种情况：
+
+1. 二者完全没有交集，这时候我们就需要从当前区间中取出两个数字加入集合S，取哪两个数呢？为了尽可能少使用数字，我们取当前区间中的最大两个数字，因为我们区间位置不断变大，所以取大的数字有更高的概率能和后面的区间有交集。
+
+2. 二者有一个数字的交集，那么这个交集数字一定是区间的起始位置，那么我们需要从当前区间中再取一个数字加入集合S，根据上面的分析，我们取最大的那个数，即区间的结束位置。
+
+3. 二者有两个及两个以上数字的交集，那么不用做任何处理。
+
+好，分析到这里，代码也就不难写出来了，我们用个数组v来表示集合S，初始化放两个-1进去，因为题目中说明了区间都是大于0的，所以我们放这两个数组进去是为了防止越界的，不会有任何影响，最后统计长度的时候减去这个两个数字就可以了。先给区间排序，然后遍历每个区间，如果区间的起始位置小于等于数组的倒数第二个数字，说明此时已经有两个相同的数字了，直接跳过当前区间。否则如果区间的起始位置大于数组的最后一个位置，说明二者没有任何交集，我们此时先把区间的倒数第二小的数字加入数组v中。然后统一再把区间的结束位置加入数组v中，因为不管区间和数组有一个交集还是没有任何交集，结束位置都要加入数组中，所以不用放在if..else..中。最后循环结束，返回数组的大小减2，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int intersectionSizeTwo(vector<vector<int>>& intervals) {
+        vector<int> v{-1, -1};
+        sort(intervals.begin(), intervals.end(), [](vector<int>& a, vector<int>& b){
+            return a[1] < b[1] || (a[1] == b[1] && a[0] > b[0]);
+        });
+        for (auto &interval : intervals) {
+            int len = v.size();
+            if (interval[0] <= v[len - 2]) continue;
+            if (interval[0] > v.back()) v.push_back(interval[1] - 1);
+            v.push_back(interval[1]);
+        }
+        return v.size() - 2;
+    }
+};
+----
+
+我们可以对空间复杂度进行优化，我们不用保存整个集合S，因为结果只让我们返回长度即可，所以我们用两个变量p1和p2，其中p1表示集合S中倒数第二大的数字，p2为集合S中最大的数字。我们的整个逻辑跟上面的解法是相同的。遍历区间的时候，如果区间的起始位置小于等于p1，则跳过当前区间。否则如果起始位置大于p2，说明没有交集，需要加上两个数字，结果res自增2，然后p2赋值为当前区间的结束位置，p1赋值为第二大的数字。否则说明只有一个交集，结果res自增1，然后p1赋值为p2，p2赋值为当前区间的结束位置即可，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int intersectionSizeTwo(vector<vector<int>>& intervals) {
+        int res = 0, p1 = -1, p2 = -1;
+        sort(intervals.begin(), intervals.end(), [](vector<int>& a, vector<int>& b){
+            return a[1] < b[1] || (a[1] == b[1] && a[0] > b[0]);
+        });
+        for (auto &interval : intervals) {
+            if (interval[0] <= p1) continue;
+            if (interval[0] > p2) {
+                res += 2;
+                p2 = interval[1];
+                p1 = p2 - 1;
+            } else {
+                ++res;
+                p1 = p2;
+                p2 = interval[1];
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== 字符串中的加粗单词
+
+----
+Given a set of keywords words and a string S, make all appearances of all keywords in S bold. Any letters between <b> and </b> tags become bold.
+The returned string should use the least number of tags possible, and of course the tags should form a valid combination.
+For example, given that words = ["ab", "bc"] and S = "aabcd", we should return "a<b>abc</b>d". Note that returning "a<b>a<b>b</b>c</b>d" would use more tags, so it is incorrect.
+----
+
+这道题跟之前的那道Add Bold Tag in String是一模一样的，之前还换个马甲，这次连场景都不换了，直接照搬啊？！我也是服气的～这道题应该没有太多的技巧，就是照题目意思来就行了，我们使用一个数组bold，标记所有需要加粗的位置为true，初始化所有为false。我们首先要判断每个单词word是否是S的子串，判断的方法就是逐个字符比较，遍历字符串S，找到和word首字符相等的位置，并且比较随后和word等长的子串，如果完全相同，则将子串所有的位置在bold上比较为true。等我们知道了所有需要加粗的位置后，我们就可以来生成结果res了，我们遍历bold数组，如果当前位置是true的话，表示需要加粗，那么我们首先看如果是第一个字符，或者其前面的字符不用加粗，我们加上一个左标签<b>，然后我们将当前字符加入结果res中，然后再判断，如果当前是末尾字符，或者后面一个字符不用加粗，则需要加上一个右标签</b>；如果当前位置是false，我们直接将字符加入结果res中即可，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string boldWords(vector<string>& words, string S) {
+        int n = S.size();
+        string res = "";
+        vector<bool> bold(n, false);
+        for (string word : words) {
+            int len = word.size();
+            for (int i = 0; i <= n - len; ++i) {
+                if (S[i] == word[0] && S.substr(i, len) == word) {
+                    for (int j = i; j < i + len; ++j) bold[j] = true;
+                }
+            }
+        }
+        for (int i = 0; i < n; ++i) {
+            if (bold[i]) {
+                if (i == 0 || !bold[i - 1]) res += "<b>";
+                res.push_back(S[i]);
+                if (i == n - 1 || !bold[i + 1]) res += "</b>";
+            } else {
+                res.push_back(S[i]);
+            }
+        }
+        return res;
+    }
+};
+----
+
+我们可以用HashSet来代替数组，只是将需要加粗的位置放入HashSet，然后我们在生成结果res的时候，先检测当前位置是否加粗，如果加粗了，并且前一个位置不在HashSet中，这样就不用判断是否是第一个元素了，因为i-1肯定不再HashSet中，也不像数组那样存在越界的可能，我们给结果res加上左标签，然后将当前的字符加入结果res中，然后再判断如果当前位置如果加粗了，并且下一个位置不在HashSet中，我们给结果res加上右标签，参见代码如下：  +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string boldWords(vector<string>& words, string S) {
+        int n = S.size();
+        string res = "";
+        unordered_set<int> bold;
+        for (string word : words) {
+            int len = word.size();
+            for (int i = 0; i <= n - len; ++i) {
+                if (S[i] == word[0] && S.substr(i, len) == word) {
+                    for (int j = i; j < i + len; ++j) bold.insert(j);
+                }
+            }
+        }
+        for (int i = 0; i < n; ++i) {
+            if (bold.count(i) && !bold.count(i - 1)) res += "<b>";
+            res.push_back(S[i]);
+            if (bold.count(i) && !bold.count(i + 1)) res += "</b>";
+        }
+        return res;
+    }
+};
+----
+
+前面提到了这道题跟Add Bold Tag in String是完全一样，那么当然二者的解法是互通的，下面的解法是之前那道题中的解法，其实整体思路是一样的，只不过在构建的bold数组的时候，是先遍历的字符串S，而不是先遍历的单词。对于字符串S中的每个字符为起点，我们都遍历下所有单词，如果某个单词是以当前字符为起点的子串的话，那么我们用i+len来更新end，所以遍历完所有单词后，只要当前位置需要加粗，那么end一定大于i，通过这种方法同样也可以生成正确的bold数组。然后在创建结果res字符串的时候也跟上面的方法有些不同，首先判断，如果当前未被加粗，那么将当前字符存入结果res中并且continue，否则开始找相连的需要加粗的位置，用j来指向下一个不用加粗的位置，这样中间的子串就可以放入标签中整体加到res中，然后继续在后面查找连续加粗的子串，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string boldWords(vector<string>& words, string S) {
+        int n = S.size(), end = 0;
+        string res = "";
+        vector<bool> bold(n, false);
+        for (int i = 0; i < n; ++i) {
+            for (string word : words) {
+                int len = word.size();
+                if (i + len <= n && S.substr(i, len) == word) {
+                    end = max(end, i + len);
+                }
+            }
+            bold[i] = end > i;
+        }
+        for (int i = 0; i < n; ++i) {
+            if (!bold[i]) {
+                res.push_back(S[i]);
+                continue;
+            }
+            int j = i;
+            while (j < n && bold[j]) ++j;
+            res += "<b>" + S.substr(i, j - i) + "</b>";
+            i = j - 1;
+        }
+        return res;
+    }
+};
+----
+
+==== 职员的空闲时间
+
+----
+We are given a list schedule of employees, which represents the working time for each employee.
+
+Each employee has a list of non-overlapping Intervals, and these intervals are in sorted order.
+
+Return the list of finite intervals representing common, positive-length free time for all employees, also in sorted order.
+----
+
+这道题和之前那道Merge Intervals基本没有太大的区别，那道题是求合并后的区间，这道题求合并后区间中间不相连的区间。那么只要我们合并好了区间，就很容易做了。那么我么首先应该给所有的区间排个序，按照起始位置从小到大来排。因为我们总不可能一会处理前面的，一会处理后面的区间。排好序以后，我们先取出第一个区间赋给t，然后开始遍历所有的区间内所有的区间，如果t的结束位置小于当前遍历到的区间i的起始位置，说明二者没有交集，那么把不相交的部分加入结果res中，然后把当前区间i赋值给t；否则如果区间t和区间i有交集，那么我们更新t的结束位置为二者中的较大值，因为按顺序遍历区间的时候，区间t的结束位置是比较的基准，越大越容易和后面的区间进行合并，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<Interval> employeeFreeTime(vector<vector<Interval>>& schedule) {
+        vector<Interval> res, v;
+        for (auto a : schedule) {
+            v.insert(v.end(), a.begin(), a.end());
+        }
+        sort(v.begin(), v.end(), [](Interval &a, Interval &b) {return a.start < b.start;});
+        Interval t = v[0];
+        for (Interval i : v) {
+            if (t.end < i.start) {
+                res.push_back(Interval(t.end, i.start));
+                t = i;
+            } else {
+                t = (t.end < i.end) ? i : t;
+            }
+        }
+        return res;
+    }
+};
+----
+
+----
+我们再来看一种解法，这种解法挺巧妙的，我们使用TreeMap建立一个位置和其出现次数之间的映射，对于起始位置，进行正累加，对于结束位置，进行负累加。由于TreeMap具有自动排序的功能，所以我们进行遍历的时候，就是从小到大进行遍历的。定义一个变量cnt，初始化为0，我们对于每个遍历到的数，都加上其在TreeMap中的映射值，即该数字出现的次数，起始位置的话就会加正数，结束位置就是加负数。开始的时候，第一个数字一定是个起始位置，那么cnt就是正数，那么接下来cnt就有可能加上正数，或者减去一个负数，我们想，如果第一个区间和第二个区间没有交集的话，那么接下来遇到的数字就是第一个区间的结束位置，所以会减去1，这样此时cnt就为0了，这说明一定会有中间区域存在，所以我们首先把第一个区间当前起始位置，结束位置暂时放上0，组成一个区间放到结果res中，这样我们在遍历到下一个区间的时候更新结果res中最后一个区间的结束位置。语言描述难免太干巴巴的，我们拿题目中的例1来说明，建立好的TreeMap如下所示：
+
+1 -> 2
+2 -> -1
+3 -> -1
+4 -> 1
+5 -> 1
+6 -> -1
+10 -> -1
+
+那么开始遍历这所有的映射对，cnt首先为2，然后往后遍历下一个映射对2 -> -1，此时cnt为1了，不进行其他操作，再往下遍历，下一个映射对3 -> -1，此时cnt为0了，说明后面将会出现断层了，我们将(3, 0)先存入结果res中。然后遍历到4 -> 1时，cnt为1，此时将结果res中的(3, 0)更新为 (3, 4)。然后到5 -> 1，此时cnt为2，不进行其他操作，然后到6 -> -1，此时cnt为1，不进行其他操作，然后到10 -> -1，此时cnt为0，将(10, 0)加入结果res中。由于后面再没有任何区间了，所以res最后一个区间不会再被更新了，我们应该将其移出结果res，因为题目中限定了区间不能为无穷，参见代码如下：
+----
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<Interval> employeeFreeTime(vector<vector<Interval>>& schedule) {
+        vector<Interval> res;
+        map<int, int> m;
+        int cnt = 0;
+        for (auto employee : schedule) {
+            for (Interval i : employee) {
+                ++m[i.start];
+                --m[i.end];
+            }
+        }
+        for (auto a : m) {
+            cnt += a.second;
+            if (!cnt) res.push_back(Interval(a.first, 0));
+            if (cnt && !res.empty() && !res.back().end) res.back().end = a.first;
+        }
+        if (!res.empty()) res.pop_back();
+        return res;
+    }
+};
+----
+
+==== 寻找异构映射
+
+----
+Given two lists A and B, and B is an anagram of A. B is an anagram of A means B is made by randomizing the order of the elements in A.
+We want to find an index mapping P, from A to B. A mapping P[i] = j means the ith element in A appears in B at index j.
+These lists A and B may contain duplicates. If there are multiple answers, output any of them.
+For example, given
+A = [12, 28, 46, 32, 50]
+B = [50, 12, 32, 46, 28]
+
+We should return
+[1, 4, 3, 2, 0]
+as P[0] = 1 because the 0th element of A appears at B[1], and P[1] = 4 because the 1st element of Aappears at B[4], and so on.
+----
+
+这道题给了我们两个数组A和B，说是A和B中的数字都相同，但是顺序不同，有点类似错位词的感觉。让我们找出数组A中的每个数字在数组B中的位置。这道题没有太大的难度，用个HashMap建立数组B中的每个数字和其位置之间的映射，然后遍历数组A，在HashMap中查找每个数字的位置即可，参见代码如下： +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> anagramMappings(vector<int>& A, vector<int>& B) {
+        vector<int> res;
+        unordered_map<int, int> m;
+        for (int i = 0; i < B.size(); ++i) m[B[i]] = i;
+        for (int num : A) res.push_back(m[num]);
+        return res;
+    }
+};
+----
+
+==== 特殊的二进制字符串
+
+----
+Special binary strings are binary strings with the following two properties:
+
+The number of 0's is equal to the number of 1's.
+Every prefix of the binary string has at least as many 1's as 0's.
+
+Given a special string S, a move consists of choosing two consecutive, non-empty, special substrings of S, and swapping them. (Two strings are consecutive if the last character of the first string is exactly one index before the first character of the second string.)
+----
+
+----
+这道题给了我们一个特殊的二进制字符串，说是需要满足两个要求，一是0和1的个数要相等，二是任何一个前缀中的1的个数都要大于等于0的个数。根据压力山大大神的帖子，其实就是一个括号字符串啊。这里的1表示左括号，0表示右括号，那么题目中的两个限制条件其实就是限定这个括号字符串必须合法，即左右括号的个数必须相同，且左括号的个数随时都要大于等于右括号的个数，可以参见类似的题目Valid Parenthesis String。那么这道题让我们通过交换子字符串，生成字母顺序最大的特殊字符串，注意这里交换的子字符串也必须是特殊字符串，满足题目中给定的两个条件，换作括号来说就是交换的子括号字符串也必须是合法的。那么我们来想什么样的字符串是字母顺序最大的呢，根据题目中的例子可以分析得出，应该是1靠前的越多越好，那么换作括号来说就是括号嵌套多的应该放在前面。比如我们分析题目中的例子:
+
+11011000    ->    (()(()))
+
+11100100    ->    ((())())
+
+我们发现，题目中的例子中的交换操作其实是将上面的红色部分和蓝色部分交换了，因为蓝色的部分嵌套的括号多，那么左括号就多，在前面的1就多，所以字母顺序大。所以我们要做的就是将中间的子串分别提取出来，然后排序，再放回即可。上面的这个例子相对简单一些，实际上上面的红色和蓝色部分完全可以更复杂，所以再给它们排序之前，其自身的顺序应该已经按字母顺序排好了才行，这种特点天然适合递归的思路，先递归到最里层，然后一层一层向外扩展，直至完成所有的排序。
+
+好，下面我们来看递归函数的具体写法，由于我们移动的子字符串也必须是合法的，那么我们利用检测括号字符串合法性的一个最常用的方法，就是遇到左括号加1，遇到右括号-1，这样得到0的时候，就是一个合法的子字符串了。我们用变量i来统计这个合法子字符串的起始位置，字符串数组v来保存这些合法的子字符串。好了，我们开始遍历字符串S，遇到1，cnt自增1，否则自减1。当cnt为0时，我们将这个字串加入v，注意前面说过，我们需要给这个字串自身也排序，所以我们要对自身调用递归函数，我们不用对整个子串调用递归，因为字串的起始位置和结束位置是确定的，一定是1和0，我们只需对中间的调用递归即可，然后更新i为j+1。当我们将所有排序后的合法字串存入v中后，我们对v进行排序，将字母顺序大的放前面，最后将其连为一个字符串即可，参见代码如下：
+----
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string makeLargestSpecial(string S) {
+        int cnt = 0, i = 0;
+        vector<string> v;
+        string res = "";
+        for (int j = 0; j < S.size(); ++j) {
+            cnt += (S[j] == '1') ? 1 : -1;
+            if (cnt == 0) {
+                v.push_back('1' + makeLargestSpecial(S.substr(i + 1, j - i - 1)) + '0');
+                i = j + 1;
+            }
+        }
+        sort(v.begin(), v.end(), greater<string>());
+        for (int i = 0; i < v.size(); ++i) res += v[i];
+        return res;
+    }
+};
+----
+
+==== 二进制表示中的非零位个数为质数
+
+----
+Given two integers L and R, find the count of numbers in the range [L, R] (inclusive) having a prime number of set bits in their binary representation.
+
+(Recall that the number of set bits an integer has is the number of 1s present when written in binary. For example, 21 written in binary is 10101 which has 3 set bits. Also, 1 is not a prime.)
+----
+
+这道题给了我们一个整数范围[L, R]，让我们统计其中有多个整数，其二进制表示中非零位个数为质数。参考题目中的例子不难理解题意，那么博主最先想到的就是暴力搜索啊，毕竟是到Easy题嘛，可能不需要太多的技巧。我们遍历整数范围[L, R]中的每一个数字，然后先统计出所有非零位个数cnt，通过和1相与，再右移一位的方式。然后就是来判断这个cnt是否是质数，判断的方法就是就是从其平方开始，一个一个的除，如果一直到2都没有约数，那么就是质数啦，结果res累加1，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int countPrimeSetBits(int L, int R) {
+        int res = 0;
+        for (int i = L; i <= R; ++i) {
+            int t = i, cnt = 0;
+            while (t > 0) {
+                if (t & 1 == 1) ++cnt;
+                t >>= 1;
+            }
+            bool succ = true;
+            for (int j = sqrt(cnt); j > 1; --j) {
+                if (cnt % j == 0) {
+                    succ = false; break;
+                }
+            }
+            if (succ && cnt != 1) ++res;
+        }
+        return res;
+    }
+};
+----
+
+好，下面我们来优化一下上面的解法，由于题目中给了数的大小范围 R <= 106 < 220，那么我们统计出来的非零位个数cnt只需要检测是否是20以内的质数即可，所以我们将20以内的质数都放入一个HashSet中，然后统计出来cnt后，直接在HashSet中查找有没有即可，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+
+class Solution {
+public:
+    int countPrimeSetBits(int L, int R) {
+        int res = 0;
+        unordered_set<int> primes{2, 3, 5, 7, 11, 13, 17, 19};
+        for (int i = L; i <= R; ++i) {
+            int cnt = 0;
+            for (int j = i; j > 0; j >>= 1) {
+                cnt += j & 1;
+            }
+            res += primes.count(cnt);
+        }
+        return res;
+    }
+};
+----
+
+下面这种写法就更简洁啦，直接使用了C++的内置函数__builtin_popcount来快速的求出非零位的个数cnt，然后又利用到了20以内的数，只要不能被2和3的一定是质数，又可以快速判断了质数了，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int countPrimeSetBits(int L, int R) {
+        int res = 0;
+        for (int i = L; i <= R; ++i) {
+            int cnt = __builtin_popcount(i);
+            res += cnt < 4 ? cnt > 1 : (cnt % 2 && cnt % 3);
+        }
+        return res;
+    }
+};
+----
+
+==== 分割标签
+
+A string S of lowercase letters is given. We want to partition this string into as many parts as possible so that each letter appears in at most one part, and return a list of integers representing the size of these parts. +
+
+----
+这道题给了我们一个字符串S，然我们将其尽可能多的分割为子字符串，条件是每种字符最多只能出现在一个子串中。比如题目汇总的例子，字符串S中有多个a，这些a必须只能在第一个子串中，再比如所有的字母e值出现在了第二个子串中。那么这道题的难点就是如何找到字符串的断点，即拆分成为子串的位置。我们仔细观察题目中的例子，可以发现一旦某个字母多次出现了，那么其最后一个出现位置必须要在当前子串中，字母a，e，和j，分别是三个子串中的结束字母。所以我们关注的是每个字母最后的出现位置，我们可以使用一个HashMap来建立字母和其最后出现位置之间的映射，那么对于题目中的例子来说，我们可以得到如下映射：
+
+a -> 8
+b -> 5
+c -> 7
+d -> 14
+e -> 15
+f -> 11
+g -> 13
+h -> 19
+i -> 22
+j -> 23
+k -> 20
+l -> 21
+
+建立好映射之后，就需要开始遍历字符串S了，我们维护一个start变量，是当前子串的起始位置，还有一个last变量，是当前子串的结束位置，每当我们遍历到一个字母，我们需要在HashMap中提取出其最后一个位置，因为一旦当前子串包含了一个字母，其必须包含所有的相同字母，所以我们要不停的用当前字母的最后一个位置来更新last变量，只有当i和last相同了，即当i = 8时，当前子串包含了所有已出现过的字母的最后一个位置，即之后的字符串里不会有之前出现过的字母了，此时就应该是断开的位置，我们将长度9加入结果res中，同理类推，我们可以找出之后的断开的位置，参见代码如下：
+----
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> partitionLabels(string S) {
+        vector<int> res;
+        int n = S.size(), start = 0, last = 0;
+        unordered_map<char, int> m;
+        for (int i = 0; i < n; ++i) m[S[i]] = i;
+        for (int i = 0; i < n; ++i) {
+            last = max(last, m[S[i]]);
+            if (i == last) {
+                res.push_back(i - start + 1);
+                start = i + 1;
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== 最大的加型符号
+
+----
+In a 2D grid from (0, 0) to (N-1, N-1), every cell contains a 1, except those cells in the given list mines which are 0. What is the largest axis-aligned plus sign of 1s contained in the grid? Return the order of the plus sign. If there is none, return 0.
+
+An "axis-aligned plus sign of 1s of order k" has some center grid[x][y] = 1 along with 4 arms of length k-1going up, down, left, and right, and made of 1s. This is demonstrated in the diagrams below. Note that there could be 0s or 1s beyond the arms of the plus sign, only the relevant area of the plus sign is checked for 1s.
+----
+
+这道题给了我们一个数字N，表示一个NxN的二位数字，初始化均为1，又给了一个mines数组，里面是一些坐标，表示数组中这些位置都为0，然后让我们找最大的加型符号。所谓的加型符号是有数字1组成的一个十字型的加号，题目中也给出了长度分别为1，2，3的加型符号的样子。好，理解了题意以后，我们来想想该如何破题。首先，最简单的就是考虑暴力搜索啦，以每个1为中心，向四个方向分别去找，只要任何一个方向遇到了0就停止，然后更新结果res。令博主感到惊讶的是，此题的OJ居然允许Brute Force的解法通过，还是比较大度的，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int orderOfLargestPlusSign(int N, vector<vector<int>>& mines) {
+        int res = 0;
+        vector<vector<int>> mat(N, vector<int>(N, 1));
+        for (auto mine : mines) mat[mine[0]][mine[1]] = 0;
+        for (int i = 0; i < N; ++i) {
+            for (int j = 0; j < N; ++j) {
+                int k = 0;
+                while (canExpand(mat, N, i, j, k)) ++k;
+                res = max(res, k);
+            }
+        }
+        return res;
+    }
+    bool canExpand(vector<vector<int>>& mat, int N, int x, int y, int k) {
+        if (x - k < 0 || y - k < 0 || x + k >= N || y + k >= N) return false;
+        return mat[x - k][y] && mat[x][y + k] && mat[x + k][y] && mat[x][y - k];
+    }
+};
+----
+
+----
+如果我们只想出暴力搜索的解法，就不再管这道题了的话，那在面试的时候就比较悬了。毕竟立方级的时间复杂度实在是太高了，我们必须要进行优化。暴力搜索的时间复杂度之所以高的原因是因为对于每一个1都要遍历其上下左右四个方向，有大量的重复计算，我们为了提高效率，可以对于每一个点，都计算好其上下左右连续1的个数。博主最先用的方法是建立四个方向的dp数组，dp[i][j]表示 (i, j) 位置上该特定方向连续1的个数，那么就需要4个二维dp数组，举个栗子，比如：
+
+原数组：
+
+1  0  1  0
+1  1  1  1
+1  0  1  1
+那么我们建立left数组是当前及其左边连续1的个数，如下所示：
+
+1  0  1  0
+1  2  3  4
+1  0  1  2
+right数组是当前及其右边连续1的个数，如下所示：
+
+1  0  1  0
+4  3  2  1
+1  0  2  1
+up数组是当前及其上边连续1的个数，如下所示：
+
+1  0  1  0
+2  1  2  1
+3  0  3  2
+down数组是当前及其下边连续1的个数，如下所示：
+
+3  0  3  0
+2  1  2  2
+1  0  1  1
+我们需要做的是在这四个dp数组中的相同位置的四个值中取最小的一个，然后在所有的这些去除的最小值中选最大一个返回即可。为了节省空间，我们不用四个二维dp数组，而只用一个就可以了，因为对于每一个特定位置，我们只需要保留较小值，所以在更新的时候，只需要跟原来值相比取较小值即可。在计算down数组的时候，我们就可以直接更新结果res了，因为四个值都已经计算过了，我们就不用再重新在外面开for循环了，参见代码如下：
+----
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int orderOfLargestPlusSign(int N, vector<vector<int>>& mines) {
+        int res = 0, cnt = 0;
+        vector<vector<int>> dp(N, vector<int>(N, 0));
+        unordered_set<int> s;
+        for (auto mine : mines) s.insert(mine[0] * N + mine[1]);
+        for (int j = 0; j < N; ++j) {
+            cnt = 0;
+            for (int i = 0; i < N; ++i) { // up
+                cnt = s.count(i * N + j) ? 0 : cnt + 1;
+                dp[i][j] = cnt;
+            }
+            cnt = 0;
+            for (int i = N - 1; i >= 0; --i) { // down
+                cnt = s.count(i * N + j) ? 0 : cnt + 1;
+                dp[i][j] = min(dp[i][j], cnt);
+            }
+        }
+        for (int i = 0; i < N; ++i) {
+            cnt = 0;
+            for (int j = 0; j < N; ++j) { // left
+                cnt = s.count(i * N + j) ? 0 : cnt + 1;
+                dp[i][j] = min(dp[i][j], cnt);
+            }
+            cnt = 0;
+            for (int j = N - 1; j >= 0; --j) { // right
+                cnt = s.count(i * N + j) ? 0 : cnt + 1;
+                dp[i][j] = min(dp[i][j], cnt);
+                res = max(res, dp[i][j]);
+            }
+        }
+        return res;
+    }
+};
+----
+
+我们可以进一步的压缩代码，使其更加简洁，我们发现其实只要分别用四个变量l，r，u，d来表示四个方向连续1的个数，既可以将for循环糅合在一起。注意里面内嵌的for循环其实是两个for循环，由j和k分别控制，那么只要弄清i，j，k坐标的位置，就可以同时更新四个方向的dp值了，最后dp数组更新好了之后，我们再秀一波，只用一个for循环来遍历二维数组，其实就是把二维坐标压缩成了一个数字，再解压缩，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int orderOfLargestPlusSign(int N, vector<vector<int>>& mines) {
+        int res = 0;
+        vector<vector<int>> dp(N, vector<int>(N, N));
+        for (auto mine : mines) dp[mine[0]][mine[1]] = 0;
+        for (int i = 0; i < N; ++i) {
+            int l = 0, r = 0, u = 0, d = 0;
+            for (int j = 0, k = N - 1; j < N; ++j, --k) {
+                dp[i][j] = min(dp[i][j], l = (dp[i][j] ? l + 1 : 0));
+                dp[j][i] = min(dp[j][i], u = (dp[j][i] ? u + 1 : 0));
+                dp[i][k] = min(dp[i][k], r = (dp[i][k] ? r + 1 : 0));
+                dp[k][i] = min(dp[k][i], d = (dp[k][i] ? d + 1 : 0));
+            }
+        }
+        for (int k = 0; k < N * N; ++k) res = max(res, dp[k / N][k % N]);
+        return res;
+    }
+};
+----
+
+====  两两握手
+
+----
+N couples sit in 2N seats arranged in a row and want to hold hands. We want to know the minimum number of swaps so that every couple is sitting side by side. A swap consists of choosing any two people, then they stand up and switch seats.
+
+The people and seats are represented by an integer from 0 to 2N-1, the couples are numbered in order, the first couple being (0, 1), the second couple being (2, 3), and so on with the last couple being (2N-2, 2N-1).
+
+The couples' initial seating is given by row[i] being the value of the person who is initially sitting in the i-th seat.
+----
+
+----
+这道题给了我们一个长度为n的数组，里面包含的数字是 [0, n-1] 范围内的数字各一个，让我们通过调换任意两个数字的位置，使得相邻的奇偶数靠在一起。因为要两两成对，所以题目限定了输入数组必须是偶数个。我们要明确的是，组成对儿的两个是从0开始，每两个一对儿的。比如0和1，2和3，像1和2就不行。而且检测的时候也是两个数两个数的检测，左右顺序无所谓，比如2和3，或者3和2都行。当我们暂时对如何用代码来解决问题没啥头绪的时候，一个很好的办法是，先手动解决问题，意思是，假设这道题不要求你写代码，就让你按照要求排好序怎么做。我们随便举个例子来说吧，比如：
+
+[3   1   4   0   2   5]
+
+我们如何将其重新排序呢？首先明确，我们交换数字位置的动机是要凑对儿，如果我们交换的两个数字无法组成新对儿，那么这个交换就毫无意义。来手动交换吧，我们两个两个的来看数字，前两个数是3和1，我们知道其不成对儿，数字3的老相好是2，不是1，那么怎么办呢？我们就把1和2交换位置呗。好，那么现在3和2牵手成功，度假去了，再来看后面的：
+
+[3   2   4   0   1   5]
+
+我们再取两数字，4和0，互不认识！4跟5有一腿儿，不是0，那么就把0和5，交换一下吧，得到：
+
+[3   2   4   5   1   0]
+
+好了，再取最后两个数字，1和0，两口子，不用动！前面都成对的话，最后两个数字一定成对。而且这种方法所用的交换次数一定是最少的，不要问博主怎么证明，博主也不会|||-.-～明眼人应该已经看出来了，这就是一种贪婪算法Greedy Algorithm。思路有了，代码就很容易写了，注意这里在找老伴儿时用了一个trick，一个数‘异或’上1就是其另一个位，这个不难理解，如果是偶数的话，最后位是0，‘异或’上1等于加了1，变成了可以的成对奇数。如果是奇数的话，最后位是1，‘异或’上1后变为了0，变成了可以的成对偶数。参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int minSwapsCouples(vector<int>& row) {
+        int res = 0, n = row.size();
+        for (int i = 0; i < n; i += 2) {
+            if (row[i + 1] == (row[i] ^ 1)) continue;
+            ++res;
+            for (int j = i + 1; j < n; ++j) {
+                if (row[j] == (row[i] ^ 1)) {
+                    row[j] = row[i + 1];
+                    row[i + 1] = row[i] ^ 1;
+                    break;
+                }
+            }
+        }
+        return res;
+    }
+};
+----
+
+----
+下面我们来看一种使用联合查找Union Find的解法。该解法对于处理群组问题时非常有效，比如岛屿数量有关的题就经常使用UF解法。核心思想是用一个root数组，每个点开始初始化为不同的值，如果两个点属于相同的组，就将其中一个点的root值赋值为另一个点的位置，这样只要是相同组里的两点，通过find函数会得到相同的值。 那么如果总共有n个数字，则共有 n/2 对儿，所以我们初始化 n/2 个群组，我们还是每次处理两个数字。每个数字除以2就是其群组号，那么属于同一组的两个数的群组号是相同的，比如2和3，其分别除以2均得到1，所以其组号均为1。那么这对解题有啥作用呢？作用忒大了，由于我们每次取的是两个数，且计算其群组号，并调用find函数，那么如果这两个数的群组号相同，那么find函数必然会返回同样的值，我们不用做什么额外动作，因为本身就是一对儿。如果两个数不是一对儿，那么其群组号必然不同，在二者没有归为一组之前，调用find函数返回的值就不同，此时我们将二者归为一组，并且cnt自减1，忘说了，cnt初始化为总群组数，即 n/2。那么最终cnt减少的个数就是交换的步数，还是用上面讲解中的例子来说明吧：
+
+[3   1   4   0   2   5]
+
+最开始的群组关系是：
+
+群组0：0，1
+
+群组1：2，3
+
+群组2：4，5
+
+取出前两个数字3和1，其群组号分别为1和0，带入find函数返回不同值，则此时将群组0和群组1链接起来，变成一个群组，则此时只有两个群组了，cnt自减1，变为了2。
+
+群组0 & 1：0，1，2，3
+
+群组2：4，5
+
+此时取出4和0，其群组号分别为2和0，带入find函数返回不同值，则此时将群组0&1和群组2链接起来，变成一个超大群组，cnt自减1，变为了1。
+群组0 & 1 & 2：0，1，2，3，4，5
+此时取出最后两个数2和5，其群组号分别为1和2，因为此时都是一个大组内的了，带入find函数返回相同的值，不做任何处理。最终交换的步数就是cnt减少值，为2，参见代码如下：
+----
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int minSwapsCouples(vector<int>& row) {
+        int res = 0, n = row.size(), cnt = n / 2;
+        vector<int> root(n, 0);
+        for (int i = 0; i < n; ++i) root[i] = i;
+        for (int i = 0; i < n; i += 2) {
+            int x = find(root, row[i] / 2);
+            int y = find(root, row[i + 1] / 2);
+            if (x != y) {
+                root[x] = y;
+                --cnt;
+            }
+        }
+        return n / 2 - cnt;
+    }
+    int find(vector<int>& root, int i) {
+        return (i == root[i]) ? i : find(root, root[i]);
+    }
+};
+----
+
+下面这种使用HashMap的解法，本质其实也是联合查找Union Find。我们知道只有群组里面是数字，才能使用root数组，有些非数字的情况，比如字符串，就要使用HashMap了，当然数字也是可以使用HashMap的。我们这里的helper子函数相当于同时包括了链接群组和find查找两部分，在主函数中，我们还是两个两个处理，并且把群组号带入helper函数，在helper函数中，我们将较小数和较大数区分出来，如果二者相同，表明是同一个群组的，不做任何处理，直接返回。否则的话，建立二者的映射，这就是上面解法中的链接群组操作，这样看出来了吧，二者的本质其实是一样的，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int minSwapsCouples(vector<int>& row) {
+        unordered_map<int, int> m;
+        for (int i = 0; i < row.size(); i += 2) {
+            helper(m, row[i] / 2, row[i + 1] / 2);
+        }
+        return m.size();
+    }
+    void helper(unordered_map<int, int>& m, int x, int y) {
+        int c1 = min(x, y), c2 = max(x, y);
+        if (c1 == c2) return;
+        if (m.count(c1)) helper(m, m[c1], c2);
+        else m[c1] = c2;
+    }
+};
+----
+
+==== 托普利兹矩阵
+
+----
+A matrix is Toeplitz if every diagonal from top-left to bottom-right has the same element.
+
+Now given an M x N matrix, return True if and only if the matrix is Toeplitz.
+
+Example 1:
+
+Input: matrix = [[1,2,3,4],[5,1,2,3],[9,5,1,2]]
+Output: True
+Explanation:
+1234
+5123
+9512
+----
+
+----
+这道题让我们验证一个矩阵是否是托普利兹矩阵Toeplitz Matrix，所谓的这个托普利兹矩阵，就是看每条从左上到右下的对角线是否是值都相等。注意矩阵的行数列数不一定相等，要验证所有的对角线。那么其实这道题的本质是让我们斜向遍历矩阵，就是按对角线来。那么博主最先想到的方法就是按照对角线来遍历矩阵，起点是最左下的数字，对于mxn的矩阵，最左下角数字的坐标为(m-1, 0)，然后我们开始往右下角遍历，我们先记录每条对角线左上角的数字为val，然后再往右下角遍历的时候，如果同一条对角线上的数字不等于val，直接返回false。当我们遍历完一条对角线的时候，切换一条对角线的时候，是根据起点数字的坐标移动的，如果细心观察会发现，起点位置是先从第一列往上移动，然后在第一行往右移动，那么只要根据起点位置的行坐标是否为0来判断移动的方向即可，比如对于题目中的例子1:
+
+1 2 3 4
+5 1 2 3
+9 5 1 2
+
+起点移动的方向是9 -> 5 -> 1 -> 2 -> 3 -> 4，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool isToeplitzMatrix(vector<vector<int>>& matrix) {
+        int m = matrix.size(), n = matrix[0].size(), p = m - 1, q = 0;
+        while (p >= 0 && q < n) {
+            int val = matrix[p][q], i = p, j = q;
+            while (i + 1 < m && j + 1 < n) {
+                if (matrix[++i][++j] != val) return false;
+            }
+            (p > 0) ? --p : ++q;
+        }
+        return true;
+    }
+};
+----
+
+其实并不需要像上面解法写的那么复杂，我们还可以按正常顺序来遍历数组，对于每个遍历到的数字，都跟其右下方的数字对比，如果不相同，直接返回false即可。为了防止越界，我们不遍历最后一行和最后一列，遍历完成后，返回true，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool isToeplitzMatrix(vector<vector<int>>& matrix) {
+        for (int i = 0; i < matrix.size() - 1; ++i) {
+            for (int j = 0; j < matrix[i].size() - 1; ++j) {
+                if (matrix[i][j] != matrix[i + 1][j + 1]) return false;
+            }
+        }
+        return true;
+    }
+};
+----
+
+==== 重构字符串
+
+----
+Given a string S, check if the letters can be rearranged so that two characters that are adjacent to each other are not the same.
+
+If possible, output any possible result.  If not possible, return the empty string.
+----
+
+这道题给了我们一个字符串，让我们重构这个字符串，使得相同的字符不会相邻，如果无法做到，那么就返回空串，题目中的例子很好的说明了这一点。那么，如果先不考虑代码实现，让你来手动重构的话，该怎么做呢？我们要做的就是把相同的字符分开。比如例子1中，两个a相邻了，所以我们把第二个a和后面的b交换位置，这样分开了相同的字符，就是最终答案了。我们再来看一个例子，比如"aaabbc"，那么其实我们发现第二个字符也是‘a’的时候，就需要往后遍历找到第一个不是‘a’的字符，即‘b’，然后交换‘a’和‘b’即可，然后继续往后面进行同样的处理，当无法找到不同的字符后就返回空串。这种方法对有序的字符串S是可以的，虽然题目给的两个例子中字符串S都是有序的，实际上不一定是有序的。所以博主最先的想法是给数组排序呗，但是博主的这个解法跪在了这个例子上"vvvlo"，我们发现排序后就变成"lovvv"，这样上面提到的解法就跪了。我们希望次数出现多的字符串再前面，这样才好交换嘛。那么我们还是要统计每个字符串出现的次数啊，这里使用HashMap来建立字母和其出现次数之间的映射。由于我们希望次数多的字符排前面，可以使用一个最大堆，C++中就是优先队列Priority Queue，将次数当做排序的key，那么就把次数和其对应的字母组成一个pair，放进最大堆中自动排序。这里其实有个剪枝的trick，如果某个字母出现的频率大于总长度的一半了，那么必然会有两个相邻的字母出现。这里博主就不证明了，感觉有点像抽屉原理。所以我们在将映射对加入优先队列时，先判断下次数，超过总长度一半了的话直接返回空串就行了。 +
+
+好，我们的最大堆建立好以后，我们想，此时难道还是应该使用上面所说的交换的方法吗？其实直接构建新的字符串要更加简单一些。接下来，我们每次从优先队列中取队首的两个映射对儿处理，因为我们要拆开相同的字母，这两个映射对儿肯定是不同的字母，我们可以将其放在一起，之后我们需要将两个映射对儿中的次数自减1，如果还有多余的字母，即减1后的次数仍大于0的话，将其再放回最大堆。由于我们是两个两个取的，所以最后while循环退出后，有可能优先队列中还剩下了一个映射对儿，此时将其加入结果res即可。而且这个多余的映射对儿一定只有一个字母了，因为我们提前判断过各个字母的出现次数是否小于等于总长度的一半，按这种机制来取字母，不可能会剩下多余一个的相同的字母，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string reorganizeString(string S) {
+        string res = "";
+        unordered_map<char, int> m;
+        priority_queue<pair<int, char>> q;
+        for (char c : S) ++m[c];
+        for (auto a : m) {
+            if (a.second > (S.size() + 1) / 2) return "";
+            q.push({a.second, a.first});
+        }
+        while (q.size() >= 2) {
+            auto t1 = q.top(); q.pop();
+            auto t2 = q.top(); q.pop();
+            res.push_back(t1.second);
+            res.push_back(t2.second);
+            if (--t1.first > 0) q.push(t1);
+            if (--t2.first > 0) q.push(t2);
+        }
+        if (q.size() > 0) res.push_back(q.top().second);
+        return res;
+    }
+};
+----
+
+----
+下面这种解法的原理和上面的很类似，就是写法上很秀，堪比陈独秀。这里使用了一个长度为26的一位数组cnt来代替上面的HashMap进行统计字母的出现次数，然后比较秀的一点是，把上面的映射对儿压缩成了一个整数，做法是将次数乘以了100，再加上当前字母在一位数字中的位置坐标i，这样一个整数就同时encode了次数和对应字母的信息了，而且之后decode也很方便。数组cnt更新好了后，需要排个序，这一步就是模拟上面解法中最大堆的自动排序功能。不过这里是数字小的在前面，即先处理出现次数少的字母。这里除了和上面一样检测次数不能大于总长度的一半的操作外，还有一个小trick，就是构建字符串的时候，是从第二个位置开始的。这里我们构建的字符串是直接对原字符串S进行修改的，因为cnt数组建立了之后，字符串S就没啥用了。我们用一个变量idx来表示当前更新字母的位置，初始化为1，表示我们要从第二个位置开始更新。因为出现次数最多的字母一定要占据第一个位置才行，这就是我们留出第一个位置的原因。这里很叼的一点，就是隔位更新，这样能保证相同的字母不相邻，而且当idx越界后，拉回到起始位置0，这就有点遍历循环数组的感觉。举个栗子来说吧，比如"aaabbc"，我们的更新顺序为：
+
+_ c _ _ _ _
+
+_ c _ b _ _
+
+_ c _ b _ b
+
+a c _ b _ b
+
+a c a b _ b
+
+a c a b a b
+----
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string reorganizeString(string S) {
+        int n = S.size(), idx = 1;
+        vector<int> cnt(26, 0);
+        for (char c : S) cnt[c - 'a'] += 100;
+        for (int i = 0; i < 26; ++i) cnt[i] += i;
+        sort(cnt.begin(), cnt.end());
+        for (int num : cnt) {
+            int t = num / 100;
+            char ch = 'a' + (num % 100);
+            if (t > (n + 1) / 2) return "";
+            for (int i = 0; i < t; ++i) {
+                if (idx >= n) idx = 0;
+                S[idx] = ch;
+                idx += 2;
+            }
+        }
+        return S;
+    }
+};
+----
+
+==== 可排序的最大块数之二
+
+----
+This question is the same as "Max Chunks to Make Sorted" except the integers of the given array are not necessarily distinct, the input array could be up to length 2000, and the elements could be up to 10**8.
+
+Given an array arr of integers (not necessarily distinct), we split the array into some number of "chunks" (partitions), and individually sort each chunk.  After concatenating them, the result equals the sorted array.
+
+What is the most number of chunks we could have made?
+----
+
+----
+这道题是之前那道Max Chunks To Make Sorted的拓展，那道题说了数组是[0, n-1]中所有数字的一种全排列，n为数组的长度。而这道题的数字就没有这种限制，可以是大于n的数字，也可以有重复的数字。由于数字和坐标不再有太多的关联，所以之前那题中比较数字和坐标的大小的解法肯定行不通了。我们来看一种十分巧妙的解法，首先我们需要明确的一点是，拆分后的块儿排序后拼在一起会跟原数组相同，我们用一个例子来说明：
+
+2  1  4  3  4
+
+1  2  3  4  4
+
+1  2  3  4  4
+
+我们看到第一行是原数组，第二行是排序后并拼接在了一起的块儿，不同的颜色代表不同的块儿，而第三行是直接对原数组排序后的结果。仔细观察可以发现，能形成块儿的数字之和跟排序后的数组的相同长度的子数组的数字之和是相同的。比如第一个块儿是数字2和1，和为3，而排序后的前两个数字为1和2，和也是3，那么我们就知道原数组的前两个数字可以拆成一个块儿。同理，原数组中的第三个和第四个数字分别为4和3，和为7，而排序后的数组对应位置的数字之和也是7，说明可以拆分出块儿。就是这么简单而暴力的思路，时间复杂度为O(nlgn)，主要花在给数组排序上了。由于本题是Max Chunks To Make Sorted的generalized的情况，所以这种解法自然也可以解决之前那道题了，不过就是时间复杂度稍高了一些，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int maxChunksToSorted(vector<int>& arr) {
+        int res = 0, sum1 = 0, sum2 = 0;
+        vector<int> expect = arr;
+        sort(expect.begin(), expect.end());
+        for (int i = 0; i < arr.size(); ++i) {
+            sum1 += arr[i];
+            sum2 += expect[i];
+            if (sum1 == sum2) ++res;
+        }
+        return res;
+    }
+};
+----
+
+这道题的时间复杂度可以优化到线性，不过就是需要花点空间。下面这种解法也相当的巧妙，我们需要两个数组forward和backward，其中 foward[i] 表示 [0, i] 范围内最大的数字，而 backward[i] 表示 [i, n-1] 范围内最小的数字，实际上就是要知道已经遍历过的最大值，和还未遍历的到的最小值。为啥我们对这两个值感兴趣呢？这是本解法的精髓所在，我们知道可以拆分为块儿的前提是之后的数字不能比当前块儿中的任何数字小，不然那个较小的数字就无法排到前面。就像例子1，为啥不能拆出新块儿，就因为最小的数字在末尾。那么这里我们能拆出新块儿的条件就是，当前位置出现过的最大值小于等于之后还未遍历到的最小值时，就能拆出新块儿。比如例子2中，当 i=1 时，此时出现过的最大数字为2，未遍历到的数字中最小值为3，所以可以拆出新块儿，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int maxChunksToSorted(vector<int>& arr) {
+        int res = 1, n = arr.size();
+        vector<int> f = arr, b = arr;
+        for (int i = 1; i < n; ++i) f[i] = max(arr[i], f[i - 1]);
+        for (int i = n - 2; i >= 0; --i) b[i] = min(arr[i], b[i + 1]);
+        for (int i = 0; i < n - 1; ++i) {
+            if (f[i] <= b[i + 1]) ++res;
+        }
+        return res;
+    }
+};
+----
+
+我们可以优化一下空间复杂度，因为我们可以在遍历的过程中维护一个当前最大值curMax，所以就不用一个专门的forward数组了，但是backward数组还是要的，参见代码如下：  +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int maxChunksToSorted(vector<int>& arr) {
+        int res = 1, n = arr.size(), curMax = INT_MIN;
+        vector<int> b = arr;
+        for (int i = n - 2; i >= 0; --i) b[i] = min(arr[i], b[i + 1]);
+        for (int i = 0; i < n - 1; ++i) {
+            curMax = max(curMax, arr[i]);
+            if (curMax <= b[i + 1]) ++res;
+        }
+        return res;
+    }
+};
+----
+
+----
+下面这种使用单调栈Monotonous Stack的解法的题也十分的巧妙，我们维护一个单调递增的栈，遇到大于等于栈顶元素的数字就压入栈，当遇到小于栈顶元素的数字后，处理的方法很是巧妙啊：首先取出栈顶元素，这个是当前最大值，因为我们维护的就是单调递增栈啊，然后我们再进行循环，如果栈不为空，且新的栈顶元素大于当前数字，则移除栈顶元素。这步简直绝了，这里我们单调栈的元素个数实际上是遍历到当前数字之前可以拆分成的块儿的个数，我们遇到一个大于栈顶的元素，就将其压入栈，suppose其是一个新块儿的开头，但是一旦后面遇到小的数字了，我们就要反过来检查前面的数字，有可能我们之前认为的可以拆分成块儿的地方，现在就不能拆了，举个栗子来说吧：
+
+比如数组为 [1 0 3 3 2]，我们先把第一个数字1压入栈，此时栈为：
+
+stack：1
+
+然后遍历到第二个数字0，发现小于栈顶元素，将栈顶元素1取出存入curMax，此时栈为空了，不做任何操作，将curMax压回栈，此时栈为：
+
+stack：1
+
+然后遍历到第三个数字3，大于栈顶元素，压入栈，此时栈为：
+
+stack：1，3
+
+然后遍历到第四个数字3，等于栈顶元素，压入栈，此时栈为：
+
+stack：1，3，3
+
+然后遍历到第五个数字2，小于栈顶元素，将栈顶元素3取出存入curMax，此时新的栈顶元素3，大于当前数字2，移除此栈顶元素3，然后新的栈顶元素1，小于当前数字2，循环结束，将curMax压回栈，此时栈为：
+
+stack：1，3
+
+所以最终能拆为两个块儿，即stack中数字的个数，参见代码如下：
+----
+
+**解法4:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int maxChunksToSorted(vector<int>& arr) {
+        stack<int> st;
+        for (int i = 0; i < arr.size(); ++i) {
+            if (st.empty() || st.top() <= arr[i]) {
+                st.push(arr[i]);
+            } else {
+                int curMax = st.top(); st.pop();
+                while (!st.empty() && st.top() > arr[i]) st.pop();
+                st.push(curMax);
+            }
+        }
+        return st.size();
+    }
+};
+----
+
+==== 可排序的最大块数
+
+----
+Given an array arr that is a permutation of [0, 1, ..., arr.length - 1], we split the array into some number of "chunks" (partitions), and individually sort each chunk.  After concatenating them, the result equals the sorted array.
+
+What is the most number of chunks we could have made?
+----
+
+----
+这道题给了我们一个长度为n的数组，里面的数字是[0, n-1]范围内的所有数字，无序的。现在让我们分成若干块儿，然后给每一小块儿分别排序，再组合到一起，使原数组变得有序，问我们最多能分多少块，题目中的两个例子很好的解释了题意。我们首先来分析例子1，这是一个倒序的数组，第一个数字是最大的，为4，那么我们想，这个数字4原本是应该位于数组的最后一个位置，所以中间不可能断开成新的块了，要不然数字4就没法跑到末尾去了。分析到这里，我们应该隐约有点感觉了，当前数字所在的块至少要到达坐标为当前数字大小的地方，比如数字4所在的块至少要包括i=4的那个位置。那么带着这个发现，来分析例子2。第一个数字是1，那么当前数字1所在的块至少要到 i=1 的位置，然后我们去 i=1 的位置上看，发现是数字0，并没有超过 i=1 的范围，那么前两个数就可以断开成一个新的块儿。再往后看，i=2 的位置是2，可以单独断开，后面的3和4也可以分别断开。所以其实这道题跟Jump Game II那题很像，我们需要维护一个最远能到达的位置，这里的每个数字相当于那道题中的跳力，只有当我们刚好到达最远点的时候，就可以把之前断成一个新的块儿了。
+
+我们遍历原数组，用cur表示能到达的最远点，然后我们遍历当前位置到cur之间的所有点，遍历的同时如果遇到更大的数字就更新cur，当cur大于等于末尾数字的时候，此时不能再拆分新块儿了，返回结果res加1。否则的话说明到达了最远点，更新第一个for循环的变量i，并且结果res自增1。来看个例子:
+
+[2 0 1 4 3]
+
+当 i=0 时，cur=2，j=1，然后我们发现 j=1 和 j=2 的数字都不会更新cur，且cur也没有大于等于3，所以此时 j=3 的时候退出了内部的for循环，i赋值为2，结果res为1。然后此时 i=3，cur=4，4已经大于末尾的3了，直接返回res加1，即2，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int maxChunksToSorted(vector<int>& arr) {
+        int res = 0, n = arr.size();
+        for (int i = 0; i < n; ++i) {
+            int cur = arr[i], j = i + 1;
+            for (; j <= cur; ++j) {
+                cur = max(cur, arr[j]);
+                if (cur >= arr.back()) return res + 1;
+            }
+            i = j - 1;
+            ++res;
+        }
+        return res;
+    }
+};
+----
+
+其实这道题有更霸道的解法，我们仔细观察一些例子，可以发现断开为新块儿的地方都是当之前出现的最大值正好和当前位置坐标相等的地方，比如例子2中，当 i=1 时，之前最大的数字是1，所以可以断开。而在例子1中，当 i=4 时，才和之前出现过的最大数字4相等，此时断开也没啥意义了，因为后面已经没有数字了，所以还只是一个块儿，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int maxChunksToSorted(vector<int>& arr) {
+        int res = 0, n = arr.size(), mx = 0;
+        for (int i = 0; i < n; ++i) {
+            mx = max(mx, arr[i]);
+            if (mx == i) ++res;
+        }
+        return res;
+    }
+};
+----

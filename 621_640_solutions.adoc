@@ -1,0 +1,1435 @@
+==== 任务行程表
+
+----
+Given a char array representing tasks CPU need to do. It contains capital letters A to Z where different letters represent different tasks.Tasks could be done without original order. Each task could be done in one interval. For each interval, CPU could finish one task or just be idle.
+
+However, there is a non-negative cooling interval n that means between two same tasks, there must be at least n intervals that CPU are doing different tasks or just be idle.
+
+You need to return the least number of intervals the CPU will take to finish all the given tasks.
+----
+
+----
+这道题让我们安排CPU的任务，规定在两个相同任务之间至少隔n个时间点。说实话，刚开始博主并没有完全理解题目的意思，后来看了大神们的解法才悟出个道理来。下面这种解法参考了大神fatalme的帖子，由于题目中规定了两个相同任务之间至少隔n个时间点，那么我们首先应该处理的出现次数最多的那个任务，先确定好这些高频任务，然后再来安排那些低频任务。如果任务F的出现频率最高，为k次，那么我们用n个空位将每两个F分隔开，然后我们按顺序加入其他低频的任务，来看一个例子：
+
+AAAABBBEEFFGG 3
+
+我们发现任务A出现了4次，频率最高，于是我们在每个A中间加入三个空位，如下：
+
+A---A---A---A
+
+AB--AB--AB--A   (加入B)
+
+ABE-ABE-AB--A   (加入E)
+
+ABEFABE-ABF-A   (加入F，每次尽可能填满或者是均匀填充)
+
+ABEFABEGABFGA   (加入G)
+
+再来看一个例子：
+
+ACCCEEE 2
+
+我们发现任务C和E都出现了三次，那么我们就将CE看作一个整体，在中间加入一个位置即可：
+
+CE-CE-CE
+
+CEACE-CE   (加入A)
+
+注意最后面那个idle不能省略，不然就不满足相同两个任务之间要隔2个时间点了。
+
+这道题好在没有让我们输出任务安排结果，而只是问所需的时间总长，那么我们就想个方法来快速计算出所需时间总长即可。我们仔细观察上面两个例子可以发现，都分成了(mx - 1)块，再加上最后面的字母，其中mx为最大出现次数。比如例子1中，A出现了4次，所以有A---模块出现了3次，再加上最后的A，每个模块的长度为4。例子2中，CE-出现了2次，再加上最后的CE，每个模块长度为3。我们可以发现，模块的次数为任务最大次数减1，模块的长度为n+1，最后加上的字母个数为出现次数最多的任务，可能有多个并列。这样三个部分都搞清楚了，写起来就不难了，我们统计每个大写字母出现的次数，然后排序，这样出现次数最多的字母就到了末尾，然后我们向前遍历，找出出现次数一样多的任务个数，就可以迅速求出总时间长了，下面这段代码可能最不好理解的可能就是最后一句了，那么我们特别来讲解一下。先看括号中的第二部分，前面分析说了mx是出现的最大次数，mx-1是可以分为的块数，n+1是每块中的个数，而后面的 25-i 是还需要补全的个数，用之前的例子来说明：
+
+AAAABBBEEFFGG 3
+
+A出现了4次，最多，mx=4，那么可以分为mx-1=3块，如下：
+
+A---A---A---
+
+每块有n+1=4个，最后还要加上末尾的一个A，也就是25-24=1个任务，最终结果为13：
+
+ABEFABEGABFGA
+
+再来看另一个例子：
+
+ACCCEEE 2
+
+C和E都出现了3次，最多，mx=3，那么可以分为mx-1=2块，如下：
+
+CE-CE-
+
+每块有n+1=3个，最后还要加上末尾的一个CE，也就是25-23=2个任务，最终结果为8：
+
+CEACE-CE
+
+好，那么此时你可能会有疑问，为啥还要跟原任务个数len相比，取较大值呢？我们再来看一个例子：
+
+AAABBB 0
+
+A和B都出现了3次，最多，mx=3，那么可以分为mx-1=2块，如下：
+
+ABAB
+
+每块有n+1=1个？你会发现有问题，这里明明每块有两个啊，为啥这里算出来n+1=1呢，因为给的n=0，这有没有矛盾呢，没有！因为n表示相同的任务间需要间隔的个数，那么既然这里为0了，说明相同的任务可以放在一起，这里就没有任何限制了，我们只需要执行完所有的任务就可以了，所以我们最终的返回结果一定不能小于任务的总个数len的，这就是要对比取较大值的原因了。
+
+参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+
+class Solution {
+public:
+    int leastInterval(vector<char>& tasks, int n) {
+        vector<int> cnt(26, 0);
+        for (char task : tasks) {
+            ++cnt[task - 'A'];
+        }
+        sort(cnt.begin(), cnt.end());
+        int i = 25, mx = cnt[25], len = tasks.size();
+        while (i >= 0 && cnt[i] == mx) --i;
+        return max(len, (mx - 1) * (n + 1) + 25 - i);
+    }
+};
+----
+
+下面这种解法是根据大神jinzhou的帖子，优点是代码更容易读懂，而且变量命名很reasonable，前半部分都是一样的，求出最多的次数mx，还有同时出现mx次的不同任务的个数mxCnt。这个解法的思想是先算出所有空出来的位置，然后计算出所有需要填入的task的个数，如果超出了空位的个数，就需要最后再补上相应的个数。注意这里如果有多个任务出现次数相同，那么将其整体放一起，就像上面的第二个例子中的CE一样，那么此时每个part中的空位个数就是n - (mxCnt - 1)，那么空位的总数就是part的总数乘以每个part中空位的个数了，那么我们此时除去已经放入part中的，还剩下的task的个数就是task的总个数减去mx * mxCnt，然后此时和之前求出的空位数相比较，如果空位数要大于剩余的task数，那么则说明还需补充多余的空位，否则就直接返回task的总数即可，参见代码如下： +
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int leastInterval(vector<char>& tasks, int n) {
+        int mx = 0, mxCnt = 0;
+        vector<int> cnt(26, 0);
+        for (char task : tasks) {
+            ++cnt[task - 'A'];
+            if (mx == cnt[task - 'A']) {
+                ++mxCnt;
+            } else if (mx < cnt[task - 'A']) {
+                mx = cnt[task - 'A'];
+                mxCnt = 1;
+            }
+        }
+        int partCnt = mx - 1;
+        int partLen = n - (mxCnt - 1);
+        int emptySlots = partCnt * partLen;
+        int taskLeft = tasks.size() - mx * mxCnt;
+        int idles = max(0, emptySlots - taskLeft);
+        return tasks.size() + idles;
+    }
+};
+----
+
+下面这种解法是参考的大神alexander的解法，思路是建立一个优先队列，然后把统计好的个数都存入优先队列中，那么大的次数会在队列的前面。这题还是要分块，每块能装n+1个任务，装任务是从优先队列中取，每个任务取一个，装到一个临时数组中，然后遍历取出的任务，对于每个任务，将其哈希表映射的次数减1，如果减1后，次数仍大于0，则将此任务次数再次排入队列中，遍历完后如果队列不为空，说明该块全部被填满，则结果加上n+1。我们之前在队列中取任务是用个变量cnt来记录取出任务的个数，我们想取出n+1个，如果队列中任务数少于n+1个，那就用cnt来记录真实取出的个数，当队列为空时，就加上cnt的个数，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int leastInterval(vector<char>& tasks, int n) {
+        int res = 0, cycle = n + 1;
+        unordered_map<char, int> m;
+        priority_queue<int> q;
+        for (char c : tasks) ++m[c];
+        for (auto a : m) q.push(a.second);
+        while (!q.empty()) {
+            int cnt = 0;
+            vector<int> t;
+            for (int i = 0; i < cycle; ++i) {
+                if (!q.empty()) {
+                    t.push_back(q.top()); q.pop();
+                    ++cnt;
+                }
+            }
+            for (int d : t) {
+                if (--d > 0) q.push(d);
+            }
+            res += q.empty() ? cnt : cycle;
+        }
+        return res;
+    }
+};
+----
+
+==== Design circular queue
+
+----
+Design your implementation of the circular queue. The circular queue is a linear data structure in which the operations are performed based on FIFO (First In First Out) principle and the last position is connected back to the first position to make a circle. It is also called "Ring Buffer".
+
+One of the benefits of the circular queue is that we can make use of the spaces in front of the queue. In a normal queue, once the queue becomes full, we cannot insert the next element even if there is a space in front of the queue. But using the circular queue, we can use the space to store new values.
+
+Your implementation should support following operations:
+
+MyCircularQueue(k): Constructor, set the size of the queue to be k.
+Front: Get the front item from the queue. If the queue is empty, return -1.
+Rear: Get the last item from the queue. If the queue is empty, return -1.
+enQueue(value): Insert an element into the circular queue. Return true if the operation is successful.
+deQueue(): Delete an element from the circular queue. Return true if the operation is successful.
+isEmpty(): Checks whether the circular queue is empty or not.
+isFull(): Checks whether the circular queue is full or not.
+----
+
+[source, cpp, linenums]
+----
+class MyCircularQueue {
+private:
+    class Node {
+    public:
+        int val;
+        Node* next;
+        Node() {}
+    };
+    Node *front, *rear;
+
+public:
+    /** Initialize your data structure here. Set the size of the queue to be k. */
+    MyCircularQueue(int k) {
+        Node* root = new Node();
+        Node* cur = root;
+        front = root;
+        rear = nullptr;
+        for(int i = 0; i < k - 1; i++)
+        {
+            Node* temp = new Node();
+            cur -> next = temp;
+            cur = temp;
+        }
+        cur -> next = root;
+    }
+
+    /** Insert an element into the circular queue. Return true if the operation is successful. */
+    bool enQueue(int value) {
+        if (isFull()) return false;
+        if (isEmpty())
+            rear = front;
+        else
+            rear = rear -> next;
+        rear -> val = value;
+        return true;
+    }
+
+    /** Delete an element from the circular queue. Return true if the operation is successful. */
+    bool deQueue() {
+        if (isEmpty()) return false;
+        if (front == rear)
+            rear = nullptr;
+        else
+            front = front -> next;
+        return true;
+    }
+
+    /** Get the front item from the queue. */
+    int Front() {
+        return isEmpty() ? -1 : front -> val;
+    }
+
+    /** Get the last item from the queue. */
+    int Rear() {
+        return isEmpty() ? -1 : rear -> val;
+    }
+
+    /** Checks whether the circular queue is empty or not. */
+    bool isEmpty() {
+        return rear == nullptr;
+    }
+
+    /** Checks whether the circular queue is full or not. */
+    bool isFull() {
+        if(isEmpty()) return false;
+        return rear -> next == front;
+    }
+};
+----
+
+==== 二叉树中增加一行
+
+----
+Given the root of a binary tree, then value v and depth d, you need to add a row of nodes with value v at the given depth d. The root node is at depth 1.
+
+The adding rule is: given a positive integer depth d, for each NOT null tree nodes N in depth d-1, create two tree nodes with value v as N's left subtree root and right subtree root. And N's original left subtree should be the left subtree of the new left subtree root, its original right subtree should be the right subtree of the new right subtree root. If depth d is 1 that means there is no depth d-1 at all, then create a tree node with value v as the new root of the whole original tree, and the original tree is the new root's left subtree.
+----
+
+这道题让我们给二叉树增加一行，给了我们需要增加的值，还有需要增加的位置深度，题目中给的例子也比较能清晰的说明问题。但是漏了一种情况，那就是当d=1时，这该怎么加？这时候就需要替换根结点了。其他情况的处理方法都一样，这里博主第一映像觉得应该用层序遍历来做，没遍历完一层，d自减1，我们探测，当d==1时，那么我们需要对于当前层的每一个结点，首先用临时变量保存其原有的左右子结点，然后新建值为v的左右子结点，将原有的左子结点连到新建的左子结点的左子结点上，将原有的右子结点连到新建的右子结点的右子结点，是不是很绕-.-|||。如果d不为1，那么就是层序遍历原有的排入队列操作，记得当检测到d为0时，直接返回，因为添加操作已经完成，没有必要遍历完剩下的结点，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    TreeNode* addOneRow(TreeNode* root, int v, int d) {
+        if (!root) return NULL;
+        if (d == 1) {
+            TreeNode *newRoot = new TreeNode(v);
+            newRoot->left = root;
+            return newRoot;
+        }
+        queue<TreeNode*> q{{root}};
+        while (!q.empty()) {
+            if (--d == 0) return root;
+            int n = q.size();
+            for (int i = 0; i < n; ++i) {
+                auto t = q.front(); q.pop();
+                if (d == 1) {
+                    TreeNode *left = t->left;
+                    TreeNode *right = t->right;
+                    t->left = new TreeNode(v);
+                    t->right = new TreeNode(v);
+                    t->left->left = left;
+                    t->right->right = right;
+                } else {
+                    if (t->left) q.push(t->left);
+                    if (t->right) q.push(t->right);
+                }
+            }
+        }
+        return root;
+    }
+};
+----
+
+虽然博主一贯的理念是二叉树问题肯定首选递归来解，但是这道题博主刚开始以为递归没法解，结果看了大神们的帖子，才发现自己还是图样图森破，难道二叉树的问题皆可递归？反正这道题是可以的，而且写法so简洁，乍一看上去，会有疑问，题目中明明d的范围是从1开始的，为何要考虑d为0的情况，后来读懂了整个解法后，才为原作者的聪慧叹服。这里d的0和1，其实相当于一种flag，如果d为1的话，那么将root连到新建的结点的左子结点上；反之如果d为0，那么将root连到新建的结点的右子结点上，然后返回新建的结点。如果root存在且d大于1的话，那么对root的左子结点调用递归函数，注意此时若d的值正好为2，那么我们就不能直接减1，而是根据左右子结点的情况分别赋值1和0，这样才能起到flag的作用嘛，叼的飞起，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    TreeNode* addOneRow(TreeNode* root, int v, int d) {
+        if (d == 0 || d == 1) {
+            TreeNode *newRoot = new TreeNode(v);
+            (d ? newRoot->left : newRoot->right) = root;
+            return newRoot;
+        }
+        if (root && d > 1) {
+            root->left = addOneRow(root->left, v, d > 2 ? d - 1 : 1);
+            root->right = addOneRow(root->right, v, d > 2 ? d - 1 : 0);
+        }
+        return root;
+    }
+};
+----
+
+==== 数组中的最大距离
+
+----
+Given m arrays, and each array is sorted in ascending order. Now you can pick up two integers from two different arrays (each array picks one) and calculate the distance. We define the distance between two integers a and b to be their absolute difference |a-b|. Your task is to find the maximum distance.
+----
+
+这道题给我们了一些数组，每个数组都是有序的，让我们从不同的数组中各取一个数字，使得这两个数字的差的绝对值最大，让我们求这个最大值。那么我们想，既然数组都是有序的，那么差的绝对值最大的两个数字肯定是分别位于数组的首和尾，注意题目中说要从不同的数组中取数，那么即使某个数组的首尾差距很大，也不行。博主最先考虑的是用堆来做，一个最大堆，一个最小堆，最大堆存每个数组的尾元素，最小堆存每个数组的首元素，由于最大的数字和最小的数字有可能来自于同一个数组，所以我们在堆中存数字的时候还要存入当前数字所在的数组的序号，最后我们其实要分别在最大堆和最小堆中各取两个数字，如果最大的数字和最小的数字不在一个数组，那么直接返回二者的绝对差即可，如果在的话，那么要返回第二大数字和最小数字绝对差跟最大数字和第二小数字绝对差中的较大值，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int maxDistance(vector<vector<int>>& arrays) {
+        priority_queue<pair<int, int>> mx, mn;
+        for (int i = 0; i < arrays.size(); ++i) {
+            mn.push({-arrays[i][0], i});
+            mx.push({arrays[i].back(), i});
+        }
+        auto a1 = mx.top(); mx.pop();
+        auto b1 = mn.top(); mn.pop();
+        if (a1.second != b1.second) return a1.first + b1.first;
+        return max(a1.first + mn.top().first, mx.top().first + b1.first);
+    }
+};
+----
+
+下面这种方法还是很不错的，并没有用到堆，而是用两个变量start和end分别表示当前遍历过的数组中最小的首元素，和最大的尾元素，那么每当我们遍历到一个新的数组时，只需计算新数组尾元素和start绝对差，跟end和新数组首元素的绝对差，取二者之间的较大值来更新结果res即可，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int maxDistance(vector<vector<int>>& arrays) {
+        int res = 0, start = arrays[0][0], end = arrays[0].back();
+        for (int i = 1; i < arrays.size(); ++i) {
+            res = max(res, max(abs(arrays[i].back() - start), abs(end - arrays[i][0])));
+            start = min(start, arrays[i][0]);
+            end = max(end, arrays[i].back());
+        }
+        return res;
+    }
+};
+----
+
+==== 最小因数分解
+
+----
+Given a positive integer a, find the smallest positive integer b whose multiplication of each digit equals to a.
+
+If there is no answer or the answer is not fit in 32-bit signed integer, then return 0.
+----
+
+这道题给了我们一个数字，让我们进行因数分解，让我们找出因数组成的最小的数字。从题目中的例子可以看出，分解出的因数一定是个位数字，即范围是[2, 9]。那我们就可以从大到小开始找因数，首先查找9是否是因数，是要能整除a，就是其因数，如果是的话，就加入到结果res的开头，a自除以9，我们用while循环查找9，直到取出所有的9，然后取8，7，6...以此类推，如果a能成功的被分解的话，最后a的值应该为1，如果a值大于1，说明无法被分解，返回true。最后还要看我们结果res字符转为整型是否越界，越界的话还是返回0，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int smallestFactorization(int a) {
+        if (a == 1) return 1;
+        string res = "";
+        for (int k = 9; k >= 2; --k) {
+            while (a % k == 0) {
+                res = to_string(k) + res;
+                a /= k;
+            }
+        }
+        if (a > 1) return 0;
+        long long num = stoll(res);
+        return num > INT_MAX ? 0 : num;
+    }
+};
+----
+
+下面这种方法跟上面解法思路很像，只是结果res没有用字符串，而是直接用的长整型，我们每次在更新完res的结果后，判断一次是否越整型的界，越了就直接返回0，其他部分和上面没有什么区别，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int smallestFactorization(int a) {
+        if (a < 10) return a;
+        long long res = 0, cnt = 1;
+        for (int i = 9; i >= 2; --i) {
+            while (a % i == 0) {
+                res += cnt * i;
+                if (res > INT_MAX) return 0;
+                a /= i;
+                cnt *= 10;
+            }
+        }
+        return (a == 1) ? res : 0;
+    }
+};
+----
+
+==== 三个数字的最大乘积
+
+Given an integer array, find three numbers whose product is maximum and output the maximum product. +
+
+这道题博主刚开始看的时候，心想直接排序，然后最后三个数字相乘不就完了，心想不会这么Easy吧，果然被OJ无情打脸，没有考虑到负数和0的情况。这道题给了数组的范围，至少三个，那么如果是三个的话，就无所谓了，直接相乘返回即可，但是如果超过了3个，而且有负数存在的话，情况就可能不一样，我们来考虑几种情况，如果全是负数，三个负数相乘还是负数，为了让负数最大，那么其绝对值就该最小，而负数排序后绝对值小的都在末尾，所以是末尾三个数字相乘，这个跟全是正数的情况一样。那么重点在于前半段是负数，后半段是正数，那么最好的情况肯定是两个最小的负数相乘得到一个正数，然后跟一个最大的正数相乘，这样得到的肯定是最大的数，所以我们让前两个数相乘，再和数组的最后一个数字相乘，就可以得到这种情况下的最大的乘积。实际上我们并不用分情况讨论数组的正负，只要把这两种情况的乘积都算出来，比较二者取较大值，就能涵盖所有的情况，从而得到正确的结果，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int maximumProduct(vector<int>& nums) {
+        int n = nums.size();
+        sort(nums.begin(), nums.end());
+        int p = nums[0] * nums[1] * nums[n - 1];
+        return max(p, nums[n - 1] * nums[n - 2] * nums[n - 3]);
+    }
+};
+----
+
+下面这种方法由网友hello_world00提供，找出3个最大的数 || 找出一个最大的和两个最小的，相乘对比也能得到结果，而且是O(n)的时间复杂度，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int maximumProduct(vector<int>& nums) {
+        int mx1 = INT_MIN, mx2 = INT_MIN, mx3 = INT_MIN;
+        int mn1 = INT_MAX, mn2 = INT_MAX;
+        for (int num : nums) {
+            if (num > mx1) {
+                mx3 = mx2; mx2 = mx1; mx1 = num;
+            } else if (num > mx2) {
+                mx3 = mx2; mx2 = num;
+            } else if (num > mx3) {
+                mx3 = num;
+            }
+            if (num < mn1) {
+                mn2 = mn1; mn1 = num;
+            } else if (num < mn2) {
+                mn2 = num;
+            }
+        }
+        return max(mx1 * mx2 * mx3, mx1 * mn1 * mn2);
+    }
+};
+----
+
+==== K个翻转对数组
+
+----
+Given two integers n and k, find how many different arrays consist of numbers from 1 to n such that there are exactly k inverse pairs.
+
+We define an inverse pair as following: For ith and jth element in the array, if i < j and a[i] > a[j] then it's an inverse pair; Otherwise, it's not.
+
+Since the answer may very large, the answer should be modulo 109 + 7.
+----
+
+----
+这道题给了我们1到n总共n个数字，让我们任意排列数组的顺序，使其刚好存在k个翻转对，所谓的翻转对，就是位置在前面的数字值大，而且题目中表明了结果会很大很大，要我们对一个很大的数字取余。对于这种结果巨大的题目，劝君放弃暴力破解或者是无脑递归，想都不用想，那么最先应该考虑的就是DP的解法了。我们需要一个二维的DP数组，其中dp[i][j]表示1到i的数字中有j个翻转对的排列总数，那么我们要求的就是dp[n][k]了，即1到n的数字中有k个翻转对的排列总数。现在难点就是要求递推公式了。我们想如果我们已经知道dp[n][k]了，怎么求dp[n+1][k]，先来看dp[n+1][k]的含义，是1到n+1点数字中有k个翻转对的个数，那么实际上在1到n的数字中的某个位置加上了n+1这个数，为了简单起见，我们先让n=4，那么实际上相当于要在某个位置加上5，那么加5的位置就有如下几种情况：
+
+xxxx5
+
+xxx5x
+
+xx5xx
+
+x5xxx
+
+5xxxx
+
+这里xxxx表示1到4的任意排列，那么第一种情况xxxx5不会增加任何新的翻转对，因为xxxx中没有比5大的数字，而 xxx5x会新增加1个翻转对，xx5xx，x5xxx，5xxxx分别会增加2，3，4个翻转对。那么xxxx5就相当于dp[n][k]，即dp[4][k]，那么依次往前类推，就是dp[n][k-1], dp[n][k-2]...dp[n][k-n]，这样我们就可以得出dp[n+1][k]的求法了:
+
+dp[n+1][k] = dp[n][k] + dp[n][k-1] + ... + dp[n][k - n]
+
+那么dp[n][k]的求法也就一目了然了:
+
+dp[n][k] = dp[n - 1][k] + dp[n - 1][k-1] + ... + dp[n - 1][k - n + 1]
+
+那么我们就可以写出代码如下了：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int kInversePairs(int n, int k) {
+        int M = 1000000007;
+        vector<vector<int>> dp(n + 1, vector<int>(k + 1, 0));
+        dp[0][0] = 1;
+        for (int i = 0; i <= n; ++i) {
+            for (int j = 0; j < i; ++j) {
+                for (int m = 0; m <= k; ++m) {
+                    if (m - j >= 0 && m - j <= k) {
+                        dp[i][m] = (dp[i][m] + dp[i - 1][m - j]) % M;
+                    }
+                }
+            }
+        }
+        return dp[n][k];
+    }
+};
+----
+
+----
+我们可以对上面的解法进行时间上的优化，还是来看我们的递推公式:
+
+dp[n][k] = dp[n - 1][k] + dp[n - 1][k-1] + ... + dp[n - 1][k - n + 1]
+
+我们可以用k+1代替k，得到：
+
+dp[n][k+1] = dp[n - 1][k+1] + dp[n - 1][k] + ... + dp[n - 1][k + 1 - n + 1]
+
+用第二个等式减去第一个等式可以得到：
+
+dp[n][k+1] = dp[n][k] + dp[n - 1][k+1] - dp[n - 1][k - n + 1]
+
+将k+1换回成k，可以得到：
+
+dp[n][k] = dp[n][k-1] + dp[n - 1][k] - dp[n - 1][k - n]
+
+我们可以发现当k>=n的时候，最后一项的数组坐标才能为非负数，从而最后一项才有值，所以我们再更新的时候只需要判断一下k和n的关系，如果k>=n的话，就要减去最后一项，这种递推式算起来更高效，减少了一个循环，参见代码如下：
+----
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int kInversePairs(int n, int k) {
+        int M = 1000000007;
+        vector<vector<int>> dp(n + 1, vector<int>(k + 1, 0));
+        dp[0][0] = 1;
+        for (int i = 1; i <= n; ++i) {
+            dp[i][0] = 1;
+            for (int j = 1; j <= k; ++j) {
+                dp[i][j] = (dp[i - 1][j] + dp[i][j - 1]) % M;
+                if (j >= i) {
+                    dp[i][j] = (dp[i][j] - dp[i - 1][j - i] + M) % M;
+                }
+            }
+        }
+        return dp[n][k];
+    }
+};
+----
+
+==== 课程清单之三
+
+----
+There are n different online courses numbered from 1 to n. Each course has some duration(course length) tand closed on dth day. A course should be taken continuously for t days and must be finished before or on the dth day. You will start at the 1st day.
+
+Given n online courses represented by pairs (t,d), your task is to find the maximal number of courses that can be taken.
+----
+
+这道题给了我们许多课程，每个课程有两个参数，第一个是课程的持续时间，第二个是课程的最晚结束日期，让我们求最多能上多少门课。博主尝试了递归的暴力破解，TLE了。这道题给的提示是用贪婪算法，那么我们首先给课程排个序，按照结束时间的顺序来排序，我们维护一个当前的时间，初始化为0，再建立一个优先数组，然后我们遍历每个课程，对于每一个遍历到的课程，当前时间加上该课程的持续时间，然后将该持续时间放入优先数组中，然后我们判断如果当前时间大于课程的结束时间，说明这门课程无法被完成，我们并不是直接减去当前课程的持续时间，而是取出优先数组的顶元素，即用时最长的一门课，这也make sense，因为我们的目标是尽可能的多上课，既然非要去掉一门课，那肯定是去掉耗时最长的课，这样省下来的时间说不定能多上几门课呢，最后返回优先队列中元素的个数就是能完成的课程总数啦，参见代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int scheduleCourse(vector<vector<int>>& courses) {
+        int curTime = 0;
+        priority_queue<int> q;
+        sort(courses.begin(), courses.end(), [](vector<int>& a, vector<int>& b) {return a[1] < b[1];});
+        for (auto course : courses) {
+            curTime += course[0];
+            q.push(course[0]);
+            if (curTime > course[1]) {
+                curTime -= q.top(); q.pop();
+            }
+        }
+        return q.size();
+    }
+};
+----
+
+==== 设计Excel表格求和公式
+----
+Your task is to design the basic function of Excel and implement the function of sum formula. Specifically, you need to implement the following functions:
+
+Excel(int H, char W): This is the constructor. The inputs represents the height and width of the Excel form. His a positive integer, range from 1 to 26. It represents the height. W is a character range from 'A' to 'Z'. It represents that the width is the number of characters from 'A' to W. The Excel form content is represented by a height * width 2D integer array C, it should be initialized to zero. You should assume that the first row of C starts from 1, and the first column of C starts from 'A'.
+
+void Set(int row, char column, int val): Change the value at C(row, column) to be val.
+
+int Get(int row, char column): Return the value at C(row, column).
+
+int Sum(int row, char column, List of Strings : numbers): This function calculate and set the value at C(row, column), where the value should be the sum of cells represented by numbers. This function return the sum result at C(row, column). This sum formula should exist until this cell is overlapped by another value or another sum formula.
+
+numbers is a list of strings that each string represent a cell or a range of cells. If the string represent a single cell, then it has the following format : ColRow. For example, "F7" represents the cell at (7, F).
+
+If the string represent a range of cells, then it has the following format : ColRow1:ColRow2. The range will always be a rectangle, and ColRow1 represent the position of the top-left cell, and ColRow2 represents the position of the bottom-right cell.
+----
+
+----
+这道题让我们设计Excel表格的求和公式，Excel表格想必大家都用过，还是比较熟悉的，这里让我们对单元格进行求和运算。由于这道题里要求二维数组的局部和，而且又会经常更新数组的值，博主第一反应觉得应该用之前那题Range Sum Query 2D - Mutable中的树状数组来做，结果哼哼哧哧的写完后，发现下面这个test case没通过：
+
+["Excel","sum","set","get"]
+[[3,"C"],[1,"A",["A2"]],[2,"A",1],[1,"A"]]
+Expected:
+[null,0,null,1]
+
+仔细分析一下发现，这个case先把A2的值赋给了A1，此时A1和A2都是0，然后给A2赋值为1，求A1的值。大家的第一印象肯定是觉得A1还是0啊，其实在Excel中，相当于已经把A1和A2关联起来了，只要A2点值发生了改变，A1的值也会跟着变，所以A1的值此时也为1。而树状数组的主要功能的优化区域和的计算速度，并没有建立关联的步骤，难怪不能通过OJ呢。这道题标记为Hard还是有道理的，我们要模拟出Excel表中的这种关联方式，这里参考的是yupinglu大神的帖子，首先我们肯定需要一个二维数组mat来保存数据，然后需要一个map来建立单元格和区域和之间的映射，这里的区域和就是sum函数中的字符串数组表示的内容，可参见题目中的例子，有可能单个单元格或者多个。
+
+我们来看set函数，如果我们改变了某个单元格的内容，那么如果作为结果单元格，那么对应的链接就会断开。比如我们有三个单元格A1, B1, C1，我们设置的关联是A1 + B1 = C1，那么我们改变A1和B1的值都是OK的，C1的值会自动更新。但如果我们改变了C1的值，那么这个关联就不复存在了，Excel中也是这样的。所以我们在改变某个单元格的时候，要将其的关联删除。
+
+我们再来看get函数，我们在获取某个单元格的值的时候，一定要先看其有没有和其他单元格关联，如果有的话，要重新计算一下关联，有可能关联的单元格的值已经发生改变了，那么当前作为结果单元格的值也需要改变；如果该单元格没有任何关联，那么就直接从数组mat中取值即可。
+
+最后看本题的难点sum函数，要根据关联格求出结果格的值，首先这个字符串数组可能有多个字符串，每个字符串有两个可能，一种是单个的单元格，一种是两个单元格中间用冒号隔开。那么我们需要分情况讨论，区别这两种情况的方法就是看冒号是否存在，如果不存在，就说明只有一个单元格，我们将其数字和字母都提取出来，调用get函数，将该位置的值加入结果res中；如果冒号存在，我们根据冒号的位置，分别将两个单元格的字母和数字提取出来，然后遍历这两个单元格之间所有的单元格，调用get函数并将返回值加入结果res中。这个遍历相加的过程可能可以用树状数组来优化，但由于这不是此题的考察重点，所以直接遍历就OK。最后别忘了建立目标单元格和区域字符串数组之间的映射，并返回结果res即可。
+----
+
+[source, cpp, linenums]
+----
+class Excel {
+public:
+    Excel(int H, char W) {
+        m.clear();
+        mat.resize(H, vector<int>(W - 'A', 0));
+    }
+
+    void set(int r, char c, int v) {
+        if (m.count({r, c})) m.erase({r, c});
+        mat[r - 1][c - 'A'] = v;
+    }
+
+    int get(int r, char c) {
+        if (m.count({r, c})) return sum(r, c, m[{r, c}]);
+        return mat[r - 1][c - 'A'];
+    }
+
+    int sum(int r, char c, vector<string> strs) {
+        int res = 0;
+        for (string str : strs) {
+            auto found = str.find_last_of(":");
+            if (found == string::npos) {
+                char y = str[0];
+                int x = stoi(str.substr(1));
+                res += get(x, y);
+            } else {
+                int x1 = stoi(str.substr(1, (int)found - 1)), y1 = str[0] - 'A';
+                int x2 = stoi(str.substr(found + 2)), y2 = str[found + 1] - 'A';
+                for (int i = x1; i <= x2; ++i) {
+                    for (int j = y1; j <= y2; ++j) {
+                        res += get(i, j + 'A');
+                    }
+                }
+            }
+        }
+        m[{r, c}] = strs;
+        return res;
+    }
+
+private:
+    vector<vector<int>> mat;
+    map<pair<int, char>, vector<string>> m;
+};
+----
+
+==== 最小的范围
+
+----
+You have k lists of sorted integers in ascending order. Find the smallest range that includes at least one number from each of the k lists.
+
+We define the range [a,b] is smaller than range [c,d] if b-a < d-c or a < c if b-a == d-c.
+----
+
+这道题给了我们一些数组，都是排好序的，让我们求一个最小的范围，使得这个范围内至少会包括每个数组中的一个数字。虽然每个数组都是有序的，但是考虑到他们之间的数字差距可能很大，所以我们最好还是合并成一个数组统一处理比较好，但是合并成一个大数组还需要保留其原属数组的序号，所以我们大数组中存pair对，同时保存数字和原数组的序号。然后我们重新按照数字大小进行排序，这样我们的问题实际上就转换成了求一个最小窗口，使其能够同时包括所有数组中的至少一个数字。这不就变成了那道Minimum Window Substring。所以说啊，这些题目都是换汤不换药的，总能变成我们见过的类型。我们用两个指针left和right来确定滑动窗口的范围，我们还要用一个哈希表来建立每个数组与其数组中数字出现的个数之间的映射，变量cnt表示当前窗口中的数字覆盖了几个数组，diff为窗口的大小，我们让right向右滑动，然后判断如果right指向的数字所在数组没有被覆盖到，cnt自增1，然后哈希表中对应的数组出现次数自增1，然后我们循环判断如果cnt此时为k(数组的个数)且left不大于right，那么我们用当前窗口的范围来更新结果，然后此时我们想缩小窗口，通过将left向右移，移动之前需要减小哈希表中的映射值，因为我们去除了数字，如果此时映射值为0了，说明我们有个数组无法覆盖到了，cnt就要自减1。这样遍历后我们就能得到最小的范围了，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> smallestRange(vector<vector<int>>& nums) {
+        vector<int> res;
+        vector<pair<int, int>> v;
+        unordered_map<int, int> m;
+        for (int i = 0; i < nums.size(); ++i) {
+            for (int num : nums[i]) {
+                v.push_back({num, i});
+            }
+        }
+        sort(v.begin(), v.end());
+        int left = 0, n = v.size(), k = nums.size(), cnt = 0, diff = INT_MAX;
+        for (int right = 0; right < n; ++right) {
+            if (m[v[right].second] == 0) ++cnt;
+            ++m[v[right].second];
+            while (cnt == k && left <= right) {
+                if (diff > v[right].first - v[left].first) {
+                    diff = v[right].first - v[left].first;
+                    res = {v[left].first, v[right].first};
+                }
+                if (--m[v[left].second] == 0) --cnt;
+                ++left;
+            }
+        }
+        return res;
+    }
+};
+----
+
+这道题还有一种使用priority_queue来做的，优先队列默认情况是最大堆，但是这道题我们需要使用最小堆，我们可以重新写一下comparator就行了。解题的主要思路很上面的解法很相似，只是具体的数据结构的使用上略有不同，这curMax表示当前遇到的最大数字，用一个idx数组表示每个list中遍历到的位置，然后就是我们的优先队列了，里面放一个pair，是数字和其所属list组成的对儿。然后我们遍历所有的list，将每个list的首元素和该list序号组成pair放入队列中，然后idx数组中每个位置都赋值为1，因为0的位置已经放入队列了，所以指针向后移一个位置，还要更新当前最大值curMax。此时我们的queue中是每个list各有一个数字，由于是最小堆，所以最小的数字就在队首，再加上最大值curMax，就可以初始化结果res了。然后我们进行循环，注意这里循环的条件不是队列不为空，而是当某个list的数字遍历完了就结束循环，因为我们的范围要cover每个list至少一个数字。所以我们的while循环条件即是队首数字所在的list的遍历位置小于该list的总个数，在循环中，取出队首数字所在的list序号t，然后将该list中下一个位置的数字和该list序号t组成pair，加入队列中，然后用这个数字更新curMax，同时idx中t对应的位置也自增1。现在来更新结果res，如果结果res中两数之差大于curMax和队首数字之差，则我们更新结果res，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> smallestRange(vector<vector<int>>& nums) {
+        int curMax = INT_MIN, n = nums.size();
+        vector<int> idx(n, 0);
+        auto cmp = [](pair<int, int>& a, pair<int, int>& b) {return a.first > b.first;};
+        priority_queue<pair<int, int>, vector<pair<int, int>>, decltype(cmp) > q(cmp);
+        for (int i = 0; i < n; ++i) {
+            q.push({nums[i][0], i});
+            idx[i] = 1;
+            curMax = max(curMax, nums[i][0]);
+        }
+        vector<int> res{q.top().first, curMax};
+        while (idx[q.top().second] < nums[q.top().second].size()) {
+            int t = q.top().second; q.pop();
+            q.push({nums[t][idx[t]], t});
+            curMax = max(curMax, nums[t][idx[t]]);
+            ++idx[t];
+            if (res[1] - res[0] > curMax - q.top().first) {
+                res = {q.top().first, curMax};
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== 平方数之和
+
+----
+Given a non-negative integer c, your task is to decide whether there're two integers a and b such that a2 + b2 = c.
+----
+
+这道题让我们求一个数是否能由平方数之和组成，刚开始博主没仔细看题，没有看到必须要是两个平方数之和，博主以为任意一个就可以。所以写了个带优化的递归解法，楼主已经不是上来就无脑暴力破解的辣个青葱骚年了，直接带优化。可是居然对14返回false，难道14不等于1+4+9吗，结果仔细一看，必须要两个平方数之和。好吧，那么递归都省了，直接判断两次就行了。我们可以从c的平方根，注意即使c不是平方数，也会返回一个整型数。然后我们判断如果i*i等于c，说明c就是个平方数，只要再凑个0，就是两个平方数之和，返回true；如果不等于的话，那么算出差值c - i*i，如果这个差值也是平方数的话，返回true。遍历结束后返回false，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool judgeSquareSum(int c) {
+        for (int i = sqrt(c); i >= 0; --i) {
+            if (i * i == c) return true;
+            int d = c - i * i, t = sqrt(d);
+            if (t * t == d) return true;
+        }
+        return false;
+    }
+};
+----
+
+下面这种方法用到了集合set，从0遍历到c的平方根，对于每个i*i，都加入集合set中，然后计算c - i*i，如果这个差值也在集合set中，返回true，遍历结束返回false，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool judgeSquareSum(int c) {
+        unordered_set<int> s;
+        for (int i = 0; i <= sqrt(c); ++i) {
+            s.insert(i * i);
+            if (s.count(c - i * i)) return true;
+        }
+        return false;
+    }
+};
+----
+
+上面两种方法都不是很高效，来看下面这种高效的解法。论坛上有人称之为二分解法，但是博主怎么觉得不是呢，虽然样子很像，但是并没有折半的操作啊。这里用a和b代表了左右两个范围，分别为0和c的平方根，然后while循环遍历，如果a*a + b*b刚好等于c，那么返回true；如果小于c，则a增大1；反之如果大于c，则b自减1，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool judgeSquareSum(int c) {
+        int a = 0, b = sqrt(c);
+        while (a <= b) {
+            if (a * a + b * b == c) return true;
+            else if (a * a + b * b < c) ++a;
+            else --b;
+        }
+        return false;
+    }
+};
+----
+
+==== 找数组的错排
+
+----
+In combinatorial mathematics, a derangement is a permutation of the elements of a set, such that no element appears in its original position.
+
+There's originally an array consisting of n integers from 1 to n in ascending order, you need to find the number of derangement it can generate.
+
+Also, since the answer may be very large, you should return the output mod 109 + 7.
+----
+
+----
+这道题给了我们一个数组，让我们求其错排的个数，所谓错排就是1到n中的每个数字都不在其原有的位置上，全部打乱了，问能有多少种错排的方式。博主注意到了这道题又让对一个很大的数取余，而且每次那个很大的数都是109 + 7，为啥大家都偏爱这个数呢，有啥特别之处吗？根据博主之前的经验，这种结果很大很大的题十有八九都是用dp来做的，那么就建一个一维的dp数组吧，其中dp[i]表示1到i中的错位排列的个数。那么难点就是找递推公式啦，先从最简单的情况来看:
+
+n = 1 时有 0 种错排
+
+n = 2 时有 1 种错排 [2, 1]
+
+n = 3 时有 2 种错排 [3, 1, 2], [2, 3, 1]
+
+然后博主就在想知道了dp[2]，能求出dp[3]吗，又在考虑是不是算加入数字3的情况的个数。结果左看右看发现没有啥特别的规律，又在想是不是有啥隐含的信息需要挖掘，还是没想出来。于是看了一眼标签，发现是Math，我的天，难道又是小学奥数的题？挣扎了半天最后还是放弃了，上网去搜大神们的解法。其实这道题是组合数学种的错排问题，是有专门的递归公式的。
+
+我们来想n = 4时该怎么求，我们假设把4排在了第k位，这里我们就让k = 3吧，那么我们就把4放到了3的位置，变成了：
+
+x x 4 x
+
+我们看被4占了位置的3，应该放到哪里，这里分两种情况，如果3放到了4的位置，那么有：
+
+x x 4 3
+
+那么此时4和3的位置都确定了，实际上只用排1和2了，那么就相当于只排1和2，就是dp[2]的值，是已知的。那么再来看第二种情况，3不在4的位置，那么此时我们把4去掉的话，就又变成了：
+
+x x x
+
+这里3不能放在第3个x的位置，在去掉4之前，这里是移动4之前的4的位置，那么实际上这又变成了排1，2，3的情况了，就是dp[3]的值。
+
+再回到最开始我们选k的时候，我们当时选了k = 3，其实k可以等于1,2,3，也就是有三种情况，所以dp[4] = 3 * (dp[3] + dp[2])。
+
+那么递推公式也就出来了：
+
+dp[i] = (i - 1) * (dp[i - 1] + dp[i - 2])
+
+有了递推公式，代码就不难写了吧，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findDerangement(int n) {
+        if (n < 2) return 0;
+        vector<long long> dp(n + 1, 0);
+        dp[1] = 0; dp[2] = 1;
+        for (int i = 3; i <= n; ++i) {
+            dp[i] = (dp[i - 1] + dp[i - 2]) * (i - 1) % 1000000007;
+        }
+        return dp[n];
+    }
+};
+----
+
+下面这种解法精简了空间，因为当前值只跟前两个值有关系，所以没必要保留整个数组，只用两个变量来记录前两个值，并每次更新一下就好了，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findDerangement(int n) {
+        long long a = 0, b = 1, res = 1;
+        for (int i = 3; i <= n; ++i) {
+            res = (i - 1) * (a + b) % 1000000007;
+            a = b;
+            b = res;
+        }
+        return (n == 1) ? 0 : res;
+    }
+};
+----
+
+----
+下面这种方法是对之前的递推公式进行了推导变形，使其只跟前一个数有关，具体的推导步骤是这样的：
+
+我们假设 e[i] = dp[i] - i * dp[i - 1]
+
+递推公式为:  dp[i] = (i - 1) * (dp[i - 1] + dp[i - 2])
+
+将递推公式带入假设，得到：
+
+e[i] = -dp[i - 1] + (n - 1) * dp[i - 2] = -e[i - 1]
+
+从而得到 e[i] = (-1)^n
+
+那么带回假设公式，可得: dp[i] = i * dp[i - 1] + (-1)^n
+
+根据这个新的递推公式，可以写出代码如下：
+----
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findDerangement(int n) {
+        long long res = 1;
+        for (int i = 1; i <= n; ++i) {
+            res = (i * res + (i % 2 == 0 ? 1 : -1)) % 1000000007;
+        }
+        return res;
+    }
+};
+----
+
+==== 设计日志存储系统
+
+----
+You are given several logs that each log contains a unique id and timestamp. Timestamp is a string that has the following format: Year:Month:Day:Hour:Minute:Second, for example, 2017:01:01:23:59:59. All domains are zero-padded decimal numbers.
+
+Design a log storage system to implement the following functions:
+
+void Put(int id, string timestamp): Given a log's unique id and timestamp, store the log in your storage system.
+
+int[] Retrieve(String start, String end, String granularity): Return the id of logs whose timestamps are within the range from start to end. Start and end all have the same format as timestamp. However, granularity means the time level for consideration. For example, start = "2017:01:01:23:59:59", end = "2017:01:02:23:59:59", granularity = "Day", it means that we need to find the logs within the range from Jan. 1st 2017 to Jan. 2nd 2017.
+----
+
+这道题让我们设计一个日志存储系统，给了日志的生成时间和日志编号，日志的生成时间是精确到秒的，然后我们主要需要完成一个retrieve函数，这个函数会给一个起始时间，结束时间，还有一个granularity精确度，可以精确到任意的年月日时分秒，可以分析下题目中的例子，应该不难理解。我们首先需要一个数据结构来存储每个日志的编号和时间戳，那么这里我们就用一个数组，里面存pair，这样就能存下日志的数据了。然后由于我们要用到精确度，所以我们用一个units数组来列出所有可能的精确度了。下面就是本题的难点了，如何能正确的在时间范围内取出日志。由于精确度的存在，比如精确度是Day，那么我们就不关心后面的时分秒是多少了，只需要比到天就行了。判断是否在给定的时间范围内的方法也很简单，看其是否大于起始时间，且小于结束时间，我们甚至可以直接用字符串相比较，不用换成秒啥的太麻烦。所以我们可以根据时间精度确定要比的子字符串的位置，然后直接相比就行了。所以我们需要一个indices数组，来对应我们的units数组，记录下每个时间精度下取出的字符的个数。然后在retrieve函数中，遍历所有的日志，快速的根据时间精度取出对应的时间戳并且和起始结束时间相比，在其之间的就把序号加入结果res即可，参见代码如下： +
+
+[source, cpp, linenums]
+----
+class LogSystem {
+public:
+    LogSystem() {
+        units = {"Year", "Month", "Day", "Hour", "Minute", "Second"};
+        indices = {4, 7, 10, 13, 16, 19};
+    }
+
+    void put(int id, string timestamp) {
+        timestamps.push_back({id, timestamp});
+    }
+
+    vector<int> retrieve(string s, string e, string gra) {
+        vector<int> res;
+        int idx = indices[find(units.begin(), units.end(), gra) - units.begin()];
+        for (auto p : timestamps) {
+            string t = p.second;
+            if (t.substr(0, idx).compare(s.substr(0, idx)) >= 0 && t.substr(0, idx).compare(e.substr(0, idx)) <= 0) {
+                res.push_back(p.first);
+            }
+        }
+        return res;
+    }
+
+private:
+    vector<pair<int, string>> timestamps;
+    vector<string> units;
+    vector<int> indices;
+};
+----
+
+==== 函数的独家时间
+
+----
+Given the running logs of n functions that are executed in a nonpreemptive single threaded CPU, find the exclusive time of these functions.
+
+Each function has a unique id, start from 0 to n-1. A function may be called recursively or by another function.
+
+A log is a string has this format : function_id:start_or_end:timestamp. For example, "0:start:0" means function 0 starts from the very beginning of time 0. "0:end:0" means function 0 ends to the very end of time 0.
+
+Exclusive time of a function is defined as the time spent within this function, the time spent by calling other functions should not be considered as this function's exclusive time. You should return the exclusive time of each function sorted by their function id.
+----
+
+----
+这道题让我们函数的独家运行的时间，没错，exclusive就是要翻译成独家，要让每个函数都成为码农的独家记忆～哈～根据题目中给的例子，我们可以看出来，当一个函数start了之后，并不需要必须有end，可以直接被另一个程序start的时候强行关闭。而且，在某个时间点上调用end时，也不需要前面非得调用start，可以直接在某个时间点来个end，这样也算执行了1秒，得+1秒～咳咳，本站禁“苟”，请勿轻易吟诗。博主自以为了解了这个题的逻辑，自己写了一个，结果跪在了下面这个test case：
+
+2
+["0:start:0","0:start:2","0:end:5","1:start:7","1:end:7","0:end:8"]
+
+Expected:
+[8,1]
+
+这个结果很confusing啊，你想啊，函数0运行了时间点0，1，2，3，4，5，8，共7秒，函数1运行了时间点7，共1秒，为啥答案不是[7,1]而是[8,1]呢？
+
+根据分析网上大神们的解法，貌似时间点6还是函数0在执行。这是为啥呢，说明博主之前的理解有误，当函数0在时间点2时再次开启时，前面那个函数0应该没有被强制关闭，所以现在实际上有两个函数0在执行，所以当我们在时间点5关掉一个函数0时，还有另一个函数0在跑，所以时间点6还是函数0的，还得给函数0续1秒。这样才能解释的通这个case啊。这样的话用栈stack就比较合适了，函数开启了就压入栈，结束了就出栈，不会有函数被漏掉。这样的我们可以遍历每个log，然后把三部分分开，函数idx，类型type，时间点time。如果此时栈不空，说明之前肯定有函数在跑，那么不管当前时start还是end，之前函数时间都得增加，增加的值为time - preTime，这里的preTime是上一个时间点。然后我们更新preTime为当前时间点time。然后我们判断log的类型，如果是start，我们将当前函数压入栈；如果是end，那么我们将栈顶元素取出，对其加1秒，并且preTime也要加1秒，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> exclusiveTime(int n, vector<string>& logs) {
+        vector<int> res(n, 0);
+        stack<int> st;
+        int preTime = 0;
+        for (string log : logs) {
+            int found1 = log.find(":");
+            int found2 = log.find_last_of(":");
+            int idx = stoi(log.substr(0, found1));
+            string type = log.substr(found1 + 1, found2 - found1 - 1);
+            int time = stoi(log.substr(found2 + 1));
+            if (!st.empty()) {
+                res[st.top()] += time - preTime;
+            }
+            preTime = time;
+            if (type == "start") st.push(idx);
+            else {
+                auto t = st.top(); st.pop();
+                ++res[t];
+                ++preTime;
+            }
+        }
+        return res;
+    }
+};
+----
+
+下面这种方法比较叼的地方是在于使用了C语言的sscanf函数来一步读取了三个变量，注意这里面的"[^:]"，表示copy所有字符，直到遇到':'，这样就能把中间的start或者end拷到type中去了。而且接下来的写法跟上面也不太相同，这里先判断了type的类型，如果是start，那么再看如果栈不为空，那么栈顶函数加上时间差，这个上面讲过了，然后将当前函数压入栈；如果是end，那么栈顶元素加上时间差，还要再加1秒，这个在上面也提到了加了1秒的事，然后再将栈顶元素出栈。最后更新preTime为当前时间点。讲解中加了这么多秒，博主已经尽力了。 +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> exclusiveTime(int n, vector<string>& logs) {
+        vector<int> res(n, 0);
+        stack<int> st;
+        int preTime = 0, idx = 0, time = 0;
+        char type[10];
+        for (string log : logs) {
+            sscanf(log.c_str(), "%d:%[^:]:%d", &idx, type, &time);
+            if (type[0] == 's') {
+                if (!st.empty()) {
+                    res[st.top()] += time - preTime;
+                }
+                st.push(idx);
+            } else {
+                res[st.top()] += ++time - preTime;
+                st.pop();
+            }
+            preTime = time;
+        }
+        return res;
+    }
+};
+----
+
+==== 二叉树的层平均值
+
+----
+Given a non-empty binary tree, return the average value of the nodes on each level in the form of an array.
+
+Example 1:
+
+Input:
+    3
+   / \
+  9  20
+    /  \
+   15   7
+Output: [3, 14.5, 11]
+----
+
+这道题让我们求一个二叉树每层的平均值，那么一看就是要进行层序遍历了，直接上queue啊，如果熟悉层序遍历的方法，那么这题就没有什么难度了，直接将每层的值累计加起来，除以该层的结点个数，存入结果res中即可，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<double> averageOfLevels(TreeNode* root) {
+        if (!root) return {};
+        vector<double> res;
+        queue<TreeNode*> q{{root}};
+        while (!q.empty()) {
+            int n = q.size();
+            double sum = 0;
+            for (int i = 0; i < n; ++i) {
+                TreeNode *t = q.front(); q.pop();
+                sum += t->val;
+                if (t->left) q.push(t->left);
+                if (t->right) q.push(t->right);
+            }
+            res.push_back(sum / n);
+        }
+        return res;
+    }
+};
+----
+
+下面这种方法虽然是利用的递归形式的先序遍历，但是其根据判断当前层数level跟结果res中已经初始化的层数之间的关系对比，能把当前结点值累计到正确的位置，而且该层的结点数也自增1，这样我们分别求了两个数组，一个数组保存了每行的所有结点值，另一个保存了每行结点的个数，这样对应位相除就是我们要求的结果了，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<double> averageOfLevels(TreeNode* root) {
+        vector<double> res, cnt;
+        helper(root, 0, cnt, res);
+        for (int i = 0; i < res.size(); ++i) {
+            res[i] /= cnt[i];
+        }
+        return res;
+    }
+    void helper(TreeNode* node, int level, vector<double>& cnt, vector<double>& res) {
+        if (!node) return;
+        if (res.size() <= level) {
+            res.push_back(0);
+            cnt.push_back(0);
+        }
+        res[level] += node->val;
+        ++cnt[level];
+        helper(node->left, level + 1, cnt, res);
+        helper(node->right, level + 1, cnt, res);
+    }
+};
+----
+
+==== 购物优惠
+
+----
+In LeetCode Store, there are some kinds of items to sell. Each item has a price.
+
+However, there are some special offers, and a special offer consists of one or more different kinds of items with a sale price.
+
+You are given the each item's price, a set of special offers, and the number we need to buy for each item. The job is to output the lowest price you have to pay for exactly certain items as given, where you could make optimal use of the special offers.
+
+Each special offer is represented in the form of an array, the last number represents the price you need to pay for this special offer, other numbers represents how many specific items you could get if you buy this offer.
+
+You could use any of special offers as many times as you want.
+----
+
+这道题说有一些商品，各自有不同的价格，然后给我们了一些优惠券，可以在优惠的价格买各种商品若干个，要求我们每个商品要买特定的个数，问我们使用优惠券能少花多少钱，注意优惠券可以重复使用，而且商品不能多买。那么我们可以先求出不使用任何商品需要花的钱数作为结果res的初始值，然后我们遍历每一个coupon，定义一个变量isValid表示当前coupon可以使用，然后遍历每一个商品，如果某个商品需要的个数小于coupon中提供的个数，说明当前coupon不可用，isValid标记为false。如果遍历完了发现isValid还为true的话，表明该coupon可用，我们可以更新结果res，对剩余的needs调用递归并且加上使用该coupon需要付的钱数。最后别忘了恢复needs的状态，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int shoppingOffers(vector<int>& price, vector<vector<int>>& special, vector<int>& needs) {
+        int res = 0, n = price.size();
+        for (int i = 0; i < n; ++i) {
+            res += price[i] * needs[i];
+        }
+        for (auto offer : special) {
+            bool isValid = true;
+            for (int j = 0; j < n; ++j) {
+                if (needs[j] - offer[j] < 0) isValid = false;
+                needs[j] -= offer[j];
+            }
+            if (isValid) {
+                res = min(res, shoppingOffers(price, special, needs) + offer.back());
+            }
+            for (int j = 0; j < n; ++j) {
+                needs[j] += offer[j];
+            }
+        }
+        return res;
+    }
+};
+----
+
+下面这种解法也是递归的写法，总的来说思路跟上面没有啥差别，应该不难理解，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int shoppingOffers(vector<int>& price, vector<vector<int>>& special, vector<int>& needs) {
+        int res = inner_product(price.begin(), price.end(), needs.begin(), 0);
+        for (auto offer : special) {
+            vector<int> r = helper(offer, needs);
+            if (r.empty()) continue;
+            res = min(res, shoppingOffers(price, special, r) + offer.back());
+        }
+        return res;
+    }
+    vector<int> helper(vector<int>& offer, vector<int>& needs) {
+        vector<int> r(needs.size(), 0);
+        for (int i = 0; i < needs.size(); ++i) {
+            if (offer[i] > needs[i]) return {};
+            r[i] = needs[i] - offer[i];
+        }
+        return r;
+    }
+};
+----
+
+==== 解码方法之二
+
+----
+A message containing letters from A-Z is being encoded to numbers using the following mapping way:
+
+'A' -> 1
+'B' -> 2
+...
+'Z' -> 26
+Beyond that, now the encoded string can also contain the character '*', which can be treated as one of the numbers from 1 to 9.
+
+Given the encoded message containing digits and the character '*', return the total number of ways to decode it.
+
+Also, since the answer may be very large, you should return the output mod 109 + 7.
+----
+
+----
+这道解码的题是之前那道Decode Ways的拓展，难度提高了不少，引入了星号，可以代表1到9之间的任意数字，是不是有点外卡匹配的感觉。有了星号以后，整个题就变得异常的复杂，所以结果才让我们对一个很大的数求余，避免溢出。这道题的难点就是要分情况种类太多，一定要全部理通顺才行。我们还是用DP来做，建立一个一维dp数组，其中dp[i]表示前i个字符的解码方法等个数，长度为字符串的长度加1。将dp[0]初始化为1，然后我们判断，如果字符串第一个字符是0，那么直接返回0，如果是*，则dp[1]初始化为9，否则初始化为1。下面就来计算一般情况下的dp[i]了，我们从i=2开始遍历，由于要分的情况种类太多，我们先选一个大分支，就是当前遍历到的字符s[i-1]，只有三种情况，要么是0，要么是1到9的数字，要么是星号。我们一个一个来分析：
+
+首先来看s[i-1]为0的情况，这种情况相对来说比较简单，因为0不能单独拆开，只能跟前面的数字一起，而且前面的数字只能是1或2，其他的直接返回0即可。那么当前面的数字是1或2的时候，dp[i]的种类数就跟dp[i-2]相等，可以参见之前那道Decode Ways的讲解，因为后两数无法单独拆分开，就无法产生新的解码方法，所以只保持住原来的拆分数量就不错了；如果前面的数是星号的时候，那么前面的数可以为1或者2，这样就相等于两倍的dp[i-2]；如果前面的数也为0，直接返回0即可。
+
+再来看s[i-1]为1到9之间的数字的情况，首先搞清楚当前数字是可以单独拆分出来的，那么dp[i]至少是等于dp[i-1]的，不会拖后腿，还要看其能不能和前面的数字组成两位数进一步增加解码方法。那么就要分情况讨论前面一个数字的种类，如果当前数字可以跟前面的数字组成一个小于等于26的两位数的话，dp[i]还需要加上dp[i-2]；如果前面的数字为星号的话，那么要看当前的数字是否小于等于6，如果是小于等于6，那么前面的数字就可以是1或者2了，此时dp[i]需要加上两倍的dp[i-2]，如果大于6，那么前面的数字只能是1，所以dp[i]只能加上dp[i-2]。
+
+最后来看s[i-1]为星号的情况，如果当前数字为星号，那么就创造9种可以单独拆分的方法，所以那么dp[i]至少是等于9倍的dp[i-1]，还要看其能不能和前面的数字组成两位数进一步增加解码方法。那么就要分情况讨论前面一个数字的种类，如果前面的数字是1，那么当前的9种情况都可以跟前面的数字组成两位数，所以dp[i]需要加上9倍的dp[i-2]；如果前面的数字是2，那么只有小于等于6的6种情况都可以跟前面的数字组成两位数，所以dp[i]需要加上6倍的dp[i-2]；如果前面的数字是星号，那么就是上面两种情况的总和，dp[i]需要加上15倍的dp[i-2]。
+
+每次算完dp[i]别忘了对超大数取余，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int numDecodings(string s) {
+        int n = s.size(), M = 1e9 + 7;
+        vector<long> dp(n + 1, 0);
+        dp[0] = 1;
+        if (s[0] == '0') return 0;
+        dp[1] = (s[0] == '*') ? 9 : 1;
+        for (int i = 2; i <= n; ++i) {
+            if (s[i - 1] == '0') {
+                if (s[i - 2] == '1' || s[i - 2] == '2') {
+                    dp[i] += dp[i - 2];
+                } else if (s[i - 2] == '*') {
+                    dp[i] += 2 * dp[i - 2];
+                } else {
+                    return 0;
+                }
+            } else if (s[i - 1] >= '1' && s[i - 1] <= '9') {
+                dp[i] += dp[i - 1];
+                if (s[i - 2] == '1' || (s[i - 2] == '2' && s[i - 1] <= '6')) {
+                    dp[i] += dp[i - 2];
+                } else if (s[i - 2] == '*') {
+                    dp[i] += (s[i - 1] <= '6') ? (2 * dp[i - 2]) : dp[i - 2];
+                }
+            } else { // s[i - 1] == '*'
+                dp[i] += 9 * dp[i - 1];
+                if (s[i - 2] == '1') dp[i] += 9 * dp[i - 2];
+                else if (s[i - 2] == '2') dp[i] += 6 * dp[i - 2];
+                else if (s[i - 2] == '*') dp[i] += 15 * dp[i - 2];
+            }
+            dp[i] %= M;
+        }
+        return dp[n];
+    }
+};
+----
+
+----
+下面这种解法是论坛上排名最高的解法，常数级的空间复杂度，写法非常简洁，思路也巨牛逼，博主是无论如何也想不出来的，只能继续当搬运工了。这里定义了一系列的变量e0, e1, e2, f0, f1, f2。其中：
+
+e0表示当前可以获得的解码的次数，当前数字可以为任意数 (也就是上面解法中的dp[i])
+
+e1表示当前可以获得的解码的次数，当前数字为1
+
+e2表示当前可以获得的解码的次数，当前数字为2
+
+f0, f1, f2分别为处理完当前字符c的e0, e1, e2的值
+
+那么下面我们来进行分类讨论，当c为星号的时候，f0的值就是9*e0 + 9*e1 + 6*e2，这个应该不难理解了，可以参考上面解法中的讲解，这里的e0就相当于dp[i-1]，e1和e2相当于两种不同情况的dp[i-2]，此时f1和f2都赋值为e0，因为要和后面的数字组成两位数的话，不会增加新的解码方法，所以解码总数跟之前的一样，为e0, 即dp[i-1]。
+
+当c不为星号的时候，如果c不为0，则f0首先应该加上e0。然后不管c为何值，e1都需要加上，总能和前面的1组成两位数；如果c小于等于6，可以和前面的2组成两位数，可以加上e2。然后我们更新f1和f2，如果c为1，则f1为e0；如果c为2，则f2为e0。
+
+最后别忘了将f0，f1，f2赋值给e0，e1，e2，其中f0需要对超大数取余，参见代码如下：
+----
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int numDecodings(string s) {
+        long e0 = 1, e1 = 0, e2 = 0, f0, f1, f2, M = 1e9 + 7;
+        for (char c : s) {
+            if (c == '*') {
+                f0 = 9 * e0 + 9 * e1 + 6 * e2;
+                f1 = e0;
+                f2 = e0;
+            } else {
+                f0 = (c > '0') * e0 + e1 + (c <= '6') * e2;
+                f1 = (c == '1') * e0;
+                f2 = (c == '2') * e0;
+            }
+            e0 = f0 % M;
+            e1 = f1;
+            e2 = f2;
+        }
+        return e0;
+    }
+};
+----
+
+下面这解法由热心网友edyyy提供，在解法二的基础上去掉了两个变量，节省了行数，很符合博主的极简风格，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int numDecodings(string s) {
+        long e0 = 1, e1 = 0, e2 = 0, f0 = 0, M = 1e9 + 7;
+        for (char c : s) {
+            if (c == '*') {
+                f0 = 9 * e0 + 9 * e1 + 6 * e2;
+                e1 = e0;
+                e2 = e0;
+            } else {
+                f0 = (c > '0') * e0 + e1 + (c <= '6') * e2;
+                e1 = (c == '1') * e0;
+                e2 = (c == '2') * e0;
+            }
+            e0 = f0 % M;
+        }
+        return e0;
+    }
+};
+----
+
+==== 解方程
+
+----
+Solve a given equation and return the value of x in the form of string "x=#value". The equation contains only '+', '-' operation, the variable x and its coefficient.
+
+If there is no solution for the equation, return "No solution".
+
+If there are infinite solutions for the equation, return "Infinite solutions".
+
+If there is exactly one solution for the equation, we ensure that the value of x is an integer.
+
+Example 1:
+
+Input: "x+5-3+x=6+x-2"
+Output: "x=2"
+----
+
+----
+这道题给了我们一个用字符串表示的方程式，让我们求出x的解，根据例子可知，还包括x有无穷多个解和x没有解的情况。解一元一次方程没什么难度，难点在于处理字符串，如何将x的系数合并起来，将常数合并起来，化简成ax=b的形式来求解。博主最开始的思路是先找到等号，然后左右两部分分开处理。由于要化成ax=b的格式，所以左半部分对于x的系数都是加，右半部分对于x的系数都是减。同理，左半部分对于常数是减，右半部分对于常数是加。
+
+那么我们就开始处理字符串了，我们定义一个符号变量sign，初始化为1，数字变量num，初始化为-1，后面会提到为啥不能初始化为0。我们遍历每一个字符，如果遇到了符号位，我们看num的值，如果num是-1的话，说明是初始值，没有更新过，我们将其赋值为0；反之，如果不是-1，说明num已经更新过了，我们乘上当前的正负符号值sign。这是为了区分"-3"和"3+3"这种两种情况，遇到-3种的符号时，我们还不需要加到b中，所以num此时必须为0，而遇到3+3中的加号时，此时num已经为3了，我们要把前面的3加到b中。
+
+遇到数字的时候，我们还是要看num的值，如果是初始值，那么就将其赋值为0，然后计算数字的时候要先给num乘10，再加上当前的数字。这样做的原因是常数不一定都是个位数字，有可能是两位数或者三位数，这样做才能正确的读入数字。我们在遇到数字的时候并不更新a或者b，我们只在遇到符号位或者x的时候才更新。这样如果最后一位是数字的话就会产生问题，所以我们要在字符串的末尾加上一个+号，这样确保了末尾数字会被处理。
+
+遇到x的时候比较tricky，因为可能是x, 0x, -x这几种情况，我们还是首先要看num的值是否为初始值-1，如果是的话，那么就可能是x或-x这种情况，我们此时将num赋值为sign；如果num不是-1，说明num已经被更新了，可能是0x, -3x等等，所以我们要将num赋值为num*sign。这里应该就明白了为啥不能将num初始化为0了，因为一旦初始化为0了，就没法区分x和0x这两种情况了。
+
+那么我们算完了a和b，得到了ax=b的等式，下面的步骤就很简单了，只要分情况讨论得出正确的返回结果即可，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string solveEquation(string equation) {
+        int a = 0, b = 0;
+        auto found = equation.find("=");
+        helper(equation.substr(0, found), true, a, b);
+        helper(equation.substr(found + 1), false, a, b);
+        if (a == 0 && a == b) return "Infinite solutions";
+        if (a == 0 && a != b) return "No solution";
+        return "x=" + to_string(b / a);
+    }
+    void helper(string e, bool isLeft, int& a, int& b) {
+        int sign = 1, num = -1;
+        e += "+";
+        for (int i = 0; i < e.size(); ++i) {
+            if (e[i] == '-' || e[i] == '+') {
+                num = (num == -1) ? 0 : (num * sign);
+                b += isLeft ? -num : num;
+                num = -1;
+                sign = (e[i] == '+') ? 1 : -1;
+            } else if (e[i] >= '0' && e[i] <= '9') {
+                if (num == -1) num = 0;
+                num = num * 10 + e[i] - '0';
+            } else if (e[i] == 'x') {
+                num = (num == -1) ? sign : (num * sign);
+                a += isLeft ? num : -num;
+                num = -1;
+            }
+        }
+    }
+};
+----
+
+下面这种解法也很不错，也是求ax=b等式中的a和b，但是没有根据等号拆分为左右两部分，而是用一个变量sign来控制是对a和b加还是减，这跟上面解法中的的sign不一样。这里没有专门管正负的变量，而是通过双指针，指向数字的范围，这个数字可以是x的系数，也可以是常量，可以带着正负号，然后通过stoi函数将字符串直接转为整型数，然后乘以sign加到a或b中。变量j会指向数字或者符号，当i大于j时，我们就提取出范围内的数字。当我们遇到x的时候，跟上面一样，要处理+x, -x, 0x的情况，我们看前一位的字符，如果是符号，那么我们直接给a加上符号值；如果是数字，就用上面的办法提取出数字乘以sign加到a中。如果遇到了等号，那么先处理前面的数字(如果有的话)，然后flip sign。最后循环结束后，还要考虑最后一位是数字的情况，要加到b中。后面分情况讨论就不多说了，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string solveEquation(string equation) {
+        int n = equation.size(), a = 0, b = 0, sign = 1, j = 0;
+        for (int i = 0; i < n; ++i) {
+            if (equation[i] == '+' || equation[i] == '-') {
+                if (i > j) b += stoi(equation.substr(j, i - j)) * sign;
+                j = i;
+            } else if (equation[i] == 'x') {
+                if (i == j || equation[i - 1] == '+') {
+                    a += sign;
+                } else if (equation[i - 1] == '-') {
+                    a -= sign;
+                } else {
+                    a += stoi(equation.substr(j, i - j)) * sign;
+                }
+                j = i + 1;
+            } else if (equation[i] == '=') {
+                if (i > j) b += stoi(equation.substr(j, i - j)) * sign;
+                sign = -1;
+                j = i + 1;
+            }
+        }
+        if (j < n) b += stoi(equation.substr(j)) * sign;
+        if (a == 0 && a == b) return "Infinite solutions";
+        if (a == 0 && a != b) return "No solution";
+        return "x=" + to_string(-b / a);
+    }
+};
+----

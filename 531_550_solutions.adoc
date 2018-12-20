@@ -1,0 +1,1678 @@
+==== 孤独的像素之一
+
+----
+Given a picture consisting of black and white pixels, find the number of black lonely pixels.
+
+The picture is represented by a 2D char array consisting of 'B' and 'W', which means black and white pixels respectively.
+
+A black lonely pixel is character 'B' that located at a specific position where the same row and same column don't have any other black pixels.
+
+Example:
+
+Input:
+[['W', 'W', 'B'],
+ ['W', 'B', 'W'],
+ ['B', 'W', 'W']]
+
+Output: 3
+----
+
+这道题定义了一种孤独的黑像素，就是该黑像素所在的行和列中没有其他的黑像素，让我们找出所有的这样的像素。那么既然对于每个黑像素都需要查找其所在的行和列，为了避免重复查找，我们可以统一的扫描一次，将各行各列的黑像素的个数都统计出来，然后再扫描所有的黑像素一次，看其是否是该行该列唯一的存在，是的话就累加计数器即可，参见代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findLonelyPixel(vector<vector<char>>& picture) {
+        if (picture.empty() || picture[0].empty()) return 0;
+        int m = picture.size(), n = picture[0].size(), res = 0;
+        vector<int> rowCnt(m, 0), colCnt(n, 0);
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                if (picture[i][j] == 'B') {
+                    ++rowCnt[i];
+                    ++colCnt[j];
+                }
+            }
+        }
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                if (picture[i][j] == 'B') {
+                    if (rowCnt[i] == 1 && colCnt[j] == 1) {
+                        ++res;
+                    }
+                }
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== 数组中差为K的数对
+
+----
+Given an array of integers and an integer k, you need to find the number of unique k-diff pairs in the array. Here a k-diff pair is defined as an integer pair (i, j), where i and j are both numbers in the array and their absolute difference is k.
+
+Example 1:
+
+Input: [3, 1, 4, 1, 5], k = 2
+Output: 2
+----
+
+这道题给了我们一个含有重复数字的无序数组，还有一个整数k，让我们找出有多少对不重复的数对(i, j)使得i和j的差刚好为k。由于k有可能为0，而只有含有至少两个相同的数字才能形成数对，那么就是说我们需要统计数组中每个数字的个数。我们可以建立每个数字和其出现次数之间的映射，然后遍历哈希表中的数字，如果k为0且该数字出现的次数大于1，则结果res自增1；如果k不为0，且用当前数字加上k后得到的新数字也在数组中存在，则结果res自增1，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findPairs(vector<int>& nums, int k) {
+        int res = 0, n = nums.size();
+        unordered_map<int, int> m;
+        for (int num : nums) ++m[num];
+        for (auto a : m) {
+            if (k == 0 && a.second > 1) ++res;
+            if (k > 0 && m.count(a.first + k)) ++res;
+        }
+        return res;
+    }
+};
+----
+
+下面这种方法没有使用哈希表，而是使用了双指针，需要给数组排序，节省了空间的同时牺牲了时间。我们遍历排序后的数组，然后在当前数字之后找第一个和当前数之差不小于k的数字，若这个数字和当前数字之差正好为k，那么结果res自增1，然后遍历后面的数字去掉重复数字，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findPairs(vector<int>& nums, int k) {
+        int res = 0, n = nums.size(), j = 0;
+        sort(nums.begin(), nums.end());
+        for (int i = 0; i < n; ++i) {
+            int j = max(j, i + 1);
+            while (j < n && (long)nums[j] - nums[i] < k) ++j;
+            if (j < n && (long)nums[j] - nums[i] == k) ++res;
+            while (i < n - 1 && nums[i] == nums[i + 1]) ++i;
+        }
+        return res;
+    }
+};
+----
+
+==== 孤独的像素之二
+
+----
+Given a picture consisting of black and white pixels, and a positive integer N, find the number of black pixels located at some specific row R and column C that align with all the following rules:
+
+Row R and column C both contain exactly N black pixels.
+For all rows that have a black pixel at column C, they should be exactly the same as row R
+The picture is represented by a 2D char array consisting of 'B' and 'W', which means black and white pixels respectively.
+----
+
+这道题是之前那道Lonely Pixel I的拓展，我开始以为这次要考虑到对角线的情况，可是这次题目却完全换了一种玩法。给了一个整数N，说对于均含有N个个黑像素的某行某列，如果该列中所有的黑像素所在的行都相同的话，该列的所有黑像素均为孤独的像素，让我们统计所有的这样的孤独的像素的个数。那么跟之前那题类似，我们还是要统计每一行每一列的黑像素的个数，而且由于条件二中要比较各行之间是否相等，如果一个字符一个字符的比较写起来比较麻烦，我们可以用个trick，把每行的字符连起来，形成一个字符串，然后直接比较两个字符串是否相等会简单很多。然后我们遍历每一行和每一列，如果某行和某列的黑像素刚好均为N，我们遍历该列的所有黑像素，如果其所在行均相等，则说明该列的所有黑像素均为孤独的像素，将个数加入结果res中，然后将该行的黑像素统计个数清零，以免重复运算，这样我们就可以求出所有的孤独的像素了，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findBlackPixel(vector<vector<char>>& picture, int N) {
+        if (picture.empty() || picture[0].empty()) return 0;
+        int m = picture.size(), n = picture[0].size(), res = 0, k = 0;
+        vector<int> rowCnt(m, 0), colCnt(n, 0);
+        vector<string> rows(m, "");
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                rows[i].push_back(picture[i][j]);
+                if (picture[i][j] == 'B') {
+                    ++rowCnt[i];
+                    ++colCnt[j];
+                }
+            }
+        }
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                if (rowCnt[i] == N && colCnt[j] == N) {
+                    for (k = 0; k < m; ++k) {
+                        if (picture[k][j] == 'B') {
+                            if (rows[i] != rows[k]) break;
+                        }
+                    }
+                    if (k == m) {
+                        res += colCnt[j];
+                        colCnt[j] = 0;
+                    }
+                }
+            }
+        }
+        return res;
+    }
+};
+----
+
+看到论坛中的比较流行的解法是用哈希表来做的，建立黑像素出现个数为N的行和其出现次数之间的映射，然后我们就只需要统计每列的黑像素的个数，然后我们遍历哈希表，找到出现次数刚好为N的行，说明矩阵中有N个相同的该行，而且该行中的黑像素的个数也刚好为N个，那么第二个条件就已经满足了，我们只要再满足第一个条件就行了，我们在找黑像素为N个的列就行了，有几列就加几个N即可，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findBlackPixel(vector<vector<char>>& picture, int N) {
+        if (picture.empty() || picture[0].empty()) return 0;
+        int m = picture.size(), n = picture[0].size(), res = 0;
+        vector<int> colCnt(n, 0);
+        unordered_map<string, int> u;
+        for (int i = 0; i < m; ++i) {
+            int cnt = 0;
+            for (int j = 0; j < n; ++j) {
+                if (picture[i][j] == 'B') {
+                    ++colCnt[j];
+                    ++cnt;
+                }
+            }
+            if (cnt == N) ++u[string(picture[i].begin(), picture[i].end())];
+        }
+        for (auto a : u) {
+            if (a.second != N) continue;
+            for (int i = 0; i < n; ++i) {
+                res += (a.first[i] == 'B' && colCnt[i] == N) ? N : 0;
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== 设计精简URL地址
+
+----
+How would you design a URL shortening service that is similar to TinyURL?
+
+Background:
+TinyURL is a URL shortening service where you enter a URL such as https://leetcode.com/problems/design-tinyurl and it returns a short URL such as http://tinyurl.com/4e9iAk.
+
+Requirements:
+
+For instance, "http://tinyurl.com/4e9iAk" is the tiny url for the page "https://leetcode.com/problems/design-tinyurl". The identifier (the highlighted part) can be any string with 6 alphanumeric characters containing 0-9, a-z, A-Z.
+Each shortened URL must be unique; that is, no two different URLs can be shortened to the same URL.
+----
+
+----
+这道系统设计的题跟之前的算法还是不一样的，代码只是其中的一部分，估计大部分还是要跟面试官侃大山，博主也不太熟悉这类题目，还是照着ztlevi大神的帖子来写吧。
+
+S: Scenario 场景
+
+长URL和短URL的相互转换
+
+N: Need 需求
+
+- QPS (Queires Per Second) 每秒查询数
+
+  - 日活用户：100M
+
+  - 每日人均使用量：（写）long2short 0.1，（读） short2long 1
+
+  - 每日请求量：写 10M，读 100M
+
+  - QPS：一天共有86400秒，约100K。写 100， 读 1K
+
+  - 峰值QPS：写 200， 读 2K
+
+（千级的量可以用一个单SSD的MySQL机器来处理）
+
+- Storage 存储
+
+  - 每天10M个新映射（长URL到短URL）
+
+  - 一个映射大约占100B的大小
+
+  - 每天1GB，1TB大约能扛三年
+
+  对于这种系统来说，存储不是问题。只有像Netflix那样的系统可能会有存储问题。通过SN分析，我们对系统有了一个大框架印象，这个系统可以使用单SSD机器来实现。
+
+A: API 接口
+
+只有一种类型的服务：URLService
+
+- Core (Business Logic) Layer
+
+- Class: URLService
+
+- Interface:
+
+- URLService.encode(string long_url)
+
+- URLService.decode(stirng short_url)
+
+- Web Layer
+
+- REST API:
+
+- GET: /{short_url}, return a http redirect response (301)
+
+- POST: goo.gl method - google shorten URL
+
+Request Body: {url=longUrl} e.g. {"longUrl": "http://www.google.com/"}
+Return OK(200), short_url is included in the data
+
+
+
+K: Data Access 数据访问
+
+Step 1: Pick a storage structure 选择一个存储结构
+
+- SQL VS NoSQL？
+
+  - 需要支持事务Transactions吗？NoSQL不支持事务Transactions。
+
+  - 需要Rich SQL Query吗？ NoSQL不支持SQL那么多的Query。
+
+  - 需要高效开发吗？大多数的网络框架对SQL的支持性非常好，意味着系统不需要太多的代码。
+
+  - 需要AUTO_INCREMENT ID吗？ NoSQL不支持这个，仅有一个全局卫衣的Object_id。
+
+  - 需要高QPS吗？NoSQL有高性能。比如Memcached的QPS可达到百万级，MondoDB可达万级，MySQL只有千级。
+
+  - 系统的可伸缩性Scalability有多高？SQL需要开发者写代码去伸缩Scale，而NoSQL自带该功能（Sharding，replica）。
+
+- Answer 回答：
+
+  - 不需要 -> NoSQL
+
+  - 不需要 -> NoSQL
+
+  - 无所谓，因为只有很少的代码 -> NoSQL
+
+  - 算法需要AUTO_INCREMENT ID -> SQL
+
+  - 写 200，读 2K，不高 -> SQL
+
+  - 不高 -> SQL
+
+- System Alogrithm 系统算法
+
+  - Hash 函数
+
+　  long_url => md5/sha1
+
+　  - md5将一个字符串转为128位，通常用16个字节的十六进制来表示：
+
+　　  http://site.douban.com/chuan -> c93a360dc7f3eb093ab6e304db516653
+
+　  - sha1将字符串转为160位，通常用20个字节的十六进制来表示：
+
+　　  http://site.douban.com/chuan -> dff85871a72c73c3eae09e39ffe97aea63047094
+
+　 这两个算法使得哈希值是随机分布的，但是冲突Conflicts无法避免。任何哈希算法都无法避免冲突问题。
+
+     - 优点：简单。我们用转换字符串的前6个字符
+
+     - 缺点：冲突
+
+　　  解决方法 1. 使用（long_url + timestamp）作为哈希函数的关键字Key。2. 当冲突时，重新生成哈希值（生成的值不同因为时间戳改变了）。
+
+　　  总之，当urls的个数超过十亿个，可能会有大量的冲突使得系统不高效。
+
+  - base62
+
+　  将short_url用62 base标记。6位可以表示62^6 57 billion。
+
+　  每个short_url表示一个十进制数，可以当作SQL数据库中的AUTO_INCREMENT ID。
+----
+
+[source, cpp, linenums]
+----
+class URLService {
+public:
+    URLService() {
+        COUNTER = 1;
+        elements = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    }
+
+    string longToShort(string url) {
+        string short_url = base10ToBase62(COUNTER);
+        long2short[url] = COUNTER;
+        short2long[COUNTER] = url;
+        ++COUNTER;
+        return "http://tiny.url/" + short_url;
+    }
+
+    string shortToLong(string url) {
+        string prefix = "http://tiny.url/";
+        url = url.substr(prefix.size());
+        int n = base62ToBase10(url);
+        return short2long[n];
+    }
+
+    int base62ToBase10(string s) {
+        int n = 0;
+        for (int i = 0; i < s.size(); ++i) {
+            n = n * 62 + convert(s[i]);
+        }
+        return n;
+    }
+
+    int convert(char c) {
+        if (c >= '0' && c <= '9') {
+            return c - '0';
+        } else if (c >= 'a' && c <= 'z') {
+            return c - 'a' + 10;
+        } else if (c >= 'A' && c <= 'Z') {
+            return c - 'A' + 36;
+        }
+        return -1;
+    }
+
+    string base10ToBase62(int n) {
+        string str = "";
+        while (n != 0) {
+            str.insert(str.begin(), elements[n % 62]);
+            n /= 62;
+        }
+        while (str.size() != 6) {
+            str.insert(str.begin(), '0');
+        }
+        return str;
+    }
+
+private:
+    unordered_map<string, int> long2short;
+    unordered_map<int, string> short2long;
+    int COUNTER;
+    string elements;
+};
+----
+
+----
+Step 2: Database Schema 数据库概要
+
+一个表（id, long_url）。id是主键，通过long_url排序。基本的系统架构为：
+
+Browser <-> Web <-> Core <-> DB
+
+O: Optimize 优化
+
+如何提高响应速度？
+
+- 在网络服务器和数据库之间提高响应速度
+
+使用Memcached来提高响应速度。当获得long_url时，先在缓存中搜索。我们可以把90%的读请求放在缓存当中。
+
+- 在网络服务器和用户浏览器之间提高响应速度
+
+不同的地区使用不同的网络服务器和缓存服务器。所有的地区共享一个数据库用来匹配用户到最近的网络服务器（通过DNS），当他们不在缓存中的时候。
+
+如果我们需要多于一台的MySQL机器？
+
+- 问题：
+
+  - 缓存用完了
+
+  - 越来越多的请求
+
+  - 越来越多的缓存丢失
+
+- 解决方案：
+
+  - 垂直切分 Vertical Sharding
+
+  - 水平切分 Horizontal Sharding
+
+  最好的方式是水平切分。当前的表结构是（id, long_url），哪列可以当作切分关键字。
+
+  一个简单的方法是id模块切分。
+
+  现在有另一个问题：如何能使多个机器共享一个全局的AUTO_INCREMENT ID？
+
+  两种方法：1. 多使用一个机器去维护id。2. 使用zookeeper。都很操蛋。
+
+  所以，我们不适用AUTO_INCREMENT ID
+
+  好处是将切分关键字当作short_url的第一个字节。
+
+  另一种方法是用统一的哈希将循环断成62份。有多少份并没有啥关系，因为可能并没有62台机器（可能有360或其他的）。每台机器都是为循环的一部分的服务负责。
+
+  write long_url -> hash(long_url)%62 -> put long_url to the specific machine according to hash value -> generate short_url on this machine -> return short_url
+
+  short_url request -> get the sharding key (first byte of the short_url) -> search in the corresponding machine based on sharding key -> return long_url
+
+  每当我们增加一台新机器，将最多使用的机器的一半范围放到心的机器中。
+
+更多优化
+
+将中文服务器放在中国，美国的服务器放在美国。使用地理信息当作切分关键字，例如，0是中国的网站，1是美国的网站。
+----
+
+==== 编码和解码精简URL地址
+
+----
+TinyURL is a URL shortening service where you enter a URL such as https://leetcode.com/problems/design-tinyurl and it returns a short URL such as http://tinyurl.com/4e9iAk.
+
+Design the encode and decode methods for the TinyURL service. There is no restriction on how your encode/decode algorithm should work. You just need to ensure that a URL can be encoded to a tiny URL and the tiny URL can be decoded to the original URL.
+----
+
+这道题让我们编码和解码精简URL地址，这其实很有用，因为有的链接地址特别的长，就很烦，如果能精简成固定的长度，就很清爽。最简单的一种编码就是用个计数器，当前是第几个存入的url就编码成几，然后解码的时候也能根据数字来找到原来的url，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+
+    // Encodes a URL to a shortened URL.
+    string encode(string longUrl) {
+        url.push_back(longUrl);
+        return "http://tinyurl.com/" + to_string(url.size() - 1);
+    }
+
+    // Decodes a shortened URL to its original URL.
+    string decode(string shortUrl) {
+        auto pos = shortUrl.find_last_of("/");
+        return url[stoi(shortUrl.substr(pos + 1))];
+    }
+
+private:
+    vector<string> url;
+};
+----
+
+上面这种方法虽然简单，但是缺点却很多，首先，如果接受到多次同一url地址，仍然会当做不同的url来处理。当然这个缺点可以通过将vector换成哈希表，每次先查找url是否已经存在。虽然这个缺点可以克服掉，但是由于是用计数器编码，那么当前服务器存了多少url就曝露出来了，也许会有安全隐患。而且计数器编码另一个缺点就是数字会不断的增大，那么编码的长度也就不是确定的了。而题目中明确推荐了使用六位随机字符来编码，那么我们只要在所有大小写字母和数字中随机产生6个字符就可以了，我们用哈希表建立6位字符和url之间的映射，如果随机生成的字符之前已经存在了，我们就继续随机生成新的字符串，直到生成了之前没有的字符串为止。下面的代码中使用了两个哈希表，目的是为了建立六位随机字符串和url之间的相互映射，这样进来大量的相同url时，就不用生成新的随机字符串了。当然，不加这个功能也能通过OJ，这道题的OJ基本上是形同虚设，两个函数分别直接返回参数字符串也能通过OJ，囧～ +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    Solution() {
+        dict = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        short2long.clear();
+        long2short.clear();
+        srand(time(NULL));
+    }
+
+    // Encodes a URL to a shortened URL.
+    string encode(string longUrl) {
+        if (long2short.count(longUrl)) {
+            return "http://tinyurl.com/" + long2short[longUrl];
+        }
+        int idx = 0;
+        string randStr;
+        for (int i = 0; i < 6; ++i) randStr.push_back(dict[rand() % 62]);
+        while (short2long.count(randStr)) {
+            randStr[idx] = dict[rand() % 62];
+            idx = (idx + 1) % 5;
+        }
+        short2long[randStr] = longUrl;
+        long2short[longUrl] = randStr;
+        return "http://tinyurl.com/" + randStr;
+    }
+
+    // Decodes a shortened URL to its original URL.
+    string decode(string shortUrl) {
+        string randStr = shortUrl.substr(shortUrl.find_last_of("/") + 1);
+        return short2long.count(randStr) ? short2long[randStr] : shortUrl;
+    }
+
+private:
+    unordered_map<string, string> short2long, long2short;
+    string dict;
+};
+----
+
+==== 从字符串创建二叉树
+
+----
+You need to construct a binary tree from a string consisting of parenthesis and integers.
+
+The whole input represents a binary tree. It contains an integer followed by zero, one or two pairs of parenthesis. The integer represents the root's value and a pair of parenthesis contains a child binary tree with the same structure.
+
+You always start to construct the left child node of the parent first if it exists.
+
+Example:
+
+Input: "4(2(3)(1))(6(5))"
+Output: return the tree root node representing the following tree:
+
+       4
+     /   \
+    2     6
+   / \   /
+  3   1 5
+----
+
+这道题让我们根据一个字符串来创建一个二叉树，其中结点与其左右子树是用括号隔开，每个括号中又是数字后面的跟括号的模式，这种模型就很有递归的感觉，所以我们当然可以使用递归来做。首先我们要做的是先找出根结点值，我们找第一个左括号的位置，如果找不到，说明当前字符串都是数字，直接转化为整型，然后新建结点返回即可。否则的话从当前位置开始遍历，因为当前位置是一个左括号，我们的目标是找到与之对应的右括号的位置，但是由于中间还会遇到左右括号，所以我们需要用一个变量cnt来记录左括号的个数，如果遇到左括号，cnt自增1，如果遇到右括号，cnt自减1，这样当某个时刻cnt为0的时候，我们就确定了一个完整的子树的位置，那么问题来了，这个子树到底是左子树还是右子树呢，我们需要一个辅助变量start，当最开始找到第一个左括号的位置时，将start赋值为该位置，那么当cnt为0时，如果start还是原来的位置，说明这个是左子树，我们对其调用递归函数，注意此时更新start的位置，这样就能区分左右子树了，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    TreeNode* str2tree(string s) {
+        if (s.empty()) return NULL;
+        auto found = s.find('(');
+        int val = (found == string::npos) ? stoi(s) : stoi(s.substr(0, found));
+        TreeNode *cur = new TreeNode(val);
+        if (found == string::npos) return cur;
+        int start = found, cnt = 0;
+        for (int i = start; i < s.size(); ++i) {
+            if (s[i] == '(') ++cnt;
+            else if (s[i] == ')') --cnt;
+            if (cnt == 0 && start == found) {
+                cur->left = str2tree(s.substr(start + 1, i - start - 1));
+                start = i + 1;
+            } else if (cnt == 0) {
+                cur->right = str2tree(s.substr(start + 1, i - start - 1));
+            }
+        }
+        return cur;
+    }
+};
+----
+
+下面这种解法使用迭代来做的，借助栈stack来实现。遍历字符串s，用变量j记录当前位置i，然后看当前遍历到的字符是什么，如果遇到的是左括号，什么也不做继续遍历；如果遇到的是数字或者负号，那么我们将连续的数字都找出来，然后转为整型并新建结点，此时我们看stack中是否有结点，如果有的话，当前结点就是栈顶结点的子结点，如果栈顶结点没有左子结点，那么此结点就是其左子结点，反之则为其右子结点。之后要将此结点压入栈中。如果我们遍历到的是右括号，说明栈顶元素的子结点已经处理完了，将其移除栈，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    TreeNode* str2tree(string s) {
+        if (s.empty()) return NULL;
+        stack<TreeNode*> st;
+        for (int i = 0; i < s.size(); ++i) {
+            int j = i;
+            if (s[i] == ')') st.pop();
+            else if ((s[i] >= '0' && s[i] <= '9') || s[i] == '-') {
+                while (i + 1 < s.size() && s[i + 1] >= '0' && s[i + 1] <= '9') ++i;
+                TreeNode *cur = new TreeNode(stoi(s.substr(j, i - j + 1)));
+                if (!st.empty()) {
+                    TreeNode *t = st.top();
+                    if (!t->left) t->left = cur;
+                    else t->right = cur;
+                }
+                st.push(cur);
+            }
+        }
+        return st.top();
+    }
+};
+----
+
+==== 复数相乘
+
+----
+Given two strings representing two complex numbers.
+
+You need to return a string representing their multiplication. Note i2 = -1 according to the definition.
+
+Example 1:
+Input: "1+1i", "1+1i"
+Output: "0+2i"
+Explanation: (1 + i) * (1 + i) = 1 + i
+----
+
+这道题让我们求复数的乘法，有关复数的知识最早还是在本科的复变函数中接触到的，难起来还真是难。但是这里只是最简单的乘法，只要利用好定义i2=-1就可以解题，而且这道题的另一个考察点其实是对字符的处理，我们需要把字符串中的实部和虚部分离开并进行运算，那么我们可以用STL中自带的find_last_of函数来找到加号的位置，然后分别拆出实部虚部，进行运算后再变回字符串，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string complexNumberMultiply(string a, string b) {
+        int n1 = a.size(), n2 = b.size();
+        auto p1 = a.find_last_of("+"), p2 = b.find_last_of("+");
+        int a1 = stoi(a.substr(0, p1)), b1 = stoi(b.substr(0, p2));
+        int a2 = stoi(a.substr(p1 + 1, n1 - p1 - 2));
+        int b2 = stoi(b.substr(p2 + 1, n2 - p2 - 2));
+        int r1 = a1 * b1 - a2 * b2, r2 = a1 * b2 + a2 * b1;
+        return to_string(r1) + "+" + to_string(r2) + "i";
+    }
+};
+----
+
+下面这种方法利用到了字符串流类istringstream来读入字符串，直接将实部虚部读入int变量中，注意中间也要把加号读入char变量中，然后再进行运算即可，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string complexNumberMultiply(string a, string b) {
+        istringstream is1(a), is2(b);
+        int a1, a2, b1, b2, r1, r2;
+        char plus;
+        is1 >> a1 >> plus >> a2;
+        is2 >> b1 >> plus >> b2;
+        r1 = a1 * b1 - a2 * b2, r2 = a1 * b2 + a2 * b1;
+        return to_string(r1) + "+" + to_string(r2) + "i";
+    }
+};
+----
+
+下面这种解法实际上是C语言的解法，用到了sscanf这个读入字符串的函数，需要把string转为cost char*型，然后标明读入的方式和类型，再进行运算即可，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string complexNumberMultiply(string a, string b) {
+        int a1, a2, b1, b2, r1, r2;
+        sscanf(a.c_str(), "%d+%di", &a1, &a2);
+        sscanf(b.c_str(), "%d+%di", &b1, &b2);
+        r1 = a1 * b1 - a2 * b2, r2 = a1 * b2 + a2 * b1;
+        return to_string(r1) + "+" + to_string(r2) + "i";
+    }
+};
+----
+
+==== 将二叉搜索树BST转为较大树
+
+----
+Given a Binary Search Tree (BST), convert it to a Greater Tree such that every key of the original BST is changed to the original key plus sum of all keys greater than the original key in BST.
+
+Example:
+
+Input: The root of a Binary Search Tree like this:
+              5
+            /   \
+           2     13
+
+Output: The root of a Greater Tree like this:
+             18
+            /   \
+          20     13
+----
+
+这道题让我们将二叉搜索树转为较大树，通过题目汇总的例子可以明白，是把每个结点值加上所有比它大的结点值总和当作新的结点值。仔细观察题目中的例子可以发现，2变成了20，而20是所有结点之和，因为2是最小结点值，要加上其他所有结点值，所以肯定就是所有结点值之和。5变成了18，是通过20减去2得来的，而13还是13，是由20减去7得来的，而7是2和5之和。我开始想的方法是先求出所有结点值之和，然后开始中序遍历数组，同时用变量sum来记录累加和，根据上面分析的规律来更新所有的数组。但是通过看论坛，发现还有更巧妙的方法，不用先求出的所有的结点值之和，而是巧妙的将中序遍历左根右的顺序逆过来，变成右根左的顺序，这样就可以反向计算累加和sum，同时更新结点值，叼的不行，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    TreeNode* convertBST(TreeNode* root) {
+        int sum = 0;
+        helper(root, sum);
+        return root;
+    }
+    void helper(TreeNode*& node, int& sum) {
+        if (!node) return;
+        helper(node->right, sum);
+        node->val += sum;
+        sum = node->val;
+        helper(node->left, sum);
+    }
+};
+----
+
+下面这种方法写的更加简洁一些，没有写其他递归函数，而是把自身写成了可以递归调用的函数，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    TreeNode* convertBST(TreeNode* root) {
+        if (!root) return NULL;
+        convertBST(root->right);
+        root->val += sum;
+        sum = root->val;
+        convertBST(root->left);
+        return root;
+    }
+
+private:
+    int sum = 0;
+};
+----
+
+下面这种解法是迭代的写法，因为中序遍历有递归和迭代两种写法，逆中序遍历同样也可以写成迭代的形式，参加代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    TreeNode* convertBST(TreeNode* root) {
+        if (!root) return NULL;
+        int sum = 0;
+        stack<TreeNode*> st;
+        TreeNode *p = root;
+        while (p || !st.empty()) {
+            while (p) {
+                st.push(p);
+                p = p->right;
+            }
+            p = st.top(); st.pop();
+            p->val += sum;
+            sum = p->val;
+            p = p->left;
+        }
+        return root;
+    }
+};
+----
+
+==== 最短时间差
+
+----
+Given a list of 24-hour clock time points in "Hour:Minutes" format, find the minimum minutes difference between any two time points in the list.
+
+Example 1:
+
+Input: ["23:59","00:00"]
+Output: 1
+----
+这道题给了我们一系列无序的时间点，让我们求最短的两个时间点之间的差值。那么最简单直接的办法就是给数组排序，这样时间点小的就在前面了，然后我们分别把小时和分钟提取出来，计算差值，注意唯一的特殊情况就是第一个和末尾的时间点进行比较，第一个时间点需要加上24小时再做差值，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findMinDifference(vector<string>& timePoints) {
+        int res = INT_MAX, n = timePoints.size(), diff = 0;
+        sort(timePoints.begin(), timePoints.end());
+        for (int i = 0; i < n; ++i) {
+            string t1 = timePoints[i], t2 = timePoints[(i + 1) % n];
+            int h1 = (t1[0] - '0') * 10 + t1[1] - '0';
+            int m1 = (t1[3] - '0') * 10 + t1[4] - '0';
+            int h2 = (t2[0] - '0') * 10 + t2[1] - '0';
+            int m2 = (t2[3] - '0') * 10 + t2[4] - '0';
+            diff = (h2 - h1) * 60 + (m2 - m1);
+            if (i == n - 1) diff += 24 * 60;
+            res = min(res, diff);
+        }
+        return res;
+    }
+};
+----
+
+下面这种写法跟上面的大体思路一样，写法上略有不同，是在一开始就把小时和分钟数提取出来并计算总分钟数存入一个新数组，然后再对新数组进行排序，再计算两两之差，最后还是要处理首尾之差，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findMinDifference(vector<string>& timePoints) {
+        int res = INT_MAX, n = timePoints.size();
+        vector<int> nums;
+        for (string str : timePoints) {
+            int h = stoi(str.substr(0, 2)), m = stoi(str.substr(3));
+            nums.push_back(h * 60 + m);
+        }
+        sort(nums.begin(), nums.end());
+        for (int i = 1; i < n; ++i) {
+            res = min(res, nums[i] - nums[i - 1]);
+        }
+        return min(res, 1440 + nums[0] - nums.back());
+    }
+};
+----
+
+上面两种方法的时间复杂度都是O(nlgn)，我们来看一种O(n)时间复杂度的方法，由于时间点并不是无穷多个，而是只有1440个，所以我们建立一个大小为1440的数组来标记某个时间点是否出现过，如果之前已经出现过，说明有两个相同的时间点，直接返回0即可；若没有，将当前时间点标记为出现过。我们还需要一些辅助变量，pre表示之前遍历到的时间点，first表示按顺序排的第一个时间点，last表示按顺序排的最后一个时间点，然后我们再遍历这个mask数组，如果当前时间点出现过，再看如果first不为初始值的话，说明pre已经被更新过了，我们用当前时间点减去pre来更新结果res，然后再分别更新first，last，和pre即可，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findMinDifference(vector<string>& timePoints) {
+        int res = INT_MAX, pre = 0, first = INT_MAX, last = INT_MIN;
+        vector<int> mask(1440, 0);
+        for (string str : timePoints) {
+            int h = stoi(str.substr(0, 2)), m = stoi(str.substr(3));
+            if (mask[h * 60 + m] == 1) return 0;
+            mask[h * 60 + m] = 1;
+        }
+        for (int i = 0; i < 1440; ++i) {
+            if (mask[i] == 1) {
+                if (first != INT_MAX) {
+                    res = min(res, i - pre);
+                }
+                first = min(first, i);
+                last = max(last, i);
+                pre = i;
+            }
+        }
+        return min(res, 1440 + first - last);
+    }
+};
+----
+
+==== 有序数组中的单独元素
+
+----
+Given a sorted array consisting of only integers where every element appears twice except for one element which appears once. Find this single element that appears only once.
+
+Example 1:
+
+Input: [1,1,2,3,3,4,4,8,8]
+Output: 2
+----
+
+----
+这道题给我们了一个有序数组，说是所有的元素都出现了两次，除了一个元素，让我们找到这个元素。如果没有时间复杂度的限制，我们可以用多种方法来做，最straightforward的解法就是用个双指针，每次检验两个，就能找出落单的。也可以像Single Number里的方法那样，将所有数字亦或起来，相同的数字都会亦或成0，剩下就是那个落单的数字。那么由于有了时间复杂度的限制，需要为O(logn)，而数组又是有序的，不难想到要用二分搜索法来做。二分搜索法的难点在于折半了以后，如何判断将要去哪个分支继续搜索，而这道题确实判断条件不明显，比如下面两个例子：
+
+1  1  2  2  3
+
+1  2  2  3  3
+
+这两个例子初始化的时候left=0, right=4一样，mid算出来也一样为2，但是他们要去的方向不同，如何区分出来呢？仔细观察我们可以发现，如果当前数字出现两次的话，我们可以通过数组的长度跟当前位置的关系，计算出右边和当前数字不同的数字的总个数，如果是偶数个，说明落单数左半边，反之则在右半边。有了这个规律就可以写代码了，为啥我们直接就能跟mid+1比呢，不怕越界吗？当然不会，因为left如何跟right相等，就不会进入循环，所以mid一定会比right小，一定会有mid+1存在。当然mid是有可能为0的，所以此时当mid和mid+1的数字不等时，我们直接返回mid的数字就可以了，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int singleNonDuplicate(vector<int>& nums) {
+        int left = 0, right = nums.size() - 1, n = nums.size();
+        while (left < right) {
+            int mid = left + (right - left) / 2;
+            if (nums[mid] == nums[mid + 1]) {
+                if ((n - 1 - mid) % 2 == 1) right = mid;
+                else left = mid + 1;
+            } else {
+                if (mid == 0 || nums[mid] != nums[mid - 1]) return nums[mid];
+                if ((n - 1 - mid) % 2 == 0) right = mid;
+                else left = mid + 1;
+            }
+        }
+        return nums[left];
+    }
+};
+----
+
+下面这种解法是对上面的分支进行合并，使得代码非常的简洁。使用到了亦或1这个小技巧，为什么要亦或1呢，原来我们可以将坐标两两归为一对，比如0和1，2和3，4和5等等。而亦或1可以直接找到你的小伙伴，比如对于2，亦或1就是3，对于3，亦或1就是2。如果你和你的小伙伴相等了，说明落单数在右边，如果不等，说明在左边，这方法，太叼了有木有，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int singleNonDuplicate(vector<int>& nums) {
+        int left = 0, right = nums.size() - 1;
+        while (left < right) {
+            int mid = left + (right - left) / 2;
+            if (nums[mid] == nums[mid ^ 1]) left = mid + 1;
+            else right = mid;
+        }
+        return nums[left];
+    }
+};
+----
+
+下面这种解法其实跟上面的方法其实有些类似，虽然没有亦或1，但是将right缩小了一倍，但是在比较的时候，是比较mid*2和mid*2+1的关系的，这样还是能正确的比较原本应该相等的两个小伙伴的值的，其实核心思路和上面一样，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int singleNonDuplicate(vector<int>& nums) {
+        int left = 0, right = nums.size() / 2;
+        while (left < right) {
+            int mid = left + (right - left) / 2;
+            if (nums[mid * 2] == nums[mid * 2 + 1]) left = mid + 1;
+            else right = mid;
+        }
+        return nums[left * 2];
+    }
+};
+----
+
+下面这种方法其实跟解法二很像，没有用亦或1，但是对mid进行了处理，强制使其成为小伙伴对儿中的第一个位置，然后跟另一个小伙伴比较大小，参见代码如下： +
+
+**解法4:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int singleNonDuplicate(vector<int>& nums) {
+        int left = 0, right = nums.size() - 1;
+        while (left < right) {
+            int mid = left + (right - left) / 2;
+            if (mid % 2 == 1) --mid;
+            if (nums[mid] == nums[mid + 1]) left = mid + 2;
+            else right = mid;
+        }
+        return nums[left];
+    }
+};
+----
+
+==== 翻转字符串之二
+
+----
+Given a string and an integer k, you need to reverse the first k characters for every 2k characters counting from the start of the string. If there are less than k characters left, reverse all of them. If there are less than 2k but greater than or equal to k characters, then reverse the first k characters and left the other as original.
+
+Example:
+Input: s = "abcdefg", k = 2
+Output: "bacdfeg"
+----
+
+这道题是之前那道题Reverse String的拓展，同样是翻转字符串，但是这里是每隔k隔字符，翻转k个字符，最后如果不够k个了的话，剩几个就翻转几个。比较直接的方法就是先用n／k算出来原字符串s能分成几个长度为k的字符串，然后开始遍历这些字符串，遇到2的倍数就翻转，翻转的时候注意考虑下是否已经到s末尾了，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string reverseStr(string s, int k) {
+        int n = s.size(), cnt = n / k;
+        for (int i = 0; i <= cnt; ++i) {
+            if (i % 2 == 0) {
+                if (i * k + k < n) {
+                    reverse(s.begin() + i * k, s.begin() + i * k + k);
+                } else {
+                    reverse(s.begin() + i * k, s.end());
+                }
+            }
+        }
+        return s;
+    }
+};
+----
+
+在论坛里又发现了写法更为简洁的方法，就是每2k个字符来遍历原字符串s，然后进行翻转，翻转的结尾位置是取i+k和末尾位置之间的较小值，感觉很叼，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string reverseStr(string s, int k) {
+        for (int i = 0; i < s.size(); i += 2 * k) {
+            reverse(s.begin() + i, min(s.begin() + i + k, s.end()));
+        }
+        return s;
+    }
+};
+----
+
+==== 零一矩阵
+
+----
+Given a matrix consists of 0 and 1, find the distance of the nearest 0 for each cell.
+
+The distance between two adjacent cells is 1.
+----
+
+这道题给了我们一个只有0和1的矩阵，让我们求每一个1到离其最近的0的距离，其实也就是求一个距离场，而求距离场那么BFS将是不二之选。刚看到此题时，我以为这跟之前那道Shortest Distance from All Buildings是一样的，从每一个0开始遍历，不停的更新每一个1的距离，但是这样写下来TLE了。后来我又改变思路，从每一个1开始BFS，找到最近的0，结果还是TLE，气死人。后来逛论坛发现思路是对的，就是写法上可以进一步优化，我们可以首先遍历一次矩阵，将值为0的点都存入queue，将值为1的点改为INT_MAX。之前像什么遍历迷宫啊，起点只有一个，而这道题所有为0的点都是起点，这想法，叼！然后开始BFS遍历，从queue中取出一个数字，遍历其周围四个点，如果越界或者周围点的值小于等于当前值，则直接跳过。因为周围点的距离更小的话，就没有更新的必要，否则将周围点的值更新为当前值加1，然后把周围点的坐标加入queue，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<int>> updateMatrix(vector<vector<int>>& matrix) {
+        int m = matrix.size(), n = matrix[0].size();
+        vector<vector<int>> dirs{{0,-1},{-1,0},{0,1},{1,0}};
+        queue<pair<int, int>> q;
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                if (matrix[i][j] == 0) q.push({i, j});
+                else matrix[i][j] = INT_MAX;
+            }
+        }
+        while (!q.empty()) {
+            auto t = q.front(); q.pop();
+            for (auto dir : dirs) {
+                int x = t.first + dir[0], y = t.second + dir[1];
+                if (x < 0 || x >= m || y < 0 || y >= n ||
+                matrix[x][y] <= matrix[t.first][t.second]) continue;
+                matrix[x][y] = matrix[t.first][t.second] + 1;
+                q.push({x, y});
+            }
+        }
+        return matrix;
+    }
+};
+----
+
+下面这种解法是参考的qswawrq大神的帖子，他想出了一种二次扫描的解法，从而不用使用BFS了。这种解法也相当的巧妙，我们首先建立一个和matrix大小相等的矩阵res，初始化为很大的值，这里我们用INT_MAX-1，为甚么要减1呢，后面再说。然后我们遍历matrix矩阵，当遇到为0的位置，我们将结果res矩阵的对应位置也设为0，这make sense吧，就不多说了。然后就是这个解法的精髓了，如果不是0的地方，我们在第一次扫描的时候，比较其左边和上边的位置，取其中较小的值，再加上1，来更新结果res中的对应位置。这里就明白了为啥我们要初始化为INT_MAX-1了吧，因为这里要加1，如果初始化为INT_MAX就会整型溢出，不过放心，由于是取较小值，res[i][j]永远不会取到INT_MAX，所以不会有再加1溢出的风险。第一次遍历我们比较了左和上的方向，那么我们第二次遍历就要比较右和下的方向，注意两种情况下我们不需要比较，一种是当值为0时，还有一种是当值为1时，这两种情况下值都不可能再变小了，所以没有更新的必要，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<int>> updateMatrix(vector<vector<int>>& matrix) {
+        int m = matrix.size(), n = matrix[0].size();
+        vector<vector<int>> res(m, vector<int>(n, INT_MAX - 1));
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                if (matrix[i][j] == 0) res[i][j] = 0;
+                else {
+                    if (i > 0) res[i][j] = min(res[i][j], res[i - 1][j] + 1);
+                    if (j > 0) res[i][j] = min(res[i][j], res[i][j - 1] + 1);
+                }
+            }
+        }
+        for (int i = m - 1; i >= 0; --i) {
+            for (int j = n - 1; j >= 0; --j) {
+                if (res[i][j] != 0 && res[i][j] != 1) {
+                    if (i < m - 1) res[i][j] = min(res[i][j], res[i + 1][j] + 1);
+                    if (j < n - 1) res[i][j] = min(res[i][j], res[i][j + 1] + 1);
+                }
+            }
+        }
+        return res;
+    }
+};
+----
+
+在史蒂芬大神的帖子中，他提出了一种变型的方法，没有再区分左上右下，而是每次都跟左边相比，但是需要每次把矩阵旋转90度。他用python写的解法异常的简洁，貌似python中可以一行代码进行矩阵旋转，但是貌似C++没有这么叼，矩阵旋转写起来还是需要两个for循环，写出来估计也不短，这里就不写了，有兴趣的童鞋可以自己试试写一下，可以贴到留言板上哈～ +
+
+==== 二叉树的直径
+
+----
+Given a binary tree, you need to compute the length of the diameter of the tree. The diameter of a binary tree is the length of the longestpath between any two nodes in a tree. This path may or may not pass through the root.
+----
+
+这道题让我们求二叉树的直径，并告诉了我们直径就是两点之间的最远距离，根据题目中的例子也不难理解题意。
+我们再来仔细观察例子中的那两个最长路径[4,2,1,3] 和 [5,2,1,3]，我们转换一种角度来看，是不是其实就是根结点1的左右两个子树的深度之和再加1呢。
+那么我们只要对每一个结点求出其左右子树深度之和，再加上1就可以更新结果res了。为了减少重复计算，
+我们用哈希表建立每个结点和其深度之间的映射，这样某个结点的深度之前计算过了，就不用再次计算了，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int diameterOfBinaryTree(TreeNode* root) {
+        if (!root) return 0;
+        int res = getHeight(root->left) + getHeight(root->right);
+        return max(res, max(diameterOfBinaryTree(root->left), diameterOfBinaryTree(root->right)));
+    }
+    int getHeight(TreeNode* node) {
+        if (!node) return 0;
+        if (m.count(node)) return m[node];
+        int h = 1 + max(getHeight(node->left), getHeight(node->right));
+        return m[node] = h;
+    }
+
+private:
+    unordered_map<TreeNode*, int> m;
+};
+----
+
+上面的方法貌似有两个递归函数，其实我们只需要用一个递归函数就可以了，我们再求深度的递归函数中顺便就把直径算出来了，而且貌似不用进行优化也能通过OJ，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int diameterOfBinaryTree(TreeNode* root) {
+        int res = 0;
+        maxDepth(root, res);
+        return res;
+    }
+    int maxDepth(TreeNode* node, int& res) {
+        if (!node) return 0;
+        int left = maxDepth(node->left, res);
+        int right = maxDepth(node->right, res);
+        res = max(res, left + right);
+        return max(left, right) + 1;
+    }
+};
+----
+虽说不用进行优化也能通过OJ，但是毕竟还是优化一下好一点啊，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int diameterOfBinaryTree(TreeNode* root) {
+        int res = 0;
+        maxDepth(root, res);
+        return res;
+    }
+    int maxDepth(TreeNode* node, int& res) {
+        if (!node) return 0;
+        if (m.count(node)) return m[node];
+        int left = maxDepth(node->left, res);
+        int right = maxDepth(node->right, res);
+        res = max(res, left + right);
+        return m[node] = (max(left, right) + 1);
+    }
+
+private:
+    unordered_map<TreeNode*, int> m;
+};
+----
+
+==== 输出比赛匹配对
+
+----
+During the NBA playoffs, we always arrange the rather strong team to play with the rather weak team, like make the rank 1 team play with the rank nth team, which is a good strategy to make the contest more interesting. Now, you're given n teams, you need to output their final contest matches in the form of a string.
+
+The n teams are given in the form of positive integers from 1 to n, which represents their initial rank. (Rank 1 is the strongest team and Rank n is the weakest team.) We'll use parentheses('(', ')') and commas(',') to represent the contest team pairing - parentheses('(' , ')') for pairing and commas(',') for partition. During the pairing process in each round, you always need to follow the strategy of making the rather strong one pair with the rather weak one.
+----
+
+----
+这道题讲的是NBA的季后赛对战顺序，对于一个看了十几年NBA的老粉来说，再熟悉不过了。这种对战顺序是为了避免强强之间过早对决，从而失去比赛的公平性，跟欧冠欧联那种八强就开始随机抽签匹配有本质上的区别。NBA的这种比赛机制基本弱队很难翻身，假如你是拿到最后一张季后赛门票进的，那么一上来就干联盟第一，肯定凶多吉少，很有可能就被横扫了。但是偶尔也会出现黑八的情况，但都是极其少见的，毕竟像勇士这么叼的球队毕竟不多。好了，不闲扯了，来做题吧。我们就拿NBA这种八个球队的情况来分析吧，八只球队的排名是按常规赛胜率来排的：
+
+1 2 3 4 5 6 7 8
+
+因为是最强和最弱来对决，其次是次强与次弱对决，以此类推可得到：
+
+1-8  2-7  3-6  4-5
+
+那么接下来呢，还是最强与最弱，次强与次弱这种关系：
+
+(1-8  4-5)  (2-7  3-6)
+
+最后胜者争夺冠军
+
+((1-8  4-5)  (2-7  3-6))
+
+这样一分析是不是就清楚了呢，由于n限定了是2的次方数，那么就是可以一直对半分的，比如开始有n队，第一拆分为n/2对匹配，然后再对半拆，就是n/2/2，直到拆到n为1停止，而且每次都是首与末配对，次首与次末配对，这样搞清楚了规律，代码应该就不难写了吧，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string findContestMatch(int n) {
+        vector<string> v;
+        for (int i = 1; i <= n; ++i) v.push_back(to_string(i));
+        while (n > 1) {
+            for (int i = 0; i < n / 2; ++i) {
+                v[i] = "(" + v[i] + "," + v[n - i - 1] + ")";
+            }
+            n /= 2;
+        }
+        return v[0];
+    }
+};
+----
+
+下面这种方法是递归的写法，解题思路跟上面没有区别，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string findContestMatch(int n) {
+        vector<string> v;
+        for (int i = 1; i <= n; ++i) v.push_back(to_string(i));
+        helper(n, v);
+        return v[0];
+    }
+    void helper(int n, vector<string>& v) {
+        if (n == 1) return;
+        for (int i = 0; i < n; ++i) {
+            v[i] = "(" + v[i] + "," + v[n - i - 1] + ")";
+        }
+        helper(n / 2, v);
+    }
+};
+----
+
+==== 二叉树的边界
+
+----
+Given a binary tree, return the values of its boundary in anti-clockwise direction starting from root. Boundary includes left boundary, leaves, and right boundary in order without duplicate nodes.
+
+Left boundary is defined as the path from root to the left-most node. Right boundary is defined as the path from root to the right-most node. If the root doesn't have left subtree or right subtree, then the root itself is left boundary or right boundary. Note this definition only applies to the input binary tree, and not applies to any subtrees.
+
+The left-most node is defined as a leaf node you could reach when you always firstly travel to the left subtree if exists. If not, travel to the right subtree. Repeat until you reach a leaf node.
+
+The right-most node is also defined by the same way with left and right exchanged.
+----
+
+这道题给了我们一棵二叉树，让我们以逆时针的顺序来输出树的边界，按顺序分别为左边界，叶结点和右边界。题目中给的例子也能让我们很清晰的明白哪些算是边界上的结点。那么最直接的方法就是分别按顺序求出左边界结点，叶结点，和右边界结点。那么如何求的，对于树的操作肯定是用递归最简洁啊，所以我们可以写分别三个递归函数来分别求左边界结点，叶结点，和右边界结点。首先我们先要处理根结点的情况，当根结点没有左右子结点时，其也是一个叶结点，那么我们一开始就将其加入结果res中，那么再计算叶结点的时候又会再加入一次，这样不对。所以我们判断如果根结点至少有一个子结点，我们才提前将其加入结果res中。然后再来看求左边界结点的函数，如果当前结点不存在，或者没有子结点，我们直接返回。否则就把当前结点值加入结果res中，然后看如果左子结点存在，就对其调用递归函数，反之如果左子结点不存在，那么对右子结点调用递归函数。而对于求右边界结点的函数就反过来了，如果右子结点存在，就对其调用递归函数，反之如果右子结点不存在，就对左子结点调用递归函数，注意在调用递归函数之后才将结点值加入结果res，因为我们是需要按逆时针的顺序输出。最后就来看求叶结点的函数，没什么可说的，就是看没有子结点存在了就加入结果res，然后对左右子结点分别调用递归即可，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> boundaryOfBinaryTree(TreeNode* root) {
+        if (!root) return {};
+        vector<int> res;
+        if (root->left || root->right) res.push_back(root->val);
+        leftBoundary(root->left, res);
+        leaves(root, res);
+        rightBoundary(root->right, res);
+        return res;
+    }
+    void leftBoundary(TreeNode* node, vector<int>& res) {
+        if (!node || (!node->left && !node->right)) return;
+        res.push_back(node->val);
+        if (!node->left) leftBoundary(node->right, res);
+        else leftBoundary(node->left, res);
+    }
+    void rightBoundary(TreeNode* node, vector<int>& res) {
+        if (!node || (!node->left && !node->right)) return;
+        if (!node->right) rightBoundary(node->left, res);
+        else rightBoundary(node->right, res);
+        res.push_back(node->val);
+    }
+    void leaves(TreeNode* node, vector<int>& res) {
+        if (!node) return;
+        if (!node->left && !node->right) {
+            res.push_back(node->val);
+        }
+        leaves(node->left, res);
+        leaves(node->right, res);
+    }
+};
+----
+
+下面这种方法把上面三种不同的递归揉合到了一个递归中，并用bool型变量来标记当前是求左边界结点还是求右边界结点，同时还有加入叶结点到结果res中的功能。如果左边界标记为true，那么将结点值加入结果res中，下面就是调用对左右结点调用递归函数了。根据上面的解题思路我们知道，如果是求左边界结点，优先调用左子结点，当左子结点不存在时再调右子结点，而对于求右边界结点，优先调用右子结点，当右子结点不存在时再调用左子结点。综上考虑，在对左子结点调用递归函数时，左边界标识设为leftbd && node->left，而对右子结点调用递归的左边界标识设为leftbd && !node->left，这样左子结点存在就会被优先调用。而右边界结点的情况就正好相反，调用左子结点的右边界标识为rightbd && !node->right, 调用右子结点的右边界标识为 rightbd && node->right，这样就保证了右子结点存在就会被优先调用，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> boundaryOfBinaryTree(TreeNode* root) {
+        if (!root) return {};
+        vector<int> res{root->val};
+        helper(root->left, true, false, res);
+        helper(root->right, false, true, res);
+        return res;
+    }
+    void helper(TreeNode* node, bool leftbd, bool rightbd, vector<int>& res) {
+        if (!node) return;
+        if (!node->left && !node->right) {
+            res.push_back(node->val);
+            return;
+        }
+        if (leftbd) res.push_back(node->val);
+        helper(node->left, leftbd && node->left, rightbd && !node->right, res);
+        helper(node->right, leftbd && !node->left, rightbd && node->right, res);
+        if (rightbd) res.push_back(node->val);
+    }
+};
+----
+
+下面这种解法实际上时解法一的迭代形式，整体思路基本一样，只是没有再用递归的写法，而是均采用while的迭代写法，注意在求右边界结点时迭代写法很难直接写出逆时针的顺序，我们可以先反过来保存，最后再调个顺序即可，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> boundaryOfBinaryTree(TreeNode* root) {
+        if (!root) return {};
+        vector<int> res, right;
+        TreeNode *l = root->left, *r = root->right, *p = root;
+        if (root->left || root->right) res.push_back(root->val);
+        while (l && (l->left || l->right)) {
+            res.push_back(l->val);
+            if (l->left) l = l->left;
+            else l = l->right;
+        }
+        stack<TreeNode*> st;
+        while (p || !st.empty()) {
+            if (p) {
+                st.push(p);
+                if (!p->left && !p->right) res.push_back(p->val);
+                p = p->left;
+            } else {
+                p = st.top(); st.pop();
+                p = p->right;
+            }
+        }
+        while (r && (r->left || r->right)) {
+            right.push_back(r->val);
+            if (r->right) r = r->right;
+            else r = r->left;
+        }
+        res.insert(res.end(), right.rbegin(), right.rend());
+        return res;
+    }
+};
+----
+
+==== 移除盒子
+
+----
+Given several boxes with different colors represented by different positive numbers.
+You may experience several rounds to remove boxes until there is no box left. Each time you can choose some continuous boxes with the same color (composed of k boxes, k >= 1), remove them and get k*k points.
+Find the maximum points you can get.
+----
+
+刚开始看这道题的时候，感觉跟之前那道Zuma Game很像，于是就写了一个暴力破解的方法，结果TLE了。无奈之下只好上网搜大神们的解法，又看了fun4LeetCode大神写的帖子，之前那道Reverse Pairs就是参考的fun4LeetCode大神的帖子，惊为天人，这次又是这般精彩，大神请收下我的膝盖。那么下面的解法就大部分参考fun4LeetCode大神的帖子来讲解吧。在之前帖子Reverse Pairs的讲解中，大神归纳了两种重现模式，我们这里也试着看能不能套用上。对于这种看来看去都没思路的题来说，抽象建模的能力就非常的重要了。对于题目中的具体场景啊，具体代表的东西我们都可忽略不看，这样能帮助我们接近问题的本质，这道题的本质就是一个数组，我们每次消去一个或多个数字，并获得相应的分数，让我们求最高能获得的分数。而之前那道Zuma Game也是给了一个数组，让我们往某个位置加数字，使得相同的数字至少有3个才能消除，二者是不是很像呢，但是其实解法却差别很大。那道题之所以暴力破解没有问题是因为数组的长度和给定的数字个数都有限制，而且都是相对较小的数，那么即便遍历所有情况也不会有太大的计算量。而这道题就不一样了，既然不能暴力破解，那么对于这种玩数组和子数组的题，刷题老司机们都会优先考虑用DP来做吧。既然要玩子数组，肯定要限定子数组的范围，那么至少应该是个二维的dp数组，其中dp[i][j]表示在子数组[i, j]范围内所能得到的最高的分数，那么最后我们返回dp[0][n-1]就是要求的结果。 +
+
+那么对于dp[i][j]我们想，如果我们移除boxes[i]这个数字，那么总得分应该是1 + dp[i+1][j]，但是通过分析题目中的例子，能够获得高积分的trick是，移除某个或某几个数字后，如果能使得原本不连续的相同数字变的连续是坠好的，因为同时移除的数字越多，那么所得的积分就越高。那么假如在[i, j]中间有个位置m，使得boxes[i]和boxes[m]相等，那么我们就不应该只是移除boxes[i]这个数字，而是还应该考虑直接移除[i+1, m-1]区间上的数，使得boxes[i]和boxes[m]直接相邻，那么我们获得的积分就是dp[i+1][m-1]，那么我们剩余了什么，boxes[i]和boxes[m, j]区间的数，此时我们无法处理子数组[m, j]，因为我们有些信息没有包括在我们的dp数组中，此类的题目归纳为不自己包含的子问题，其解法依赖于一些子问题以外的信息。这类问题通常没有定义好的重现关系，所以不太容易递归求解。为了解决这类问题，我们需要修改问题的定义，使得其包含一些外部信息，从而变成自包含子问题。 +
+
+那么对于这道题来说，无法处理boxes[m, j]区间是因为其缺少了关键信息，我们不知道boxes[m]左边相同数字的个数k，只有知道了这个信息，那么m的位置才有意义，所以我们的dp数组应该是一个三维数组dp[i][j][k]，表示区间[i, j]中能获得的最大积分，当boxes[i]左边有k个数字跟其相等，那么我们的目标就是要求dp[0][n-1][0]了，而且我们也能推出dp[i][i][k] = (1+k) * (1+k)这个等式。那么我们来推导重现关系，对于dp[i][j][k]，如果我们移除boxes[i]，那么我们得到(1+k)*(1+k) + dp[i+1][j][0]。对于上面提到的那种情况，当某个位置m，有boxes[i] == boxes[m]时，我们也应该考虑先移除[i+1,m-1]这部分，我们得到积分dp[i+1][m-1][0]，然后再处理剩下的部分，得到积分dp[m][j][k+1]，这里k加1点原因是，移除了中间的部分后，原本和boxes[m]不相邻的boxes[i]现在相邻了，又因为二者值相同，所以k应该加1，因为k的定义就是左边相等的数字的个数。讲到这里，那么DP方法最难的递推公式也就得到了，那么代码就不难写了，需要注意的是，这里的C++的写法不能用vector来表示三维数组，好像是内存限制超出，只能用C语言的写法，由于C语言数组的定义需要初始化大小，而题目中说了数组长度不会超100，所以我们就用100来初始化，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int removeBoxes(vector<int>& boxes) {
+        int n = boxes.size();
+        int dp[100][100][100] = {0};
+        return helper(boxes, 0, n - 1, 0, dp);
+    }
+    int helper(vector<int>& boxes, int i, int j, int k, int dp[100][100][100]) {
+        if (j < i) return 0;
+        if (dp[i][j][k] > 0) return dp[i][j][k];
+        int res = (1 + k) * (1 + k) + helper(boxes, i + 1, j, 0, dp);
+        for (int m = i + 1; m <= j; ++m) {
+            if (boxes[m] == boxes[i]) {
+                res = max(res, helper(boxes, i + 1, m - 1, 0, dp) + helper(boxes, m, j, k + 1, dp));
+            }
+        }
+        return dp[i][j][k] = res;
+    }
+};
+----
+
+下面这种写法是上面解法的迭代方式，但是却有一些不同，这里我们需要对dp数组的部分值做一些初始化，将每个数字的所有k值的情况的积分都先算出来，然后在整体更新三维dp数组的时候也很有意思，并不是按照原有的顺序更新，而是块更新，先更新dp[1][0][k], dp[2][1][k], dp[3][2][k]....，再更新dp[2][0][k], dp[3][1][k], dp[4][2][k]...., 再更新dp[3][0][k], dp[4][1][k], dp[5][2][k]....，之前好像也有一道是这样区域更新的题，但是博主想不起来是哪一道了，以后想起来了再来补充吧，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int removeBoxes(vector<int>& boxes) {
+        int n = boxes.size();
+        int dp[n][n][n] = {0};
+        for (int i = 0; i < n; ++i) {
+            for (int k = 0; k <= i; ++k) {
+                dp[i][i][k] = (1 + k) * (1 + k);
+            }
+        }
+        for (int t = 1; t < n; ++t) {
+            for (int j = t; j < n; ++j) {
+                int i = j - t;
+                for (int k = 0; k <= i; ++k) {
+                    int res = (1 + k) * (1 + k) + dp[i + 1][j][0];
+                    for (int m = i + 1; m <= j; ++m) {
+                        if (boxes[m] == boxes[i]) {
+                            res = max(res, dp[i + 1][m - 1][0] + dp[m][j][k + 1]);
+                        }
+                    }
+                    dp[i][j][k] = res;
+                }
+            }
+        }
+        return n == 0 ? 0 : dp[0][n - 1][0];
+    }
+};
+----
+
+==== 朋友圈
+
+----
+There are N students in a class. Some of them are friends, while some are not. Their friendship is transitive in nature. For example, if A is a direct friend of B, and B is a direct friend of C, then A is an indirect friend of C. And we defined a friend circle is a group of students who are direct or indirect friends.
+
+Given a N*N matrix M representing the friend relationship between students in the class. If M[i][j] = 1, then the ithand jth students are direct friends with each other, otherwise not. And you have to output the total number of friend circles among all the students.
+----
+
+这道题让我们求朋友圈的个数，题目中对于朋友圈的定义是可以传递的，比如A和B是好友，B和C是好友，那么即使A和C不是好友，那么他们三人也属于一个朋友圈。那么比较直接的解法就是DFS搜索，对于某个人，遍历其好友，然后再遍历其好友的好友，那么我们就能把属于同一个朋友圈的人都遍历一遍，我们同时标记出已经遍历过的人，然后累积朋友圈的个数，再去对于没有遍历到的人在找其朋友圈的人，这样就能求出个数。其实这道题的本质是之前那道题Number of Connected Components in an Undirected Graph，其实许多题目的本质都是一样的，就是看我们有没有一双慧眼能把它们识别出来： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findCircleNum(vector<vector<int>>& M) {
+        int n = M.size(), res = 0;
+        vector<bool> visited(n, false);
+        for (int i = 0; i < n; ++i) {
+            if (visited[i]) continue;
+            helper(M, i, visited);
+            ++res;
+        }
+        return res;
+    }
+    void helper(vector<vector<int>>& M, int k, vector<bool>& visited) {
+        visited[k] = true;
+        for (int i = 0; i < M.size(); ++i) {
+            if (!M[k][i] || visited[i]) continue;
+            helper(M, i, visited);
+        }
+    }
+};
+----
+
+我们也可以用BFS来遍历朋友圈中的所有人，解题思路和上面大同小异，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findCircleNum(vector<vector<int>>& M) {
+        int n = M.size(), res = 0;
+        vector<bool> visited(n, false);
+        queue<int> q;
+        for (int i = 0; i < n; ++i) {
+            if (visited[i]) continue;
+            q.push(i);
+            while (!q.empty()) {
+                int t = q.front(); q.pop();
+                visited[t] = true;
+                for (int j = 0; j < n; ++j) {
+                    if (!M[t][j] || visited[j]) continue;
+                    q.push(j);
+                }
+            }
+            ++res;
+        }
+        return res;
+    }
+};
+----
+
+下面这种解法叫联合查找Union Find，也是一种很经典的解题思路，在之前的两道道题Graph Valid Tree和Number of Connected Components in an Undirected Graph中也有过应用，核心思想是初始时给每一个对象都赋上不同的标签，然后对于属于同一类的对象，在root中查找其标签，如果不同，那么将其中一个对象的标签赋值给另一个对象，注意root数组中的数字跟数字的坐标是有很大关系的，root存的是属于同一组的另一个对象的坐标，这样通过getRoot函数可以使同一个组的对象返回相同的值，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findCircleNum(vector<vector<int>>& M) {
+        int n = M.size(), res = n;
+        vector<int> root(n);
+        for (int i = 0; i < n; ++i) root[i] = i;
+        for (int i = 0; i < n; ++i) {
+            for (int j = i + 1; j < n; ++j) {
+                if (M[i][j] == 1) {
+                    int p1 = getRoot(root, i);
+                    int p2 = getRoot(root, j);
+                    if (p1 != p2) {
+                        --res;
+                        root[p2] = p1;
+                    }
+                }
+            }
+        }
+        return res;
+    }
+    int getRoot(vector<int>& root, int i) {
+        while (i != root[i]) {
+            root[i] = root[root[i]];
+            i = root[i];
+        }
+        return i;
+    }
+};
+----
+
+==== 分割数组成和相同的子数组
+
+----
+Given an array with n integers, you need to find if there are triplets (i, j, k) which satisfies following conditions:
+
+0 < i, i + 1 < j, j + 1 < k < n - 1
+Sum of subarrays (0, i - 1), (i + 1, j - 1), (j + 1, k - 1) and (k + 1, n - 1) should be equal.
+where we define that subarray (L, R) represents a slice of the original array starting from the element indexed L to the element indexed R.
+----
+
+这道题给了我们一个数组，让我们找出三个位置，使得数组被分为四段，使得每段之和相等，问存不存在这样的三个位置，注意三个位置上的数字不属于任何一段。刚开始博主觉得这题貌似跟之前那道Partition Equal Subset Sum很像，所以在想能不能用DP来做，可是想了半天不知道DP该如何定义，更别说推导递推公式了。于是就尝试了建立累加和数组，并搜索所有的可能组合，进行暴力破解，结果却TLE了。说明OJ不接受时间复杂度为三次方的解法，那么就要想办法来优化了，博主只好上网学习大神们的解法，发现大神们的解法果然巧妙，只是改变了一个查找顺序，就轻易的将时间复杂度降到了平方级，碉堡了有木有。思路是这样的，因为我们需要找三个位置i，j，k，如果我们按正常的顺序来暴力搜索，那么就会遍历所有的情况，其实大部分的情况都是不符合题意的，会有大量的无用的运算。而如果我们换一个角度，先搜索j的位置，那么i和k的位置就可以固定在一个小的范围内了，而且可以在j的循环里面同时进行，这样就少嵌套了一个循环，所以时间复杂度会降一维度。确定j的范围应该左右各留3个数字，因为四段均不能为空，而且分割位上的数字不能算入四段。再确定了j的位置后，i和k的位置就能分别确定了，我们要做的是先遍历i的所有可能位置，然后遍历所有的拆分情况，如果拆出的两段和相等，则把这个相等的值加入一个集合中，然后再遍历k的所有情况，同样遍历所有的拆分情况，如果拆出两段和相等，再看这个相等的和是否在集合中，如果存在，说明拆出的四段和都可以相同，那么返回true即可，否则当遍历结束了，返回false。唉，为啥自己就想不到呢，估计这就是和大神之间的区别吧，泪目中。 +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool splitArray(vector<int>& nums) {
+        if (nums.size() < 7) return false;
+        int n = nums.size();
+        vector<int> sums = nums;
+        for (int i = 1; i < n; ++i) {
+            sums[i] = sums[i - 1] + nums[i];
+        }
+        for (int j = 3; j < n - 3; ++j) {
+            unordered_set<int> s;
+            for (int i = 1; i < j - 1; ++i) {
+                if (sums[i - 1] == (sums[j - 1] - sums[i])) {
+                    s.insert(sums[i - 1]);
+                }
+            }
+            for (int k = j + 1; k < n - 1; ++k) {
+                int s3 = sums[k - 1] - sums[j], s4 = sums[n - 1] - sums[k];
+                if (s3 == s4 && s.count(s3)) return true;
+            }
+        }
+        return false;
+    }
+};
+----
+
+下面这种解法是递归的暴力破解写法，刚开始博主还纳闷了，为啥博主之前写的迭代形式的暴力破解过不了OJ，而这个递归版本的确能通过呢，仔细研究了一下，发现这种解法有两个地方做了优化。第一个优化是在for循环里面，如果i不等于1，且当前数字和之前数字均为0，那么跳过这个位置，因为加上0也不会对target有任何影响，那为什么要加上i不等于1的判断呢，因为输入数组如果是七个0，那么实际上应该返回true的，而如果没有i != 1这个条件限制，后面的代码均不会得到执行，那么就直接返回false了，是不对的。第二个优化的地方是在递归函数里面，只有当curSum等于target了，才进一步调用递归函数，这样就相当于做了剪枝处理，减少了大量的不必要的运算，这可能就是其可以通过OJ的原因吧，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool splitArray(vector<int>& nums) {
+        if (nums.size() < 7) return false;
+        int n = nums.size(), target = 0;
+        int sum = accumulate(nums.begin(), nums.end(), 0);
+        for (int i = 1; i < n - 5; ++i) {
+            if (i != 1 && nums[i] == 0 && nums[i - 1] == 0) continue;
+            target += nums[i - 1];
+            if (helper(nums, target, sum - target - nums[i], i + 1, 1)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    bool helper(vector<int>& nums, int target, int sum, int start, int cnt) {
+        if (cnt == 3) return sum == target;
+        int curSum = 0, n = nums.size();
+        for (int i = start + 1; i < n + 2 * cnt - 5; ++i) {
+            curSum += nums[i - 1];
+            if (curSum == target && helper(nums, target, sum - curSum - nums[i], i + 1, cnt + 1)) {
+                return true;
+            }
+        }
+        return false;
+    }
+};
+----
+
+基于上面递归的优化方法的启发，博主将两个优化方法加到了之前写的迭代的暴力破解解法上，就能通过OJ了，perfect! +
+
+**解法3:** +
+[source, cpp, lineums]
+----
+class Solution {
+public:
+    bool splitArray(vector<int>& nums) {
+        int n = nums.size();
+        vector<int> sums = nums;
+        for (int i = 1; i < n; ++i) {
+            sums[i] = sums[i - 1] + nums[i];
+        }
+        for (int i = 1; i <= n - 5; ++i) {
+            if (i != 1 && nums[i] == 0 && nums[i - 1] == 0) continue;
+            for (int j = i + 2; j <= n - 3; ++j) {
+                if (sums[i - 1] != (sums[j - 1] - sums[i])) continue;
+                for (int k = j + 2; k <= n - 1; ++k) {
+                    int sum3 = sums[k - 1] - sums[j];
+                    int sum4 = sums[n - 1] - sums[k];
+                    if (sum3 == sum4 && sum3 == sums[i - 1]) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+};
+----
+
+==== 二叉树最长连续序列之二
+
+----
+Given a binary tree, you need to find the length of Longest Consecutive Path in Binary Tree.
+
+Especially, this path can be either increasing or decreasing. For example, [1,2,3,4] and [4,3,2,1] are both considered valid, but the path [1,2,4,3] is not valid. On the other hand, the path can be in the child-Parent-child order, where not necessarily be parent-child order.
+----
+
+这道题是之前那道Binary Tree Longest Consecutive Sequence的拓展，那道题只让从父结点到子结点这种顺序来找最长连续序列，而这道题没有这个顺序限制，我们可以任意的拐弯，这样能找到最长的递增或者递减的路径。这道题利用回溯的思想比较容易，因为当一个结点没有子结点点时，它只需要跟其父结点进行比较，这种情况最容易处理，而且一旦叶结点处理完了，我们可以一层一层的回溯，直到回到根结点，然后再遍历的过程中不断的更新结果res即可。由于题目中说了要么是递增，要么是递减，我们不能一会递增一会递减，所以我们递增递减的情况都要统计，只是最后取最长的路径。所以我们要知道每一个结点的最长递增和递减路径的长度，当然是从叶结点算起，这样才方便往根结点回溯。当某个结点比其父结点值大1的话，说明这条路径是递增的，那么当我们知道其左右子结点各自的递增路径长度，那么当前结点的递增路径长度就是左右子结点递增路径长度中的较大值加上1，同理如果是递减路径，那么当前结点的递减路径长度就是左右子结点递减路径长度中的较大值加上1，通过这种方式我们可以更新每个结点的递增递减路径长度。在回溯的过程中，一旦我们知道了某个结点的左右子结点的最长递增递减路径长度，那么我们可以算出当前结点的最长连续序列的长度，要么是左子结点的递增路径跟右子结点的递减路径之和加1，要么事左子结点的递减路径跟右子结点的递增路径之和加1，二者中取较大值即可，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int longestConsecutive(TreeNode* root) {
+        int res = 0;
+        helper(root, root, res);
+        return res;
+    }
+    pair<int, int> helper(TreeNode* node, TreeNode* parent, int& res) {
+        if (!node) return {0, 0};
+        auto left = helper(node->left, node, res);
+        auto right = helper(node->right, node, res);
+        res = max(res, left.first + right.second + 1);
+        res = max(res, left.second + right.first + 1);
+        int inc = 0, dec = 0;
+        if (node->val == parent->val + 1) {
+            inc = max(left.first, right.first) + 1;
+        } else if (node->val + 1 == parent->val) {
+            dec = max(left.second, right.second) + 1;
+        }
+        return {inc, dec};
+    }
+};
+----
+
+上面的方法把所有内容都写到了一个递归函数中，看起来有些臃肿。而下面这种方法分了两个递归来写，相对来说简洁一些。因为每个结点的最长连续序列长度等于其最长递增路径长度跟最长递减路径之和加1，然后分别对其左右子结点调用递归函数，取三者最大值，相当于对二叉树进行了先序遍历，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int longestConsecutive(TreeNode* root) {
+        if (!root) return 0;
+        int res = helper(root, 1) + helper(root, -1) + 1;
+        return max(res, max(longestConsecutive(root->left), longestConsecutive(root->right)));
+    }
+    int helper(TreeNode* node, int diff) {
+        if (!node) return 0;
+        int left = 0, right = 0;
+        if (node->left && node->val - node->left->val == diff) {
+            left = 1 + helper(node->left, diff);
+        }
+        if (node->right && node->val - node->right->val == diff) {
+            right = 1 + helper(node->right, diff);
+        }
+        return max(left, right);
+    }
+};
+----

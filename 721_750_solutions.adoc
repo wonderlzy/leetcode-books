@@ -1,0 +1,2007 @@
+==== 账户合并
+
+----
+Given a list accounts, each element accounts[i] is a list of strings, where the first element accounts[i][0] is a name, and the rest of the elements are emails representing emails of the account.
+
+Now, we would like to merge these accounts. Two accounts definitely belong to the same person if there is some email that is common to both accounts. Note that even if two accounts have the same name, they may belong to different people as people could have the same name. A person can have any number of accounts initially, but all of their accounts definitely have the same name.
+
+After merging the accounts, return the accounts in the following format: the first element of each account is the name, and the rest of the elements are emails in sorted order. The accounts themselves can be returned in any order.
+----
+
+----
+这道题给了我们一堆人名和邮箱，一个名字可能有多个邮箱，但是一个邮箱只属于一个人，让我们把同一个人的邮箱都合并到一起，名字相同不一定是同一个人，只有当两个名字有相同的邮箱，才能确定是同一个人，题目中的例子很好说明了这个问题，输入有三个John，最后合并之后就只有两个了。这道题博主最开始尝试使用贪婪算法来做，结果发现对于下面这个例子不适用：
+
+["John", "a@gmail.com", "b@gmail.com"]
+
+["John", "c@gmail.com", "d@gmail.com"]
+
+["John", "a@gmail.com", "c@gmail.com"]
+
+我们可以看到其实这三个John是同一个人，但是贪婪算法遍历完前两个John，还是认为其是两个不同的人，当遍历第三个John时，就直接加到第一个John中了，而没有同时把第二个John加进来，也可能博主写的是假的贪婪算法，反正不管了，还是参考大神们的解法吧。这个归组类的问题，最典型的就是岛屿问题(例如Number of Islands II)，很适合使用Union Find来做，LeetCode中有很多道可以使用这个方法来做的题，比如Friend Circles，Graph Valid Tree，Number of Connected Components in an Undirected Graph，和Redundant Connection等等。都是要用一个root数组，每个点开始初始化为不同的值，如果两个点属于相同的组，就将其中一个点的root值赋值为另一个点的位置，这样只要是相同组里的两点，通过find函数得到相同的值。在这里，由于邮件是字符串不是数字，所以root可以用哈希map来代替，我们还需要一个哈希映射owner，建立每个邮箱和其所有者姓名之前的映射，另外用一个哈希映射来建立用户和其所有的邮箱之间的映射，也就是合并后的结果。
+
+首先我们遍历每个账户和其中的所有邮箱，先将每个邮箱的root映射为其自身，然后将owner赋值为用户名。然后开始另一个循环，遍历每一个账号，首先对帐号的第一个邮箱调用find函数，得到其父串p，然后遍历之后的邮箱，对每个遍历到的邮箱先调用find函数，将其父串的root值赋值为p，这样做相当于将相同账号内的所有邮箱都链接起来了。我们下来要做的就是再次遍历每个账户内的所有邮箱，先对该邮箱调用find函数，找到父串，然后将该邮箱加入该父串映射的集合汇总，这样就我们就完成了合并。最后只需要将集合转为字符串数组，加入结果res中，通过owner映射找到父串的用户名，加入字符串数组的首位置，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<string>> accountsMerge(vector<vector<string>>& accounts) {
+        vector<vector<string>> res;
+        unordered_map<string, string> root;
+        unordered_map<string, string> owner;
+        unordered_map<string, set<string>> m;
+        for (auto account : accounts) {
+            for (int i = 1; i < account.size(); ++i) {
+                root[account[i]] = account[i];
+                owner[account[i]] = account[0];
+            }
+        }
+        for (auto account : accounts) {
+            string p = find(account[1], root);
+            for (int i = 2; i < account.size(); ++i) {
+                root[find(account[i], root)] = p;
+            }
+        }
+        for (auto account : accounts) {
+            for (int i = 1; i < account.size(); ++i) {
+                m[find(account[i], root)].insert(account[i]);
+            }
+        }
+        for (auto a : m) {
+            vector<string> v(a.second.begin(), a.second.end());
+            v.insert(v.begin(), owner[a.first]);
+            res.push_back(v);
+        }
+        return res;
+    }
+    string find(string s, unordered_map<string, string>& root) {
+        return root[s] == s ? s : find(root[s], root);
+    }
+};
+----
+
+----
+下面这种方法是使用BFS来解的，建立了每个邮箱和其所有出现的账户数组之间的映射，比如还是这个例子：
+
+["John", "a@gmail.com", "b@gmail.com"]
+
+["John", "c@gmail.com", "d@gmail.com"]
+
+["John", "a@gmail.com", "c@gmail.com"]
+
+那么建立的映射就是：
+
+"a@gmail.com" -> [0, 2]
+
+"b@gmail.com" -> [0]
+
+"c@gmail.com" -> [1, 2]
+
+"d@gmail.com" -> [1]
+
+然后我们还需要一个visited数组，来标记某个账户是否已经被遍历过，0表示为未访问，1表示已访问。在建立好哈希map之后，我们遍历所有的账户，如果账户未被访问过，将其加入队列queue，新建一个集合set，此时进行队列不为空的while循环，取出队首账户，将该该账户标记已访问1，此时将该账户的所有邮箱取出来放入数组mails中，然后遍历mails中的每一个邮箱，将遍历到的邮箱加入集合set中，根据映射来找到该邮箱所属的所有账户，如果该账户未访问，则加入队列中并标记已访问。当while循环结束后，当前账户的所有合并后的邮箱都保存在集合set中，将其转为字符串数组，并且加上用户名在首位置，最后加入结果res中即可，参见代码如下：
+----
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<string>> accountsMerge(vector<vector<string>>& accounts) {
+        vector<vector<string>> res;
+        int n = accounts.size();
+        unordered_map<string, vector<int>> m;
+        vector<int> visited(n, 0);
+        for (int i = 0; i < n; ++i) {
+            for (int j = 1; j < accounts[i].size(); ++j) {
+                m[accounts[i][j]].push_back(i);
+            }
+        }
+        for (int i = 0; i < n; ++i) {
+            if (visited[i] != 0) continue;
+            queue<int> q{{i}};
+            set<string> s;
+            while (!q.empty()) {
+                int t = q.front(); q.pop();
+                visited[t] = 1;
+                vector<string> mails(accounts[t].begin() + 1, accounts[t].end());
+                for (string mail : mails) {
+                    s.insert(mail);
+                    for (int user : m[mail]) {
+                        if (visited[user] != 0) continue;
+                        q.push(user);
+                        visited[user] = 1;
+                    }
+                }
+            }
+            vector<string> out(s.begin(), s.end());
+            out.insert(out.begin(), accounts[i][0]);
+            res.push_back(out);
+        }
+        return res;
+    }
+};
+----
+
+==== 移除注释
+
+----
+Given a C++ program, remove comments from it. The program source is an array where source[i] is the i-th line of the source code. This represents the result of splitting the original source code string by the newline character \n.
+
+In C++, there are two types of comments, line comments, and block comments.
+
+The string // denotes a line comment, which represents that it and rest of the characters to the right of it in the same line should be ignored.
+
+The string /* denotes a block comment, which represents that all characters until the next (non-overlapping) occurrence of */ should be ignored. (Here, occurrences happen in reading order: line by line from left to right.) To be clear, the string /*/ does not yet end the block comment, as the ending would be overlapping the beginning.
+
+The first effective comment takes precedence over others: if the string // occurs in a block comment, it is ignored. Similarly, if the string /* occurs in a line or block comment, it is also ignored.
+
+If a certain line of code is empty after removing comments, you must not output that line: each string in the answer list will be non-empty.
+
+There will be no control characters, single quote, or double quote characters. For example, source = "string s = "/* Not a comment. */";" will not be a test case. (Also, nothing else such as defines or macros will interfere with the comments.)
+
+It is guaranteed that every open block comment will eventually be closed, so /* outside of a line or block comment always starts a new comment.
+
+Finally, implicit newline characters can be deleted by block comments. Please see the examples below for details.
+
+After removing the comments from the source code, return the source code in the same format.
+----
+
+这道题让我们移除代码中的注释部分，就是写代码中经常遇到的两种注释，单行注释和多行注释，也可以叫块注释，当然最最重要的就是要找到这两种注释的起始标识符"//"和"/*"，注意它们两者之间存在覆盖的关系，谁在前面谁work，比如"//abc/*"，那么此时后面的块注释起始符被忽略掉，同样"/*abc//"，后面的单行注释起始符也不起作用，所以两者之间的前后顺序很重要。博主刚开始想的方法是用string的find函数来分别找"//"和"/*"的起始位置，如果不存在就返回-1，但是需要分多种情况来处理，其是否存在，还有二者的前后顺序，处理起来比较麻烦。起始我们可以直接按字符来一个一个处理，由于块注释是多行注释，所以一旦之前有了块注释的起始符，当前行的处理方式就有所不同了，所以我们需要一个变量blocked来记录当前是否为块注释状态，初始化为false。建立空字符out，用来保存去除注释后的字符。然后我们遍历整个代码的每一行，遍历每一行中的每一个字符，如果当前字符是最后一个字符了，说明不会再有注释了，将当前字符加入out中，否则取出当前位置和下一个位置的两个字符，如果其正好是"/*"，说明之后的部分都是块注释了，我们将blocked赋值为true，然后指针向后移动一个，明明两个字符啊，为啥只移动一个呢，因为另一个可以在for循环中的++i移动；如果当前两个字符正好是"//"，说明当前行之后都是注释，我们并不care后面有啥，所以可以直接break掉当前行；如果都不是，说明当前字符是代码，将其加入out中。好，下面来看blocked为true的情况，说明之后的内容都是块注释的内容，我们唯一关心的是有没有结束符"*/"，所以还是先做判断，如果当前不是最后一个字符，说明至少还有两个字符，然后取出两个字符，如果正好是块注释结束符，那么我们将标识重置为false，指针要后移动一个。当前行遍历完后，如果out不为空，且blocked为false，则将out存入结果res中，参见代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<string> removeComments(vector<string>& source) {
+        vector<string> res;
+        bool blocked = false;
+        string out = "";
+        for (string line : source) {
+            for (int i = 0; i < line.size(); ++i) {
+                if (!blocked) {
+                    if (i == line.size() - 1) out += line[i];
+                    else {
+                        string t = line.substr(i, 2);
+                        if (t == "/*") blocked = true, ++i;
+                        else if (t == "//") break;
+                        else out += line[i];
+                    }
+                } else {
+                    if (i < line.size() - 1) {
+                        string t = line.substr(i, 2);
+                        if (t == "*/") blocked = false, ++i;
+                    }
+                }
+            }
+            if (!out.empty() && !blocked) {
+                res.push_back(out);
+                out = "";
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== 糖果消消乐
+
+----
+This question is about implementing a basic elimination algorithm for Candy Crush.
+
+Given a 2D integer array board representing the grid of candy, different positive integers board[i][j] represent different types of candies. A value of board[i][j] = 0 represents that the cell at position (i, j) is empty. The given board represents the state of the game following the player's move. Now, you need to restore the board to a stable state by crushing candies according to the following rules:
+
+If three or more candies of the same type are adjacent vertically or horizontally, "crush" them all at the same time - these positions become empty.
+After crushing all candies simultaneously, if an empty space on the board has candies on top of itself, then these candies will drop until they hit a candy or bottom at the same time. (No new candies will drop outside the top boundary.)
+After the above steps, there may exist more candies that can be crushed. If so, you need to repeat the above steps.
+If there does not exist more candies that can be crushed (ie. the board is stable), then return the current board.
+You need to perform the above rules until the board becomes stable, then return the current board.
+----
+
+这道题就是糖果消消乐，博主刚开始做的时候，没有看清楚题意，以为就像游戏中的那样，每次只能点击一个地方，然后消除后糖果落下，这样会导致一个问题，就是原本其他可以消除的地方在糖果落下后可能就没有了，所以博主在想点击的顺序肯定会影响最终的stable的状态，可是题目怎么没有要求返回所剩糖果最少的状态？后来发现，其实这道题一次消除table中所有可消除的糖果，然后才下落，形成新的table，这样消除后得到的结果就是统一的了，这样也大大的降低了难度。下面就来看如何找到要消除的糖果，可能有人会想像之前的岛屿的题目一样找连通区域，可是这道题的有限制条件，只有横向或竖向相同的糖果数达到三个才能消除，并不是所有的连通区域都能消除，所以找连通区域不是一个好办法。最好的办法其实是每个糖果单独检查其是否能被消除，然后把所有能被删除的糖果都标记出来统一删除，然后在下落糖果，然后再次查找，直到无法找出能够消除的糖果时达到稳定状态。好，那么我们用一个数组来保存可以被消除的糖果的位置坐标，判断某个位置上的糖果能否被消除的方法就是检查其横向和纵向的最大相同糖果的个数，只要有一个方向达到三个了，当前糖果就可以被消除。所以我们对当前糖果的上下左右四个方向进行查看，用四个变量x0, x1, y0, y1，其中x0表示上方相同的糖果的最大位置，x1表示下方相同糖果的最大位置，y0表示左边相同糖果的最大位置，y1表示右边相同糖果的最大位置，均初始化为当前糖果的位置，然后使用while循环向每个方向遍历，注意我们并不需要遍历到头，而是只要遍历三个糖果就行了，因为一旦查到了三个相同的，就说明当前的糖果已经可以消除了，没必要再往下查了。查的过程还要注意处理越界情况，好，我们得到了上下左右的最大的位置，分别让相同方向的做差，如果水平和竖直方向任意一个大于3了，就说明可以消除，将坐标加入数组del中。注意这里一定要大于3，是因为当发现不相等退出while循环时，坐标值已经改变了，所以已经多加了或者减了一个，所以差值要大于3。遍历完成后，如果数组del为空，说明已经stable了，直接break掉，否则将要消除的糖果位置都标记为0，然后进行下落处理。下落处理实际上是把数组中的0都移动到开头，那么就从数组的末尾开始遍历，用一个变量t先指向末尾，然后然后当遇到非0的数，就将其和t位置上的数置换，然后t自减1，这样t一路减下来都是非0的数，而0都被置换到数组开头了，参见代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<int>> candyCrush(vector<vector<int>>& board) {
+        int m = board.size(), n = board[0].size();
+        while (true) {
+            vector<pair<int, int>> del;
+            for (int i = 0; i < m; ++i) {
+                for (int j = 0; j < n; ++j) {
+                    if (board[i][j] == 0) continue;
+                    int x0 = i, x1 = i, y0 = j, y1 = j;
+                    while (x0 >= 0 && x0 > i - 3 && board[x0][j] == board[i][j]) --x0;
+                    while (x1 < m && x1 < i + 3 && board[x1][j] == board[i][j]) ++x1;
+                    while (y0 >= 0 && y0 > j - 3 && board[i][y0] == board[i][j]) --y0;
+                    while (y1 < n && y1 < j + 3 && board[i][y1] == board[i][j]) ++y1;
+                    if (x1 - x0 > 3 || y1 - y0 > 3) del.push_back({i, j});
+                }
+            }
+            if (del.empty()) break;
+            for (auto a : del) board[a.first][a.second] = 0;
+            for (int j = 0; j < n; ++j) {
+                int t = m - 1;
+                for (int i = m - 1; i >= 0; --i) {
+                    if (board[i][j]) swap(board[t--][j], board[i][j]);
+                }
+            }
+        }
+        return board;
+    }
+};
+----
+
+==== 寻找中枢点
+
+----
+Given an array of integers nums, write a method that returns the "pivot" index of this array.
+
+We define the pivot index as the index where the sum of the numbers to the left of the index is equal to the sum of the numbers to the right of the index.
+
+If no such index exists, we should return -1. If there are multiple pivot indexes, you should return the left-most pivot index.
+----
+
+这道题给了我们一个数组，让我们求一个中枢点，使得该位置左右两边的子数组之和相等。这道题难度不大，直接按题意去搜索就行了，因为中枢点可能出现的位置就是数组上的位置，所以我们搜索一遍就可以找出来，我们先求出数组的总和，然后维护一个当前数组之和curSum，然后对于遍历到的位置，用总和减去当前数字，看得到的结果是否是curSum的两倍，是的话，那么当前位置就是中枢点，返回即可；否则就将当前数字加到curSum中继续遍历，遍历结束后还没返回，说明没有中枢点，返回-1即可，参见代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int pivotIndex(vector<int>& nums) {
+        int sum = accumulate(nums.begin(), nums.end(), 0);
+        int curSum = 0, n = nums.size();
+        for (int i = 0; i < n; ++i) {
+            if (sum - nums[i] == 2 * curSum) return i;
+            curSum += nums[i];
+        }
+        return -1;
+    }
+};
+----
+
+==== 拆分链表成部分
+
+----
+Given a (singly) linked list with head node root, write a function to split the linked list into k consecutive linked list "parts".
+
+The length of each part should be as equal as possible: no two parts should have a size differing by more than 1. This may lead to some parts being null.
+
+The parts should be in order of occurrence in the input list, and parts occurring earlier should always have a size greater than or equal parts occurring later.
+
+Return a List of ListNode's representing the linked list parts that are formed.
+
+Examples 1->2->3->4, k = 5 // 5 equal parts [ [1], [2], [3], [4], null ]
+----
+
+这道题给我们一个链表和一个正数k，让我们分割链表成k部分，尽可能的平均分割，如果结点不够了，就用空结点，比如例子1中的。如果无法平均分，那么多余的结点就按顺序放在子链表中，如例子2中所示。我们要知道每个部分结点的个数，才能将整个链表断开成子链表，所以我们首先要统计链表中结点的总个数，然后除以k，得到的商avg就是能分成的部分个数，余数ext就是包含有多余的结点的子链表的个数。我们开始for循环，循环的结束条件是i小于k且root存在，要生成k个子链表，在循环中，先把头结点加入结果res中对应的位置，然后就要遍历该子链表的结点个数了，首先每个子链表都一定包含有avg个结点，这是之前除法得到的商，然后还要有没有多余结点，如果i小于ext，就说明当前子链表还得有一个多余结点，然后我们将指针向后移动一个，注意我们这里的j是从1开始，我们希望移动到子链表的最后一个结点上，而不是移动到下一个子链表的首结点，因为我们要断开链表。我们新建一个临时结点t指向下一个结点，也就是下一个子链表的首结点，然后将链表断开，再将root指向临时结点t，这样就完成了断开链表的操作，参见代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<ListNode*> splitListToParts(ListNode* root, int k) {
+        vector<ListNode*> res(k);
+        int len = 0;
+        for (ListNode *t = root; t; t = t->next) ++len;
+        int avg = len / k, ext = len % k;
+        for (int i = 0; i < k && root; ++i) {
+            res[i] = root;
+            for (int j = 1; j < avg + (i < ext); ++j) {
+                root = root->next;
+            }
+            ListNode *t = root->next;
+            root->next = NULL;
+            root = t;
+        }
+        return res;
+    }
+};
+----
+
+==== 原子的个数
+
+----
+Given a chemical formula (given as a string), return the count of each atom.
+
+An atomic element always starts with an uppercase character, then zero or more lowercase letters, representing the name.
+
+1 or more digits representing the count of that element may follow if the count is greater than 1. If the count is 1, no digits will follow. For example, H2O and H2O2 are possible, but H1O2 is impossible.
+
+Two formulas concatenated together produce another formula. For example, H2O2He3Mg4 is also a formula.
+
+A formula placed in parentheses, and a count (optionally added) is also a formula. For example, (H2O2) and (H2O2)3 are formulas.
+
+Given a formula, output the count of all elements as a string in the following form: the first name (in sorted order), followed by its count (if that count is more than 1), followed by the second name (in sorted order), followed by its count (if that count is more than 1), and so on.
+----
+
+----
+这道题给了我们一个化学式，让我们数其中原子的个数。比如水是H2O，里面有两个氢原子，一个氧原子，返回还是H2O。例子2给的是氢氧化镁（哈哈，想不到这么多年过去了，高中化学还没有完全还给老师，呀，暴露年龄了呢|||-.-），里面有一个镁原子，氧原子和氢原子各两个，我们返回H2MgO2，可以看到元素是按字母顺序排列的，这道题就是纯粹玩字符串，不需要任何的化学知识。再看第三个例子K4(ON(SO3)2)2，就算你不认识里面的钾，硫，氮，氧等元素，也不影响做题，这个例子的返回是K4N2O14S4，钾原子有4个，氮原子有2个，氧原子有14个，是3x2x2 + 2 = 14得来的，硫原子有4个，是2x2 = 4得来的。那么我们可以发现规律，先统计括号里的原子个数，然后如果括号外面有数字，那么括号里每个原子的个数乘以外面的数字即可，然后在外层若还有数字，那么就继续乘这个数字，这种带有嵌套形式的字符串，比较适合用递归来做。我们最终的目的是统计每个原子的数量，所以我们只要建立了每个元素和其出现次数的映射，就可以生成返回的字符串了，由于需要按元素的字母顺序排列，所以我们使用TreeMap来建立映射。我们使用一个变量pos，来记录我们遍历的位置，这是个全局的变量，在递归函数参数中需要设置引用。我们遍历的时候，需要分三种情况讨论，分别是遇到左括号，右括号，和其他。我们一个个来看：
+
+如果当前是左括号，那么我们pos先自增1，跳过括号位置，然后我们可以调用递归函数，来处理这个括号中包括的所有内容，外加上后面的数字，比如Mg(OH)2，在pos=2处遇到左括号，调用完递归函数后pos指向了最后一个字符的后一位，即pos=7。而在K4(ON(SO3)2)2中，如果是遇到中间的那个左括号pos=5时，调用完递归函数后pos指向了第二个右括号，即pos=11。递归函数返回了中间部分所有原子跟其个数之间的映射，我们直接将其都加入到当前的映射中即可。
+
+如果当前是右括号，说明一个完整的括号已经遍历完了，我们需要取出其后面的数字，如果括号存在，那么后面一定会跟数字，否则不需要括号。所以我们先让pos自增1，跳过括号的位置，然后用个变量i记录当前位置，再进行while循环，找出第一个非数字的位置，那么中间就都是数字啦，用substr将其提取出来，并转为整数，然后遍历当前的映射对，每个值都乘以这个倍数即可，然后返回。
+
+如果当前是字母，那么需要将元素名提取出来了，题目中说了元素名只有第一个字母是大写，后面如果有的话，都是小写字母。所以我们用个while循环找到第一个非小写字母的位置，用substr取出中间的字符串，即元素名。由于元素名后也可能跟数字，所以在用个while循环，来找之后第一个非数字的位置，用substr提取出数字字符串。当然也可能元素名后没有数字，提取出来的数字字符串就是空的，我们加的时候判断一下，如果为空就只加1，否则就加上转化后的整数，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string countOfAtoms(string formula) {
+        string res = "";
+        int pos = 0;
+        map<string, int> m = parse(formula, pos);
+        for (auto a : m) {
+            res += a.first + (a.second == 1 ? "" : to_string(a.second));
+        }
+        return res;
+    }
+    map<string, int> parse(string& str, int& pos) {
+        map<string, int> res;
+        while (pos < str.size()) {
+            if (str[pos] == '(') {
+                ++pos;
+                for (auto a : parse(str, pos)) res[a.first] += a.second;
+            } else if (str[pos] == ')') {
+                int i = ++pos;
+                while (pos < str.size() && isdigit(str[pos])) ++pos;
+                int multiple = stoi(str.substr(i, pos - i));
+                for (auto a : res) res[a.first] *= multiple;
+                return res;
+            } else {
+                int i = pos++;
+                while (pos < str.size() && islower(str[pos])) ++pos;
+                string elem = str.substr(i, pos - i);
+                i = pos;
+                while (pos < str.size() && isdigit(str[pos])) ++pos;
+                string cnt = str.substr(i, pos - i);
+                res[elem] += cnt.empty() ? 1 : stoi(cnt);
+            }
+        }
+        return res;
+    }
+};
+----
+
+下面这种解法是迭代形式，根据上面的递归解法改写而来。使用栈来代替递归函数，本身之上基本没有任何区别。需要注意的是，在遇到左括号时，我们将当前映射集cur加入了栈，这里用了个自带的move函数，表示将cur中所有的映射对移出并加入栈，之后cur就为空了。还有就是在处理右括号时，算出了倍数后，我们把当前的映射值乘以倍数后加到栈顶映射集中，然后用栈顶映射集来更新cur，并移除栈顶元素，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string countOfAtoms(string formula) {
+        string res = "";
+        stack<map<string, int>> st;
+        map<string, int> cur;
+        int n = formula.size(), pos = 0;
+        while (pos < n) {
+            if (formula[pos] == '(') {
+                ++pos;
+                st.push(move(cur));
+            } else if (formula[pos] == ')') {
+                int i = ++pos;
+                while (pos < n && isdigit(formula[pos])) ++pos;
+                int multiple = stoi(formula.substr(i, pos - i));
+                for (auto a : cur) st.top()[a.first] += a.second * multiple;
+                cur = move(st.top());
+                st.pop();
+            } else {
+                int i = pos++;
+                while (pos < n && islower(formula[pos])) ++pos;
+                string elem = formula.substr(i, pos - i);
+                i = pos;
+                while (pos < n && isdigit(formula[pos])) ++pos;
+                string cnt = formula.substr(i, pos - i);
+                cur[elem] += cnt.empty() ? 1 : stoi(cnt);
+            }
+        }
+        for (auto a : cur) {
+            res += a.first + (a.second == 1 ? "" : to_string(a.second));
+        }
+        return res;
+    }
+};
+----
+
+==== 最小窗口序列
+
+----
+Given strings S and T, find the minimum (contiguous) substring W of S, so that T is a subsequence of W.
+
+If there is no such window in S that covers all characters in T, return the empty string "". If there are multiple such minimum-length windows, return the one with the left-most starting index.
+----
+
+----
+这道题给了我们两个字符串S和T，让我们找出S的一个长度最短子串W，使得T是W的子序列，如果长度相同，取起始位置靠前的。清楚子串和子序列的区别，那么题意就不难理解，题目中给的例子也很好的解释了题意。我们经过研究可以发现，返回的子串的起始字母和T的起始字母一定相同，这样才能保证最短。那么你肯定会想先试试暴力搜索吧，以S中每个T的起始字母为起点，均开始搜索字符串T，然后维护一个子串长度的最小值。如果是这种思路，那么还是趁早打消念头吧，博主已经替你试过了，OJ不依。原因也不难想，假如S中有大量的连续b，并且如果T也很长的话，这种算法实在是不高效啊。根据博主多年经验，这种玩字符串且还是Hard的题，十有八九都是要用动态规划Dynamic Programming来做的，那么就直接往DP上去想吧。DP的第一步就是设计dp数组，像这种两个字符串的题，一般都是一个二维数组，想想该怎么定义。确定一个子串的两个关键要素是起始位置和长度，那么我们的dp值到底应该是定起始位置还是长度呢？That is a question! 仔细想一想，其实起始位置是长度的基础，因为我们一旦知道了起始位置，那么当前位置减去起始位置，就是长度了，所以我们dp值定为起始位置。那么 dp[i][j] 表示范围S中前i个字符包含范围T中前j个字符的子串的起始位置，注意这里的包含是子序列包含关系。然后就是确定长度了，有时候会使用字符串的原长度，有时候会多加1，看个人习惯吧，这里博主长度多加了个1。
+
+OK，下面就是重中之重啦，求递推式。一般来说，dp[i][j]的值是依赖于之前已经求出的dp值的，在递归形式的解法中，dp数组也可以看作是记忆数组，从而省去了大量的重复计算，这也是dp解法凌驾于暴力搜索之上的主要原因。牛B的方法总是最难想出来的，dp的递推式就是其中之一。在脑子一片浆糊的情况下，博主的建议是从最简单的例子开始分析，比如 S = "b", T = "b", 那么我们就有 dp[1][1] = 0，因为S中的起始位置为0，长度为1的子串可以包含T。如果当 S = "d", T = "b"，那么我们有 dp[1][1] = -1，因为我们的dp数组初始化均为-1，表示未匹配或者无法匹配。下面来看一个稍稍复杂些的例子，S = "dbd", T = "bd"，我们的dp数组是：
+
+   ∅  b  d
+∅  ?  ?  ?
+d  ? -1 -1
+b  ?  1 -1
+d  ?  1  1
+这里的问号是边界，我们还不知道如何初给边界赋值，我们看到，为-1的地方是对应的字母不相等的地方。我们首先要明确的是dp[i][j]中的j不能大于i，因为T的长度不能大于S的长度，所以j大于i的dp[i][j]一定都是-1的。再来看为1的几个位置，首先是 dp[2][1] = 1，这里表示db包含b的子串起始位置为1，make sense！然后是 dp[3][1] = 1，这里表示dbd包含b的子串起始位置为1，没错！然后是 dp[3][2] = 1，这里表示dbd包含bd的起始位置为1，all right! 那么我们可以观察出，当 S[i] == T[j] 的时候，实际上起始位置和 dp[i - 1][j - 1] 是一样的，比如dbd包含bd的起始位置和db包含b的起始位置一样，所以可以继承过来。那么当 S[i] != T[j] 的时候，怎么搞？其实是和 dp[i - 1][j] 是一样的，比如dbd包含b的起始位置和db包含b的起始位置是一样的。
+
+嗯，这就是递推式的核心了，下面再来看边界怎么赋值，由于j比如小于等于i，所以第一行的第二个位置往后一定都是-1，我们只需要给第一列赋值即可。通过前面的分析，我们知道了当 S[i] == T[j] 时，我们取的是左上角的dp值，表示当前字母在S中的位置，由于我们dp数组提前加过1，所以第一列的数只要赋值为当前行数即可。最终的dp数组如下：
+
+   ∅  b  d
+∅  0 -1 -1
+d  1 -1 -1
+b  2  1 -1
+d  3  1  1
+为了使代码更加简洁，我们在遍历完每一行，检测如果 dp[i][n] 不为-1，说明T已经被完全包含了，且当前的位置跟起始位置都知道了，我们计算出长度来更新一个全局最小值minLen，同时更新最小值对应的起始位置start，最后取出这个全局最短子串，如果没有找到返回空串即可，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string minWindow(string S, string T) {
+        int m = S.size(), n = T.size(), start = -1, minLen = INT_MAX;
+        vector<vector<int>> dp(m + 1, vector<int>(n + 1, -1));
+        for (int i = 0; i <= m; ++i) dp[i][0] = i;
+        for (int i = 1; i <= m; ++i) {
+            for (int j = 1; j <= min(i, n); ++j) {
+                dp[i][j] = (S[i - 1] == T[j - 1]) ? dp[i - 1][j - 1] : dp[i - 1][j];
+            }
+            if (dp[i][n] != -1) {
+                int len = i - dp[i][n];
+                if (minLen > len) {
+                    minLen = len;
+                    start = dp[i][n];
+                }
+            }
+        }
+        return (start != -1) ? S.substr(start, minLen) : "";
+    }
+};
+----
+
+论坛上的danzhutest大神提出了一种双指针的解法，其实这是优化过的暴力搜索的方法，而且居然beat了100%，给跪了好嘛？！而且这双指针的跳跃方式犹如舞蹈般美妙绝伦，比那粗鄙的暴力搜索双指针不知道高到哪里去了？！举个栗子来说吧，比如当 S = "bbbbdde", T = "bde"时，我们知道暴力搜索的双指针在S和T的第一个b匹配上之后，就开始检测S之后的字符能否包含T之后的所有字符，当匹配结束后，S的指针就会跳到第二个b开始匹配，由于有大量的重复b出现，所以每一个b都要遍历一遍，会达到平方级的复杂度，会被OJ无情拒绝。而下面这种修改后的算法会跳过所有重复的b，使得效率大大提升，具体是这么做的，当第一次匹配成功后，我们的双指针往前走，找到那个刚好包含T中字符的位置，比如开始指针 i = 0 时，指向S中的第一个b，指针 j = 0 时指向T中的第一个b，然后开始匹配T，当 i = 6， j = 2 时，此时完全包含了T。暴力搜索解法中此时i会回到1继续找，而这里，我们通过向前再次匹配T，会在 i = 3，j = 0处停下，然后继续向后找，这样S中重复的b就会被跳过，从而达到线性的复杂度。旋转，跳跃，我闭着眼，尘嚣看不见，你沉醉了没？博主已经沉醉在这双指针之舞中了...... +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string minWindow(string S, string T) {
+        int m = S.size(), n = T.size(), start = -1, minLen = INT_MAX, i = 0, j = 0;
+        while (i < m) {
+            if (S[i] == T[j]) {
+                if (++j == n) {
+                    int end = i + 1;
+                    while (--j >= 0) {
+                        while (S[i--] != T[j]);
+                    }
+                    ++i; ++j;
+                    if (end - i < minLen) {
+                        minLen = end - i;
+                        start = i;
+                    }
+                }
+            }
+            ++i;
+        }
+        return (start != -1) ? S.substr(start, minLen) : "";
+    }
+};
+----
+
+==== 自整除数字
+
+----
+A self-dividing number is a number that is divisible by every digit it contains.
+
+For example, 128 is a self-dividing number because 128 % 1 == 0, 128 % 2 == 0, and 128 % 8 == 0.
+
+Also, a self-dividing number is not allowed to contain the digit zero.
+
+Given a lower and upper number bound, output a list of every possible self dividing number, including the bounds if possible.
+----
+
+这道题让我们找一个给定范围内的所有的自整除数字，所谓的自整除数字就是该数字可以整除其每一个位上的数字。既然这道题是Easy类，那么一般来说不需要用tricky的方法，直接暴力搜索就行了，遍历区间内的所有数字，然后调用子函数判断其是否是自整除数，是的话就加入结果res中。在子函数中，我们先把数字转为字符串，然后遍历每个字符，只要其为0，或者num无法整除该位上的数字，就返回false，循环结束后返回true，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> selfDividingNumbers(int left, int right) {
+        vector<int> res;
+        for (int i = left; i <= right; ++i) {
+            if (check(i)) res.push_back(i);
+        }
+        return res;
+    }
+    bool check(int num) {
+        string str = to_string(num);
+        for (char c : str) {
+            if (c == '0' || num % (c - '0')) return false;
+        }
+        return true;
+    }
+};
+----
+
+我们可以不用子函数，直接在大的for循环中加上一个for循环进行判断即可，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> selfDividingNumbers(int left, int right) {
+        vector<int> res;
+        for (int i = left, n = 0; i <= right; ++i) {
+            for (n = i; n > 0; n /= 10) {
+                if (n % 10 == 0 || i % (n % 10) != 0) break;
+            }
+            if (n == 0) res.push_back(i);
+        }
+        return res;
+    }
+};
+----
+
+==== 我的日历之一
+
+----
+Implement a MyCalendar class to store your events. A new event can be added if adding the event will not cause a double booking.
+
+Your class will have the method, book(int start, int end). Formally, this represents a booking on the half open interval [start, end), the range of real numbers x such that start <= x < end.
+
+A double booking happens when two events have some non-empty intersection (ie., there is some time that is common to both events.)
+
+For each call to the method MyCalendar.book, return true if the event can be added to the calendar successfully without causing a double booking. Otherwise, return false and do not add the event to the calendar.
+
+Your class will be called like this: MyCalendar cal = new MyCalendar(); MyCalendar.book(start, end)
+----
+
+这道题让我们设计一个我的日历类，里面有一个book函数，需要给定一个起始时间和结束时间，与Google Calendar不同的是，我们的事件事件上不能重叠，实际上这道题的本质就是检查区间是否重叠。那么我们可以暴力搜索，对于每一个将要加入的区间，我们都和已经已经存在的区间进行比较，看是否有重复。而新加入的区间和当前区间产生重复的情况有两种，一种是新加入区间的前半段重复，并且，另一种是新加入区间的后半段重复。比如当前区间如果是[3, 8)，那么第一种情况下新加入区间就是[6, 9)，那么触发条件就是当前区间的起始时间小于等于新加入区间的起始时间，并且结束时间大于新加入区间的结束时间。第二种情况下新加入区间就是[2,5)，那么触发条件就是当前区间的起始时间大于等于新加入区间的起始时间，并且起始时间小于新加入区间的结束时间。这两种情况均返回false，否则就将新区间加入数组，并返回true即可，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class MyCalendar {
+public:
+    MyCalendar() {}
+
+    bool book(int start, int end) {
+        for (auto a : cal) {
+            if (a.first <= start && a.second > start) return false;
+            if (a.first >= start && a.first < end) return false;
+        }
+        cal.push_back({start, end});
+        return true;
+    }
+
+private:
+    vector<pair<int, int>> cal;
+};
+----
+
+
+下面这种方法将上面方法的两个if判断融合成为了一个，我们来观察两个区间的起始和结束位置的关系发现，如果两个区间的起始时间中的较大值小于结束区间的较小值，那么就有重合，返回false。比如 [3, 8) 和 [6, 9)，3和6中的较大值6，小于8和9中的较小值8，有重叠。再比如[3, 8) 和 [2, 5)，3和2中的较大值3，就小于8和5中的较小值5，有重叠。而对于[3, 8) 和 [9, 10)，3和9中的较大值9，不小于8和10中的较小值8，所以没有重叠，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class MyCalendar {
+public:
+    MyCalendar() {}
+
+    bool book(int start, int end) {
+        for (auto a : cal) {
+            if (max(a.first, start) < min(a.second, end)) return false;
+        }
+        cal.push_back({start, end});
+        return true;
+    }
+
+private:
+    vector<pair<int, int>> cal;
+};
+----
+
+上面两种解法都是线性搜索，我们起始可以优化搜索时间，如果我们的区间是有序的话。所以我们用一个map来建立起始时间和结束时间的映射，map会按照起始时间进行自动排序。然后对于新进来的区间，我们在已有区间中查找第一个不小于新入区间的起始时间的区间，如果这个区间存在的话，说明新入区间的起始时间小于等于当前区间，也就是解法一中的第二个if情况，当前区间起始时间小于新入区间结束时间的话返回false。我们还要跟前面一个区间进行查重叠操作，那么判断如果当前区间不是第一个区间的话，就找到前一个区间，此时是解法一中第一个if情况，并且如果前一个区间的结束时间大于新入区间的起始时间的话，返回false。否则就建立新的映射，返回true即可，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class MyCalendar {
+public:
+    MyCalendar() {}
+
+    bool book(int start, int end) {
+        auto it = cal.lower_bound(start);
+        if (it != cal.end() && it->first < end) return false;
+        if (it != cal.begin() && prev(it)->second > start) return false;
+        cal[start] = end;
+        return true;
+    }
+
+private:
+    map<int, int> cal;
+};
+----
+
+==== 计数不同的回文子序列的个数
+
+----
+Given a string S, find the number of different non-empty palindromic subsequences in S, and return that number modulo 10^9 + 7.
+
+A subsequence of a string S is obtained by deleting 0 or more characters from S.
+
+A sequence is palindromic if it is equal to the sequence reversed.
+
+Two sequences A_1, A_2, ... and B_1, B_2, ... are different if there is some i for which A_i != B_i.
+----
+
+----
+这道题给了给了我们一个字符串，让我们求出所有的非空回文子序列的个数，虽然这题限制了字符只有四种，但是我们还是按一般的情况来解吧，可以有26个字母。然后说最终结果要对一个很大的数字取余，这就暗示了结果会是一个很大的值，那么对于这种问题一般都是用DP或者是带记忆数组memo的递归来解，二者的本质其实是一样的。我们先来看带记忆数组memo的递归解法，这种解法的思路是一层一层剥洋葱，比如"bccb"，按照字母来剥，先剥字母b，确定最外层"b _ _ b"，这会产生两个回文子序列"b"和"bb"，然后递归进中间的部分，把中间的回文子序列个数算出来加到结果res中，然后开始剥字母c，找到最外层"cc"，此时会产生两个回文子序列"c"和"cc"，然后由于中间没有字符串了，所以递归返回0，按照这种方法就可以算出所有的回文子序列了。
+
+我们建立一个二维数组chars，外层长度为26，里面放一个空数组。这是为了统计每个字母在原字符串中出现的位置，然后定义一个二维记忆数组memo，其中memo[i][j]表示第i个字符到第j个字符之间的子字符串中的回文子序列的个数，初始化均为0。然后我们遍历字符串S，将每个字符的位置加入其对应的数组中，比如对于"bccb"，那么有：
+
+b -> {0, 3}
+
+c -> {1, 2}
+
+然后在[0, n]的范围内调用递归函数，在递归函数中，首先判断如果start大于等于end，返回0。如果当前位置在memo的值大于0，说明当前情况已经计算过了，直接返回memo数组中的值。否则进行所有字母的遍历，如果某个字母对应的数组中没有值，说明该字母不曾在字符串中出现，跳过。然后我们在字母数组中查找第一个不小于start的位置，查找第一个小于end的位置，当前循环中，start为0，end为4，当前处理字母b，我们的new_start指向0，new_end指向3，如果当前new_start指向了end()，或者其指向的位置大于end，说明当前范围内没有字母b，直接跳过，否则结果res自增1，因为此时new_start存在，至少有个单个的字母b，也可以当作回文子序列，然后看new_start和new_end如果不相同，说明两者各指向了不同的b，此时res应自增1，因为又增加了一个新的回文子序列"bb"，下面就是对中间部分调用递归函数了，把返回值加到结果res中。此时字母b就处理完了，现在处理字母c，此时的start还是0，end还是4，new_start指向1，new_end指向2，跟上面的分析相同，new_start在范围内，结果自增1，因为加上了"c"，然后new_start和new_end不同，结果res再自增1，因为加上了"cc"，其中间没有字符了，调用递归的结果是0，for循环结束，我们将memo[start][end]的值对超大数取余，将该值返回即可，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int countPalindromicSubsequences(string S) {
+        int n = S.size();
+        vector<vector<int>> chars(26, vector<int>());
+        vector<vector<int>> memo(n + 1, vector<int>(n + 1, 0));
+        for (int i = 0; i < n; ++i) {
+            chars[S[i] - 'a'].push_back(i);
+        }
+        return helper(S, chars, 0, n, memo);
+    }
+    int helper(string S, vector<vector<int>>& chars, int start, int end, vector<vector<int>>& memo) {
+        if (start >= end) return 0;
+        if (memo[start][end] > 0) return memo[start][end];
+        long res = 0;
+        for (int i = 0; i < 26; ++i) {
+            if (chars[i].empty()) continue;
+            auto new_start = lower_bound(chars[i].begin(), chars[i].end(), start);
+            auto new_end = lower_bound(chars[i].begin(), chars[i].end(), end) - 1;
+            if (new_start == chars[i].end() || *new_start >= end) continue;
+            ++res;
+            if (new_start != new_end) ++res;
+            res += helper(S, chars, *new_start + 1, *new_end, memo);
+        }
+        memo[start][end] = res % int(1e9 + 7);
+        return memo[start][end];
+    }
+};
+----
+
+----
+我们再来看一种迭代的写法，使用一个二维的dp数组，其中dp[i][j]表示子字符串[i, j]中的不同回文子序列的个数，我们初始化dp[i][i]为1，因为任意一个单个字符就是一个回文子序列，其余均为0。这里的更新顺序不是正向，也不是逆向，而是斜着更新，对于"bccb"的例子，其最终dp数组如下，我们可以看到其更新顺序分别是红-绿-蓝-橙。
+
+  b c c b
+b 1 2 3 6
+c 0 1 2 3
+c 0 0 1 2
+b 0 0 0 1
+这样更新的好处是，更新当前位置时，其左，下，和左下位置的dp值均已存在，而当前位置的dp值需要用到这三个位置的dp值。我们观察上面的dp数组，可以发现当S[i]不等于S[j]的时候，dp[i][j] = dp[i][j - 1] + dp[i + 1][j] - dp[i + 1][j - 1]，即当前的dp值等于左边值加下边值减去左下值，因为算左边值的时候包括了左下的所有情况，而算下边值的时候也包括了左下值的所有情况，那么左下值就多算了一遍，所以要减去。而当S[i]等于S[j]的时候，情况就比较复杂了，需要分情况讨论，因为我们不知道中间还有几个和S[i]相等的值。举个简单的例子，比如"aba"和"aaa"，当i = 0, j = 2的时候，两个字符串均有S[i] == S[j]，此时二者都新增两个子序列"a"和"aa"，但是"aba"中间的"b"就可以加到结果res中，而"aaa"中的"a"就不能加了，因为和外层的单独"a"重复了。我们的目标就要找到中间重复的"a"。所以我们让left = i + 1, right = j - 1，然后对left进行while循环，如果left <= right, 且S[left] != S[i]的时候，left向右移动一个；同理，对right进行while循环，如果left <= right, 且S[right] != S[i]的时候，left向左移动一个。这样最终left和right值就有三种情况：
+
+1. 当left > righ时，说明中间没有和S[i]相同的字母了，就是"aba"这种情况，那么就有dp[i][j] = dp[i + 1][j - 1] * 2 + 2，其中dp[i + 1][j - 1]是中间部分的回文子序列个数，为啥要乘2呢，因为中间的所有子序列可以单独存在，也可以再外面包裹上字母a，所以是成对出现的，要乘2。加2的原因是外层的"a"和"aa"也要统计上。
+
+2. 当left = right时，说明中间只有一个和S[i]相同的字母，就是"aaa"这种情况，那么有dp[i][j] = dp[i + 1][j - 1] * 2 + 1，其中乘2的部分跟上面的原因相同，加1的原因是单个字母"a"的情况已经在中间部分算过了，外层就只能再加上个"aa"了。
+
+3. 当left < right时，说明中间至少有两个和S[i]相同的字母，就是"aabaa"这种情况，那么有dp[i][j] = dp[i + 1][j - 1] * 2 - dp[left + 1][right - 1]，其中乘2的部分跟上面的原因相同，要减去left和right中间部分的子序列个数的原因是其被计算了两遍，要将多余的减掉。
+
+参见代码如下：
+----
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int countPalindromicSubsequences(string S) {
+        int n = S.size(), M = 1e9 + 7;
+        vector<vector<int>> dp(n, vector<int>(n, 0));
+        for (int i = 0; i < n; ++i) dp[i][i] = 1;
+        for (int len = 1; len < n; ++len) {
+            for (int i = 0; i < n - len; ++i) {
+                int j = i + len;
+                if (S[i] == S[j]) {
+                    int left = i + 1, right = j - 1;
+                    while (left <= right && S[left] != S[i]) ++left;
+                    while (left <= right && S[right] != S[i]) --right;
+                    if (left > right) {
+                        dp[i][j] = dp[i + 1][j - 1] * 2 + 2;
+                    } else if (left == right) {
+                        dp[i][j] = dp[i + 1][j - 1] * 2 + 1;
+                    } else {
+                        dp[i][j] = dp[i + 1][j - 1] * 2 - dp[left + 1][right - 1];
+                    }
+                } else {
+                    dp[i][j] = dp[i][j - 1] + dp[i + 1][j] - dp[i + 1][j - 1];
+                }
+                dp[i][j] = (dp[i][j] < 0) ? dp[i][j] + M : dp[i][j] % M;
+            }
+        }
+        return dp[0][n - 1];
+    }
+};
+----
+
+==== 我的日历之二
+
+----
+Implement a MyCalendarTwo class to store your events. A new event can be added if adding the event will not cause a triple booking.
+
+Your class will have one method, book(int start, int end). Formally, this represents a booking on the half open interval [start, end), the range of real numbers x such that start <= x < end.
+
+A triple booking happens when three events have some non-empty intersection (ie., there is some time that is common to all 3 events.)
+
+For each call to the method MyCalendar.book, return true if the event can be added to the calendar successfully without causing a triple booking. Otherwise, return false and do not add the event to the calendar.
+
+Your class will be called like this: MyCalendar cal = new MyCalendar(); MyCalendar.book(start, end)
+----
+
+这道题是My Calendar I的拓展，之前那道题说是不能有任何的重叠区间，而这道题说最多容忍两个重叠区域，注意是重叠区域，不是事件。比如事件A，B，C互不重叠，但是有一个事件D，和这三个事件都重叠，这样是可以的，因为重叠的区域最多只有两个。所以关键还是要知道具体的重叠区域，如果两个事件重叠，那么重叠区域就是它们的交集，求交集的方法是两个区间的起始时间中的较大值，到结束时间中的较小值。那么我们可以用一个集合来专门存重叠区间，再用一个集合来存完整的区间，那么我们的思路就是，先遍历专门存重叠区间的集合，因为能在这里出现的区间，都已经是出现两次了，如果当前新的区间跟重叠区间有交集的话，说明此时三个事件重叠了，直接返回false。如果当前区间跟重叠区间没有交集的话，那么再来遍历完整区间的集合，如果有交集的话，那么应该算出重叠区间并且加入放重叠区间的集合中。最后记得将新区间加入完整区间的集合中，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class MyCalendarTwo {
+public:
+    MyCalendarTwo() {}
+
+    bool book(int start, int end) {
+        for (auto a : s2) {
+            if (start >= a.second || end <= a.first) continue;
+            else return false;
+        }
+        for (auto a : s1) {
+            if (start >= a.second || end <= a.first) continue;
+            else s2.insert({max(start, a.first), min(end, a.second)});
+        }
+        s1.insert({start, end});
+        return true;
+    }
+
+private:
+    set<pair<int, int>> s1, s2;
+};
+----
+
+----
+下面这种方法相当的巧妙，我们建立一个时间点和次数之间的映射，规定遇到起始时间点，次数加1，遇到结束时间点，次数减1。那么我们首先更改新的起始时间start和结束时间end的映射，start对应值增1，end对应值减1。然后定义一个变量cnt，来统计当前的次数。我们使用treemap具有自动排序的功能，所以我们遍历的时候就是按时间顺序的，最先遍历到的一定是一个起始时间，所以加上其映射值，一定是个正数。那么我们想，如果此时只有一个区间，就是刚加进来的区间的话，那么首先肯定遍历到start，那么cnt此时加1，然后就会遍历到end，那么此时cnt减1，最后下来cnt为0，没有重叠。还是用具体数字来说吧，我们现在假设treemap中已经加入了一个区间[3, 5)了，那么我们就有下面的映射：
+
+3 -> 1
+
+5 -> -1
+
+假如我们此时要加入的区间为[6, 8)的话，那么在遍历到6的时候，前面经过3和5，分别加1减1，那么cnt又重置为0了，而后面的6和8也是分别加1减1，还是0。那么加入我们新加入的区间为[3, 8]时，那么此时的映射为：
+
+3 -> 2
+
+5 -> -1
+
+8 -> -1
+
+那么我们最先遍历到3，cnt为2，没有超过3，我们知道此时有两个事件有重叠，是允许的。然后遍历5和8，分别减去1，最终又变成0了，始终cnt没有超过2，所以是符合题意的。如果此时我们再加入一个新的区间[1, 4)，那么此时的映射为：
+
+1 -> 1
+
+3 -> 2
+
+4 -> -1
+
+5 -> -1
+
+8 -> -1
+
+那么我们先遍历到1，cnt为1，然后遍历到3，此时cnt为3了，那么我们就知道有三个事件有重叠区间了，所以这个新区间是不能加入的，那么我们要还原其start和end做的操作，把start的映射值减1，end的映射值加1，然后返回false。否则没有三个事件有共同重叠区间的话，返回true即可，参见代码如下：
+----
+
+**解法2:** +
+[source, cpp, linenums]
+----
+
+class MyCalendarTwo {
+public:
+    MyCalendarTwo() {}
+
+    bool book(int start, int end) {
+        ++freq[start];
+        --freq[end];
+        int cnt = 0;
+        for (auto f : freq) {
+            cnt += f.second;
+            if (cnt == 3) {
+                --freq[start];
+                ++freq[end];
+                return false;
+            }
+        }
+        return true;
+    }
+
+private:
+    map<int, int> freq;
+};
+----
+
+==== 我的日历之三
+
+----
+Implement a MyCalendarThree class to store your events. A new event can always be added.
+
+Your class will have one method, book(int start, int end). Formally, this represents a booking on the half open interval [start, end), the range of real numbers x such that start <= x < end.
+
+A K-booking happens when K events have some non-empty intersection (ie., there is some time that is common to all K events.)
+
+For each call to the method MyCalendar.book, return an integer K representing the largest integer such that there exists a K-booking in the calendar.
+
+Your class will be called like this: MyCalendarThree cal = new MyCalendarThree(); MyCalendarThree.book(start, end)
+----
+
+这道题是之前那两道题My Calendar II，My Calendar I的拓展，论坛上有人说这题不应该算是Hard类的，但实际上如果没有之前那两道题做铺垫，直接上这道其实还是还蛮有难度的。这道题博主在做完之前那道，再做这道一下子就做出来了，因为用的就是之前那道My Calendar II的解法二，具体的讲解可以参见那道题，反正博主写完那道题再来做这道题就是秒解啊，参见代码如下： +
+
+[source, cpp, linenums]
+----
+class MyCalendarThree {
+public:
+    MyCalendarThree() {}
+
+    int book(int start, int end) {
+        ++freq[start];
+        --freq[end];
+        int cnt = 0, mx = 0;
+        for (auto f : freq) {
+            cnt += f.second;
+            mx = max(mx, cnt);
+        }
+        return mx;
+    }
+
+private:
+    map<int, int> freq;
+};
+----
+
+==== 洪水填充
+
+----
+An image is represented by a 2-D array of integers, each integer representing the pixel value of the image (from 0 to 65535).
+
+Given a coordinate (sr, sc) representing the starting pixel (row and column) of the flood fill, and a pixel value newColor, "flood fill" the image.
+
+To perform a "flood fill", consider the starting pixel, plus any pixels connected 4-directionally to the starting pixel of the same color as the starting pixel, plus any pixels connected 4-directionally to those pixels (also with the same color as the starting pixel), and so on. Replace the color of all of the aforementioned pixels with the newColor.
+
+At the end, return the modified image.
+----
+
+这道题给了我们一个用二维数组表示的图像，不同的数字代表不同的颜色，给了我们一个起始点坐标，还有一个新的颜色，让我们把起始点的颜色以及其相邻的同样的颜色都换成新的颜色。那么实际上就是一个找相同区间的题，我们可以用BFS或者DFS来做。先来看BFS的解法，我们使用一个队列queue来辅助，首先将给定点放入队列中，然后进行while循环，条件是queue不为空，然后进行类似层序遍历的方法，取出队首元素，将其赋值为新的颜色，然后遍历周围四个点，如果不越界，且周围的颜色跟起始颜色相同的话，将位置加入队列中，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<int>> floodFill(vector<vector<int>>& image, int sr, int sc, int newColor) {
+        int m = image.size(), n = image[0].size(), color = image[sr][sc];
+        vector<vector<int>> res = image;
+        vector<vector<int>> dirs{{0,-1},{-1,0},{0,1},{1,0}};
+        queue<pair<int, int>> q{{{sr, sc}}};
+        while (!q.empty()) {
+            int len = q.size();
+            for (int i = 0; i < len; ++i) {
+                auto t = q.front(); q.pop();
+                res[t.first][t.second] = newColor;
+                for (auto dir : dirs) {
+                    int x = t.first + dir[0], y = t.second + dir[1];
+                    if (x < 0 || x >= m || y < 0 || y >= n || res[x][y] != color) continue;
+                    q.push({x, y});
+                }
+            }
+        }
+        return res;
+    }
+};
+----
+
+DFS的写法相对简洁一些，首先判断如果给定位置的颜色跟新的颜色相同的话，直接返回，否则就对给定位置调用递归函数。在递归函数中，如果越界或者当前颜色跟起始颜色不同，直接返回。否则就给当前位置赋上新的颜色，然后对周围四个点继续调用递归函数，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<int>> floodFill(vector<vector<int>>& image, int sr, int sc, int newColor) {
+        if (image[sr][sc] == newColor) return image;
+        helper(image, sr, sc, image[sr][sc], newColor);
+        return image;
+    }
+    void helper(vector<vector<int>>& image, int i, int j, int color, int newColor) {
+        int m = image.size(), n = image[0].size();
+        if (i < 0 || i >= m || j < 0 || j >= n || image[i][j] != color) return;
+        image[i][j] = newColor;
+        helper(image, i + 1, j, color, newColor);
+        helper(image, i, j + 1, color, newColor);
+        helper(image, i - 1, j, color, newColor);
+        helper(image, i, j - 1, color, newColor);
+    }
+};
+----
+
+==== 句子相似度
+
+----
+Given two sentences words1, words2 (each represented as an array of strings), and a list of similar word pairs pairs, determine if two sentences are similar.
+
+For example, "great acting skills" and "fine drama talent" are similar, if the similar word pairs are pairs = [["great", "fine"], ["acting","drama"], ["skills","talent"]].
+
+Note that the similarity relation is not transitive. For example, if "great" and "fine" are similar, and "fine" and "good" are similar, "great" and "good" are not necessarily similar.
+
+However, similarity is symmetric. For example, "great" and "fine" being similar is the same as "fine" and "great" being similar.
+
+Also, a word is always similar with itself. For example, the sentences words1 = ["great"], words2 = ["great"], pairs = [] are similar, even though there are no specified similar word pairs.
+
+Finally, sentences can only be similar if they have the same number of words. So a sentence like words1 = ["great"] can never be similar to words2 = ["doubleplus","good"].
+
+Note:
+
+The length of words1 and words2 will not exceed 1000.
+The length of pairs will not exceed 2000.
+The length of each pairs[i] will be 2.
+The length of each words[i] and pairs[i][j] will be in the range [1, 20].
+----
+
+----
+这道题给了我们两个句子，问这两个句子是否是相似的。判定的条件是两个句子的单词数要相同，而且每两个对应的单词要是相似度，这里会给一些相似的单词对，这里说明了单词对的相似具有互逆性但是没有传递性。看到这里博主似乎已经看到了Follow up了，加上传递性就是一个很好的拓展。那么这里没有传递性，就使得问题变得很容易了，我们只要建立一个单词和其所有相似单词的集合的映射就可以了，比如说如果great和fine类似，且great和good类似，那么就有下面这个映射：
+
+great -> {fine, good}
+
+所以我们在逐个检验两个句子中对应的单词时就可以直接去映射中找，注意有可能遇到的单词对时反过来的，比如fine和great，所以我们两个单词都要带到映射中去查找，只要有一个能查找到，就说明是相似的，反之，如果两个都没查找到，说明不相似，直接返回false，参见代码如下：
+----
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool areSentencesSimilar(vector<string>& words1, vector<string>& words2, vector<pair<string, string>> pairs) {
+        if (words1.size() != words2.size()) return false;
+        unordered_map<string, unordered_set<string>> m;
+        for (auto pair : pairs) {
+            m[pair.first].insert(pair.second);
+        }
+        for (int i = 0; i < words1.size(); ++i) {
+            if (words1[i] == words2[i]) continue;
+            if (!m[words1[i]].count(words2[i]) && !m[words2[i]].count(words1[i])) return false;
+        }
+        return true;
+    }
+};
+----
+
+==== 行星碰撞
+
+----
+We are given an array asteroids of integers representing asteroids in a row.
+
+For each asteroid, the absolute value represents its size, and the sign represents its direction (positive meaning right, negative meaning left). Each asteroid moves at the same speed.
+
+Find out the state of the asteroids after all collisions. If two asteroids meet, the smaller one will explode. If both are the same size, both will explode. Two asteroids moving in the same direction will never meet.
+----
+
+这道题用一个数组来模拟行星碰撞，正数代表行星向右移动，负数表示向左移动，绝对值大小表示行星的质量，如果两个相邻的行星相向移动会碰撞，质量大的行星会完好无损的保存，质量小的就会灰飞烟灭。那么博主最开始想的方法就是按照题目要求来一个一个的处理，我们先把给定的数组放到结果res中，然后进行while循环，如果此时结果res中的数字个数小于等于1个，直接返回即可，没有可碰撞的了。否则我们建立一个临时数组t，把结果res中的首元素放到t中，然后从第二个数字开始遍历结果res，如果此时t为空了，或者当前数字大于0而t数组最后一个数字小于0（此时两个行星向相反方向运动，不会相撞），或者两个数字的符号相同（此时两个行星向同一个方向运动，不会相撞），这三种情况下都把当前数字res[i]加到数组t中；那么剩下的情况就是两个行星相向运动了，如果两个数字相加等于0，则说明两个行星质量相同，且相向运动，则一起消失，我们将数组t中最后一个数字移除；如果当前数字小于0，且两个数字相加小于0，那么此时相撞后会留下质量大的行星，我们将数组t的最后一个数字赋值为res[i]即可。for循环之和，如果数组t和结果res的大小相等，说明此时状态已经稳定了，我们直接break，否则就把数组t赋值给结果res并继续循环，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> asteroidCollision(vector<int>& asteroids) {
+        vector<int> res = asteroids;
+        while (true) {
+            if (res.size() <= 1) return res;
+            vector<int> t{res[0]};
+            for (int i = 1; i < res.size(); ++i) {
+                if (t.empty() || (res[i] > 0 && t.back() < 0) || res[i] * t.back() > 0) {
+                    t.push_back(res[i]);
+                } else if (res[i] + t.back() == 0) {
+                    t.pop_back();
+                } else if (res[i] < 0 && res[i] + t.back() < 0) {
+                     t.back() = res[i];
+                }
+            }
+            if (t.size() == res.size()) break;
+            else res = t;
+        }
+        return res;
+    }
+};
+----
+
+实际上我们可以写的更加简洁一些，我们遍历所有的数字，如果当前数字是正数的话，我们直接加入结果res；否则我们遇到的都是负数，如果结果res为空，或者结果res的最后一个数字小于0（此时两个行星同时向左运动），直接将当前数字加入结果res；如果结果res的最后一个数字（此时为正数）小于当前数字的绝对值，说明碰撞后消失了，那么我们将i自减一个，然后将res最后一个数字移除，这样下次遍历的时候还是这个质量大的行星。如果两个质量相等，那么直接移除res最后一个数字，此时两个行星都消失了，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> asteroidCollision(vector<int>& asteroids) {
+        vector<int> res;
+        for (int i = 0; i < asteroids.size(); ++i) {
+            if (asteroids[i] > 0) {
+                res.push_back(asteroids[i]);
+            } else if (res.empty() || res.back() < 0) {
+                res.push_back(asteroids[i]);
+            } else if (res.back() <= -asteroids[i]) {
+                if (res.back() < -asteroids[i]) --i;
+                res.pop_back();
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== 句子相似度之二
+
+----
+Given two sentences words1, words2 (each represented as an array of strings), and a list of similar word pairs pairs, determine if two sentences are similar.
+
+For example, words1 = ["great", "acting", "skills"] and words2 = ["fine", "drama", "talent"] are similar, if the similar word pairs are pairs = [["great", "good"], ["fine", "good"], ["acting","drama"], ["skills","talent"]].
+
+Note that the similarity relation is transitive. For example, if "great" and "good" are similar, and "fine" and "good" are similar, then "great" and "fine" are similar.
+
+Similarity is also symmetric. For example, "great" and "fine" being similar is the same as "fine" and "great" being similar.
+
+Also, a word is always similar with itself. For example, the sentences words1 = ["great"], words2 = ["great"], pairs = [] are similar, even though there are no specified similar word pairs.
+
+Finally, sentences can only be similar if they have the same number of words. So a sentence like words1 = ["great"] can never be similar to words2 = ["doubleplus","good"].
+----
+
+----
+这道题是之前那道Sentence Similarity的拓展，那道题说单词之间不可传递，于是乎这道题就变成可以传递了，那么难度就增加了。不过没有关系，还是用我们的经典老三样来解，BFS，DFS，和Union Find。我们先来看BFS的解法，其实这道题的本质是无向连通图的问题，那么首先要做的就是建立这个连通图的数据结构，对于每个结点来说，我们要记录所有和其相连的结点，所以我们建立每个结点和其所有相连结点集合之间的映射，比如对于这三个相似对(a, b), (b, c)，和(c, d)，我们有如下的映射关系：
+
+a -> {b}
+
+b -> {a, c}
+
+c -> {b, d}
+
+d -> {c}
+
+那么如果我们要验证a和d是否相似，就需要用到传递关系，a只能找到b，b可以找到a，c，为了不陷入死循环，我们将访问过的结点加入一个集合visited，那么此时b只能去，c只能去d，那么说明a和d是相似的了。那么我们用for循环来比较对应位置上的两个单词，如果二者相同，那么直接跳过去比较接下来的。否则就建一个访问即可visited，建一个队列queue，然后把words1中的单词放入queue，建一个布尔型变量succ，标记是否找到，然后就是传统的BFS遍历的写法了，从队列中取元素，如果和其相连的结点中有words2中的对应单词，标记succ为true，并break掉。否则就将取出的结点加入队列queue，并且遍历其所有相连结点，将其中未访问过的结点加入队列queue继续循环，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool areSentencesSimilarTwo(vector<string>& words1, vector<string>& words2, vector<pair<string, string>> pairs) {
+        if (words1.size() != words2.size()) return false;
+        unordered_map<string, unordered_set<string>> m;
+        for (auto pair : pairs) {
+            m[pair.first].insert(pair.second);
+            m[pair.second].insert(pair.first);
+        }
+        for (int i = 0; i < words1.size(); ++i) {
+            if (words1[i] == words2[i]) continue;
+            unordered_set<string> visited;
+            queue<string> q{{words1[i]}};
+            bool succ = false;
+            while (!q.empty()) {
+                auto t = q.front(); q.pop();
+                if (m[t].count(words2[i])) {
+                    succ = true; break;
+                }
+                visited.insert(t);
+                for (auto a : m[t]) {
+                    if (!visited.count(a)) q.push(a);
+                }
+            }
+            if (!succ) return false;
+        }
+        return true;
+    }
+};
+----
+
+下面来看递归的写法，解题思路跟上面的完全一样，把主要操作都放到了一个递归函数中来写，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool areSentencesSimilarTwo(vector<string>& words1, vector<string>& words2, vector<pair<string, string>> pairs) {
+        if (words1.size() != words2.size()) return false;
+        unordered_map<string, unordered_set<string>> m;
+        for (auto pair : pairs) {
+            m[pair.first].insert(pair.second);
+            m[pair.second].insert(pair.first);
+        }
+        for (int i = 0; i < words1.size(); ++i) {
+            unordered_set<string> visited;
+            if (!helper(m, words1[i], words2[i], visited)) return false;
+        }
+        return true;
+    }
+    bool helper(unordered_map<string, unordered_set<string>>& m, string& cur, string& target, unordered_set<string>& visited) {
+        if (cur == target) return true;
+        visited.insert(cur);
+        for (string word : m[cur]) {
+            if (!visited.count(word) && helper(m, word, target, visited)) return true;
+        }
+        return false;
+    }
+};
+----
+
+下面这种解法就是碉堡了的联合查找Union Find了，这种解法的核心是一个getRoot函数，如果两个元素属于同一个群组的话，调用getRoot函数会返回相同的值。主要分为两部，第一步是建立群组关系，suppose开始时每一个元素都是独立的个体，各自属于不同的群组。然后对于每一个给定的关系对，我们对两个单词分别调用getRoot函数，找到二者的祖先结点，如果从未建立过联系的话，那么二者的祖先结点时不同的，此时就要建立二者的关系。等所有的关系都建立好了以后，第二步就是验证两个任意的元素是否属于同一个群组，就只需要比较二者的祖先结点都否相同啦。是不是有点深度学习的赶脚，先建立模型training，然后再test。哈哈，博主乱扯的，二者并没有什么联系。我们保存群组关系的数据结构，有时用数组，有时用哈希map，看输入的数据类型吧，如果输入元素的整型数的话，用root数组就可以了，如果是像本题这种的字符串的话，需要用哈希表来建立映射，建立每一个结点和其祖先结点的映射。注意这里的祖先结点不一定是最终祖先结点，而最终祖先结点的映射一定是最重祖先结点，所以我们的getRoot函数的设计思路就是要找到最终祖先结点，那么就是当结点和其映射结点相同时返回，否则继续循环，可以递归写，也可以迭代写，这无所谓。注意这里第一行判空是相当于初始化，这个操作可以在外面写，就是要让初始时每个元素属于不同的群组，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool areSentencesSimilarTwo(vector<string>& words1, vector<string>& words2, vector<pair<string, string>> pairs) {
+        if (words1.size() != words2.size()) return false;
+        unordered_map<string, string> m;
+        for (auto pair : pairs) {
+            string x = getRoot(pair.first, m), y = getRoot(pair.second, m);
+            if (x != y) m[x] = y;
+        }
+        for (int i = 0; i < words1.size(); ++i) {
+            if (getRoot(words1[i], m) != getRoot(words2[i], m)) return false;
+        }
+        return true;
+    }
+    string getRoot(string word, unordered_map<string, string>& m) {
+        if (!m.count(word)) m[word] = word;
+        return word == m[word] ? word : getRoot(m[word], m);
+    }
+};
+----
+
+==== 单调递增数字
+
+----
+Given a non-negative integer N, find the largest number that is less than or equal to N with monotone increasing digits.
+
+(Recall that an integer has monotone increasing digits if and only if each pair of adjacent digits x and y satisfy x <= y.)
+----
+
+----
+这道题给了我们一个非负数，让我们求一个数字小于等于给定数字，且该数字各位上的数字是单调递增的。那么我们就来分析题目中给的几个例子吧，首先如果是10的话，我们知道1大于0，所以不是单调自增的，那么返回的数就是9。第二个例子是1234，各位上已经满足单调自增的条件了，返回原数即可。第三个例子是332，我们发现最后一位2小于之前的3，那么此时我们将前面位减1，先变成322，再往前看，还是小于前面的3，那么我们再将前面位减1，就变成了222，此时222不是最大的单调递增数，我们可以将后面两位变成9，于是乎就有了299，小于给定的332，符合题意。如果给定的数字是232，那么就会得到229，我们可以发现规律，要找到从后往前遍历的最后一个值升高的位置，让前一位减1，并把当前位以及后面的所有位都变成9，就可以得到最大的单调递增数啦。
+
+我们用j表示最后一个值升高的位置，具体来说应该是其前一位的值大，初始化为总位数n，然后从后往前遍历，因为每次要和前一位比较，为防止越界，应遍历到第二个数停止，如果当前位大于等于前一位，符合单调递增，直接跳过；否则就将前一位自减1，j赋值为当前位i，循环结束后，从j位到末尾的位数都改为9即可，参见代码如下：
+----
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int monotoneIncreasingDigits(int N) {
+        string str = to_string(N);
+        int n = str.size(), j = n;
+        for (int i = n - 1; i > 0; --i) {
+            if (str[i] >= str[i - 1]) continue;
+            --str[i - 1];
+            j = i;
+        }
+        for (int i = j; i < n; ++i) {
+            str[i] = '9';
+        }
+        return stoi(str);
+    }
+};
+----
+
+==== 日常温度
+
+----
+Given a list of daily temperatures, produce a list that, for each day in the input, tells you how many days you would have to wait until a warmer temperature. If there is no future day for which this is possible, put 0 instead.
+
+For example, given the list temperatures = [73, 74, 75, 71, 69, 72, 76, 73], your output should be [1, 1, 4, 2, 1, 1, 0, 0].
+
+Note: The length of temperatures will be in the range [1, 30000]. Each temperature will be an integer in the range [30, 100].
+----
+
+
+这道题给了我们一个数组，让我们找下一个比当前数字大的数字的距离，我们研究一下题目中给的例子，发现数组是无序的，所以没法用二分法快速定位下一个大的数字，那么最先考虑的方法就是暴力搜索了，写起来没有什么难度，但是OJ并不答应。实际上这道题应该使用递减栈Descending Stack来做，栈里只有递减元素，思路是这样的，我们遍历数组，如果栈不空，且当前数字大于栈顶元素，那么如果直接入栈的话就不是递减栈了，所以我们取出栈顶元素，那么由于当前数字大于栈顶元素的数字，而且一定是第一个大于栈顶元素的数，那么我们直接求出下标差就是二者的距离了，然后继续看新的栈顶元素，直到当前数字小于等于栈顶元素停止，然后将数字入栈，这样就可以一直保持递减栈，且每个数字和第一个大于它的数的距离也可以算出来了，参见代码如下： +
+
+[source, cpp, linenums]
+----
+
+class Solution {
+public:
+    vector<int> dailyTemperatures(vector<int>& temperatures) {
+        int n = temperatures.size();
+        vector<int> res(n, 0);
+        stack<int> st;
+        for (int i = 0; i < temperatures.size(); ++i) {
+            while (!st.empty() && temperatures[i] > temperatures[st.top()]) {
+                auto t = st.top(); st.pop();
+                res[t] = i - t;
+            }
+            st.push(i);
+        }
+        return res;
+    }
+};
+----
+
+==== 删除与赚取
+
+----
+Given an array nums of integers, you can perform operations on the array.
+
+In each operation, you pick any nums[i] and delete it to earn nums[i] points. After, you must delete everyelement equal to nums[i] - 1 or nums[i] + 1.
+
+You start with 0 points. Return the maximum number of points you can earn by applying such operations.
+----
+
+博主浪了整整一个圣诞假期，现在也该收收心了，2018了，今年对于博主是很关键的一年，有太多的事情要去做，各种小目标需要完成，还有梦想去追逐，又要开始努力啦～在博主停更的这一周半的时间内，收到了网友们的私信和留言催更，请大家放心，2018年博主会继续坚持下去，继续追赶进度，虽然一直都没有完全追上-.-|||，照LeetCode这出题速度，今年题号有望突破一千大关啊，感觉碉堡了有木有，一起为了幸福而奋斗吧～ +
+
+好了，来做题吧。这道题给了我们一个数组，每次让我们删除一个数字，删除的数字本身变为了积分累积，并且要同时移除之前数的加1和减1的数，但此时移除的数字不累计积分，让我们求最多能获得多少积分。博主最开始尝试的方法是积分大小来排列，先删除大的数字，但是不对。于是乎，博主发现相同的数字可以同时删除，于是就是建立了每个数字和其出现次数之间的映射，然后放到优先队列里，重写排序方式comparator为数字乘以其出现次数，先移除能产生最大积分的数字，可是还是不对。其实这道题跟之前那道House Robber的本质是一样的，那道题小偷不能偷相邻的房子，这道题相邻的数字不能累加积分，是不是一个道理？那么对于每一个数字，我们都有两个选择，拿或者不拿。如果我们拿了当前的数字，我们就不能拿之前的数字（如果我们从小往大遍历就不需要考虑后面的数字），那么当前的积分就是不拿前面的数字的积分加上当前数字之和。如果我们不拿当前的数字，那么对于前面的数字我们既可以拿也可以不拿，于是当前的积分就是拿前面的数字的积分和不拿前面数字的积分中的较大值。这里我们用take和skip分别表示拿与不拿上一个数字，takei和skipi分别表示拿与不拿当前数字，每次更新完当前的takei和skipi时，也要更新take和skip，为下一个数字做准备，最后只要返回take和skip中的较大值即可，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int deleteAndEarn(vector<int>& nums) {
+        vector<int> sums(10001, 0);
+        int take = 0, skip = 0;
+        for (int num : nums) sums[num] += num;
+        for (int i = 0; i < 10001; ++i) {
+            int takei = skip + sums[i];
+            int skipi = max(skip, take);
+            take = takei; skip = skipi;
+        }
+        return max(skip, take);
+    }
+};
+----
+
+下面这种解法直接使用sums数组来更新，而没有使用额外的变量。上面解法中没有讲解这个sums数组，这里的sums实际上相当于建立了数字和其总积分的映射，这里的总积分的计算方法是由数字乘以其出现次数得来的。由于题目中说了每个数字不会超过10000，所以sums的长度可以初始化为10001，然后遍历原数组，将遇到的数字都累加到该数字在数组中的位置上。然后从sums数组的第三个数字开始遍历，更新方法跟上面解法的思路很类似，当前的sums[i]值就等于前一个值sums[i-1]和前两个值sums[i-2]加上当前的sums[i]值中的较大值，其实思想就是在不拿当前数的积分，跟不拿前一个数的积分加上当前的积分之和，取二者中的较大值更新当前值sums[i]，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int deleteAndEarn(vector<int>& nums) {
+        vector<int> sums(10001, 0);
+        for (int num : nums) sums[num] += num;
+        for (int i = 2; i < 10001; ++i) {
+            sums[i] = max(sums[i - 1], sums[i - 2] + sums[i]);
+        }
+        return sums[10000];
+    }
+};
+----
+
+==== 捡樱桃
+
+----
+In a N x N grid representing a field of cherries, each cell is one of three possible integers.
+
+0 means the cell is empty, so you can pass through;
+1 means the cell contains a cherry, that you can pick up and pass through;
+-1 means the cell contains a thorn that blocks your way.
+
+Your task is to collect maximum number of cherries possible by following the rules below:
+
+Starting at the position (0, 0) and reaching (N-1, N-1) by moving right or down through valid path cells (cells with value 0 or 1);
+After reaching (N-1, N-1), returning to (0, 0) by moving left or up through valid path cells;
+When passing through a path cell containing a cherry, you pick it up and the cell becomes an empty cell (0);
+If there is no valid path between (0, 0) and (N-1, N-1), then no cherries can be collected.
+----
+
+这道题给了我们一个二维数组，每个数字只有三个数字，-1，0，和1，其中-1表示障碍物不能通过，1表示有樱桃并可以通过，0表示没有樱桃并可以通过，并设定左上角为起点，右下角为终点，让我们从起点走到终点，再从终点返回起点，求最多能捡的樱桃的个数，限定起点和终点都没有障碍物。博主开始想的是就用dp来做呗，先从起点走到终点，求最多能捡多个樱桃，然后将捡起樱桃后将grid值变为0，然后再走一遍，把两次得到的樱桃数相加即可，但是类似贪婪算法的dp解法却跪在了下面这个case： +
+
+----
+1 1 1 1 0 0 0
+0 0 0 1 0 0 0
+0 0 0 1 0 0 1
+1 0 0 1 0 0 0
+0 0 0 1 0 0 0
+0 0 0 1 0 0 0
+0 0 0 1 1 1 1
+复制代码
+
+
+我们可以看出，红色的轨迹是第一次dp解法走过的路径，共拿到了13个樱桃，但是回到起点的话，剩下的两个樱桃无论如何也不可能同时拿到，只能拿到1颗，所以总共只能捡到14颗樱桃，而实际上所有的樱桃都可以捡到，需要换个走法的话，比如下面这种走法：
+
+
+
+复制代码
+1 1 1 1 0 0 0
+0 0 0 1 0 0 0
+0 0 0 1 0 0 1
+1 0 0 1 0 0 0
+0 0 0 1 0 0 0
+0 0 0 1 0 0 0
+0 0 0 1 1 1 1
+复制代码
+
+
+红色为从起点到终点的走法，共拿到9颗樱桃，回去走蓝色的路径，可拿到6颗樱桃，所以总共15颗都能收入囊中。那这是怎么回事，原因出在了我们的dp递推式的设计上，博主之前设计式，当前位置的樱桃数跟上边和左边的樱桃数有关，取二者的较大值，如果只是从起点到终点走单程的话，这种设计是没有问题的，可以拿到最多的樱桃，但如果是round trip的话，那么就不行了。这里参考的还是fun4LeetCode大神的帖子，范佛利特扣德大神的帖子每次讲解都写的巨详细，总是让博主有种读paper的感觉。博主就挑选部分来讲讲，完整版可以自己去读一读大神的亲笔～
+
+最开始时博主定义的dp[i][j]为单程的，即到达(i, j)位置能捡到的最大樱桃数，即：
+
+T(i, j) = grid[i][j] + max{ T(i-1, j), T(i, j-1) }
+但是定义单程就得改变grid的值，再进行一次dp计算时，就会陷入之前例子中的陷阱。所以我们的dp[i][j]还是需要定义为round trip的，即到达(i, j)位置并返回起点时能捡到的最大樱桃数，但是新的问题就来了，樱桃只有一个，只能捡一次，去程捡了，返程就不能再捡了，如何才能避免重复计算呢？我们只有i和j是不够的，其只能定义去程的位置，我们还需要pg，(不是pgone哈哈)，来定义返程的位置，那么重现关系Recurrence Relations就变成了 T(i, j, p, g)，我们有分别两种方式离开(i, j)和(p, g)，我们suppose时从终点往起点遍历，那么就有4种情况：
+
+Case 1: (0, 0) ==> (i-1, j) ==> (i, j); (p, q) ==> (p-1, q) ==> (0, 0)
+Case 2: (0, 0) ==> (i-1, j) ==> (i, j); (p, q) ==> (p, q-1) ==> (0, 0)
+Case 3: (0, 0) ==> (i, j-1) ==> (i, j); (p, q) ==> (p-1, q) ==> (0, 0)
+Case 4: (0, 0) ==> (i, j-1) ==> (i, j); (p, q) ==> (p, q-1) ==> (0, 0)
+根据定义，我们有：
+
+Case 1 is equivalent to T(i-1, j, p-1, q) + grid[i][j] + grid[p][q];
+Case 2 is equivalent to T(i-1, j, p, q-1) + grid[i][j] + grid[p][q];
+Case 3 is equivalent to T(i, j-1, p-1, q) + grid[i][j] + grid[p][q];
+Case 4 is equivalent to T(i, j-1, p, q-1) + grid[i][j] + grid[p][q];
+因此，我们的重现关系可以写作：
+
+T(i, j, p, q) = grid[i][j] + grid[p][q] + max{T(i-1, j, p-1, q), T(i-1, j, p, q-1), T(i, j-1, p-1, q), T(i, j-1, p, q-1)}
+为了避免重复计算，我们希望 grid[i][j] 和 grid[p][g] 不出现在T(i-1, j, p-1, q), T(i-1, j, p, q-1), T(i, j-1, p-1, q) 和 T(i, j-1, p, q-1)中的任意一个上。显而易见的是(i, j)不会出现在(0, 0) ==> (i-1, j) 或 (0, 0) ==> (i, j-1) 的路径上，同理，(p, g) 也不会出现在 (p-1, q) ==> (0, 0) 或 (p, q-1) ==> (0, 0) 的路径上。因此，我们需要保证(i, j) 不会出现在 (p-1, q) ==> (0, 0) 或 (p, q-1) ==> (0, 0) 的路径上，同时 (p, g)不会出现在(0, 0) ==> (i-1, j) 或 (0, 0) ==> (i, j-1) 的路径上，怎么做呢？
+
+我们观察到(0, 0) ==> (i-1, j) 和 (0, 0) ==> (i, j-1) 的所有点都在矩形 [0, 0, i, j] 中（除了右下角点(i, j)点），所以只要 (p, g) 不在矩形 [0, 0, i, j] 中就行了，注意(p, g) 和 (i, j) 是有可能重合了，这种情况特殊处理一下就行了。同理， (i, j) 也不能在矩形 [0, 0, p, g] 中，那么以下三个条件中需要满足一个：
+
+i < p && j > q
+i == p && j == q
+i > p && j < q
+为了满足上述条件，我们希望当 i 或 p 增加的时候，j 或 q 减小，那么我们可以有这个等式:
+
+k = i + j = p + q
+其中k为从起点开始走的步数，所以我们可以用 T(k, i, p)  来代替 T(i, j, p, g)，那么我们的重现关系式就变成了：
+
+T(k, i, p) = grid[i][k-i] + grid[p][k-p] + max{T(k-1, i-1, p-1), T(k-1, i-1, p), T(k-1, i, p-1), T(k-1, i, p)}.
+当 i == p 时，grid[i][k-i] 和 grid[p][k-p] 就相等了，此时只能加一个。我们注意到 i, j, p, q 的范围是 [0, n)， 意味着k只能在范围 [0, 2n - 1) 中， 初始化时 T(0, 0, 0) = grid[0][0]。我们这里的重现关系T虽然是三维的，但是我们可以用二维dp数组来实现，因为第k步的值只依赖于第k-1步的情况，参见代码如下：
+----
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int cherryPickup(vector<vector<int>>& grid) {
+        int n = grid.size(), mx = 2 * n - 1;
+        vector<vector<int>> dp(n, vector<int>(n, -1));
+        dp[0][0] = grid[0][0];
+        for (int k = 1; k < mx; ++k) {
+            for (int i = n - 1; i >= 0; --i) {
+                for (int p = n - 1; p >= 0; --p) {
+                    int j = k - i, q = k - p;
+                    if (j < 0 || j >= n || q < 0 || q >= n || grid[i][j] < 0 || grid[p][q] < 0) {
+                        dp[i][p] = -1;
+                        continue;
+                    }
+                    if (i > 0) dp[i][p] = max(dp[i][p], dp[i - 1][p]);
+                    if (p > 0) dp[i][p] = max(dp[i][p], dp[i][p - 1]);
+                    if (i > 0 && p > 0) dp[i][p] = max(dp[i][p], dp[i - 1][p - 1]);
+                    if (dp[i][p] >= 0) dp[i][p] += grid[i][j] + (i != p ? grid[p][q] : 0);
+                }
+            }
+        }
+        return max(dp[n - 1][n - 1], 0);
+    }
+};
+----
+
+==== 二叉树中最近的叶结点
+
+----
+Given a binary tree where every node has a unique value, and a target key k, find the value of the nearest leaf node to target k in the tree.
+
+Here, nearest to a leaf means the least number of edges travelled on the binary tree to reach any leaf of the tree. Also, a node is called a leaf if it has no children.
+
+In the following examples, the input tree is represented in flattened form row by row. The actual root tree given will be a TreeNode object.
+----
+
+这道题让我们找二叉树中最近的叶结点，叶结点就是最底端没有子结点的那个。我们观察题目中的例子3，发现结点2的最近叶结点是其右边的那个结点3，那么传统的二叉树的遍历只能去找其子结点中的叶结点，像这种同一层水平的结点该怎么弄呢？我们知道树的本质就是一种无向图，但是树只提供了父结点到子结点的连接，反过来就不行了，所以只要我们建立了反向连接，就可以用BFS来找最近的叶结点了。明白了这一点后，我们就先来做反向连接吧，用一个哈希map，建立子结点与其父结点之间的映射，其实我们不用做完所有的反向连接，而是做到要求的结点k就行了，因为结点k的子结点可以直接访问，不需要再反过来查找。我们用DFS来遍历结点，并做反向连接，直到遇到结点k时，将其返回。此时我们得到了结点k，并且做好了结点k上面所有结点的反向连接，那么就可以用BFS来找最近的叶结点了，将结点k加入队列queue和已访问集合visited中，然后开始循环，每次取出队首元素，如果是叶结点，说明已经找到了最近叶结点，直接返回；如果左子结点存在，并且不在visited集合中，那么先将其加入集合，然后再加入队列，同理，如果右子结点存在，并且不在visited集合中，那么先将其加入集合，然后再加入队列；再来看其父结点，如果不在visited集合中，那么先将其加入集合，然后再加入队列。因为题目中说了一定会有结点k，所以在循环内部就可以直接返回了，不会有退出循环的可能，但是为表尊重，我们最后还是加上return -1吧， 参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findClosestLeaf(TreeNode* root, int k) {
+        unordered_map<TreeNode*, TreeNode*> back;
+        TreeNode *kNode = find(root, k, back);
+        queue<TreeNode*> q{{kNode}};
+        unordered_set<TreeNode*> visited{{kNode}};
+        while (!q.empty()) {
+            TreeNode *t = q.front(); q.pop();
+            if (!t->left && !t->right) return t->val;
+            if (t->left && !visited.count(t->left)) {
+                visited.insert(t->left);
+                q.push(t->left);
+            }
+            if (t->right && !visited.count(t->right)) {
+                visited.insert(t->right);
+                q.push(t->right);
+            }
+            if (back.count(t) && !visited.count(back[t])) {
+                visited.insert(back[t]);
+                q.push(back[t]);
+            }
+        }
+        return -1;
+    }
+    TreeNode* find(TreeNode* node, int k, unordered_map<TreeNode*, TreeNode*>& back) {
+        if (node->val == k) return node;
+        if (node->left) {
+            back[node->left] = node;
+            TreeNode *left = find(node->left, k, back);
+            if (left) return left;
+        }
+        if (node->right) {
+            back[node->right] = node;
+            TreeNode *right = find(node->right, k, back);
+            if (right) return right;
+        }
+        return NULL;
+    }
+};
+----
+
+下面这种解法也挺巧妙的，虽然没有像上面的解法那样建立所有父结点的反向连接，但是这种解法直接提前算出来了所有父结点到结点k的距离，就比如说例子3中，结点k的父结点只有一个，即为结点1，那么算出其和结点k的距离为1，即建立结点1和距离1之间的映射，另外建立结点k和0之间的映射，这样便于从结点k开始像叶结点统计距离。接下来，我们维护一个最小值mn，表示结点k到叶结点的最小距离，还有结果res，指向那个最小距离的叶结点。下面就开始再次遍历二叉树了，如果当前结点为空， 直接返回。否则先在哈希map中看当前结点是否有映射值，有的话就取出来（如果有，则说明当前结点可能k或者其父结点），如果当前结点是叶结点了，那么我们要用当前距离cur和最小距离mn比较，如果cur更小的话，就将mn更新为cur，将结果res更新为当前结点。否则就对其左右子结点调用递归函数，注意cur要加1，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findClosestLeaf(TreeNode* root, int k) {
+        int res = -1, mn = INT_MAX;
+        unordered_map<int, int> m;
+        m[k] = 0;
+        find(root, k, m);
+        helper(root, -1, m, mn, res);
+        return res;
+    }
+    int find(TreeNode* node, int k, unordered_map<int, int>& m) {
+        if (!node) return -1;
+        if (node->val == k) return 1;
+        int r = find(node->left, k, m);
+        if (r != -1) {
+            m[node->val] = r;
+            return r + 1;
+        }
+        r = find(node->right, k, m);
+        if (r != -1) {
+            m[node->val] = r;
+            return r + 1;
+        }
+        return -1;
+    }
+    void helper(TreeNode* node, int cur, unordered_map<int, int>& m, int& mn, int& res) {
+        if (!node) return;
+        if (m.count(node->val)) cur = m[node->val];
+        if (!node->left && !node->right) {
+            if (mn > cur) {
+                mn = cur;
+                res = node->val;
+            }
+        }
+        helper(node->left, cur + 1, m, mn, res);
+        helper(node->right, cur + 1, m, mn, res);
+    }
+};
+----
+
+==== 网络延迟时间
+
+----
+There are N network nodes, labelled 1 to N.
+
+Given times, a list of travel times as directed edges times[i] = (u, v, w), where u is the source node, v is the target node, and w is the time it takes for a signal to travel from source to target.
+
+Now, we send a signal from a certain node K. How long will it take for all nodes to receive the signal? If it is impossible, return -1
+----
+
+这道题给了我们一些有向边，又给了一个结点K，问至少需要多少时间才能从K到达任何一个结点。这实际上是一个有向图求最短路径的问题，我们求出K点到每一个点到最短路径，然后取其中最大的一个就是需要的时间了。可以想成从结点K开始有水流向周围扩散，当水流到达最远的一个结点时，那么其他所有的结点一定已经流过水了。最短路径的常用解法有迪杰克斯特拉算法Dijkstra Algorithm, 弗洛伊德算法Floyd-Warshall Algorithm, 和贝尔曼福特算法Bellman-Ford Algorithm，其中，Floyd算法是多源最短路径，即求任意点到任意点到最短路径，而Dijkstra算法和Bellman-Ford算法是单源最短路径，即单个点到任意点到最短路径。这里因为起点只有一个K，所以使用单源最短路径就行了。这三种算法还有一点不同，就是Dijkstra算法处理有向权重图时，权重必须为正，而另外两种可以处理负权重有向图，但是不能出现负环，所谓负环，就是权重均为负的环。为啥呢，这里要先引入松弛操作Relaxtion，这是这三个算法的核心思想，当有对边 (u, v) 是结点u到结点v，如果 dist(v) > dist(u) + w(u, v)，那么 dist(v) 就可以被更新，这是所有这些的算法的核心操作。Dijkstra算法是以起点为中心，向外层层扩展，直到扩展到终点为止。根据这特性，用BFS来实现时再好不过了，注意while循环里的第一层for循环，这保证了每一层的结点先被处理完，才会进入进入下一层，这种特性在用BFS遍历迷宫统计步数的时候很重要。对于每一个结点，我们都跟其周围的结点进行Relaxtion操作，从而更新周围结点的距离值。为了防止重复比较，我们需要使用visited数组来记录已访问过的结点，最后我们在所有的最小路径中选最大的返回，注意，如果结果res为INT_MAX，说明有些结点是无法到达的，返回-1。普通的实现方法的时间复杂度为O(V2)，基于优先队列的实现方法的时间复杂度为O(E + VlogV)，其中V和E分别为结点和边的个数，这里多说一句，Dijkstra算法这种类贪心算法的机制，使得其无法处理有负权重的最短距离，还好这道题的权重都是正数，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int networkDelayTime(vector<vector<int>>& times, int N, int K) {
+        int res = 0;
+        vector<vector<int>> edges(101, vector<int>(101, -1));
+        queue<int> q{{K}};
+        vector<int> dist(N + 1, INT_MAX);
+        dist[K] = 0;
+        for (auto e : times) edges[e[0]][e[1]] = e[2];
+        while (!q.empty()) {
+            unordered_set<int> visited;
+            for (int i = q.size(); i > 0; --i) {
+                int u = q.front(); q.pop();
+                for (int v = 1; v <= 100; ++v) {
+                    if (edges[u][v] != -1 && dist[u] + edges[u][v] < dist[v]) {
+                        if (!visited.count(v)) {
+                            visited.insert(v);
+                            q.push(v);
+                        }
+                        dist[v] = dist[u] + edges[u][v];
+                    }
+                }
+            }
+        }
+        for (int i = 1; i <= N; ++i) {
+            res = max(res, dist[i]);
+        }
+        return res == INT_MAX ? -1 : res;
+    }
+};
+----
+
+下面来看基于Bellman-Ford算法的解法，时间复杂度是O(VE)，V和E分别是结点和边的个数。这种算法是基于DP来求全局最优解，原理是对图进行V - 1次松弛操作，这里的V是所有结点的个数（为啥是V-1次呢，因为最短路径最多只有V-1条边，所以只需循环V-1次），在重复计算中，使得每个结点的距离被不停的更新，直到获得最小的距离，这种设计方法融合了暴力搜索之美，写法简洁又不失优雅。之前提到了，Bellman-Ford算法可以处理负权重的情况，但是不能有负环存在，一般形式的写法中最后一部分是检测负环的，如果存在负环则报错。不能有负环原因是，每转一圈，权重和都在减小，可以无限转，那么最后的最小距离都是负无穷，无意义了。没有负环的话，V-1次循环后各点的最小距离应该已经收敛了，所以在检测负环时，就再循环一次，如果最小距离还能更新的话，就说明存在负环。这道题由于不存在负权重，所以就不检测了，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int networkDelayTime(vector<vector<int>>& times, int N, int K) {
+        int res = 0;
+        vector<int> dist(N + 1, INT_MAX);
+        dist[k] = 0;
+        for (int i = 1; i < N; ++i) {
+            for (auto e : times) {
+                int u = e[0], v = e[1], w = e[2];
+                if (dist[u] != INT_MAX && dist[v] > dist[u] + w) {
+                    dist[v] = dist[u] + w;
+                }
+            }
+        }
+        for (int i = 1; i <= N; ++i) {
+            res = max(res, dist[i]);
+        }
+        return res == INT_MAX ? -1 : res;
+    }
+};
+----
+
+==== 找比目标值大的最小字母
+
+----
+Given a list of sorted characters letters containing only lowercase letters, and given a target letter target, find the smallest element in the list that is larger than the given target.
+
+Letters also wrap around. For example, if the target is target = 'z' and letters = ['a', 'b'], the answer is 'a'.
+----
+
+这道题给了我们一堆有序的字母，然后又给了我们一个target字母，让我们求字母数组中第一个大于target的字母，数组是循环的，如果没有，那就返回第一个字母。像这种在有序数组中找数字，二分法简直不要太适合啊。题目中说了数组至少有两个元素，那么我们首先用数组的尾元素来跟target比较，如果target大于等于尾元素的话，直接返回数组的首元素即可。否则就利用二分法来做，这里是查找第一个大于目标值的数组，博主之前做过二分法的总结，参见这个帖子LeetCode Binary Search Summary 二分搜索法小结，参见代码如下： +
+
+***解法1:** +
+[[source, cpp, linenums]
+-----
+class Solution {
+public:
+    char nextGreatestLetter(vector<char>& letters, char target) {
+        if (target >= letters.back()) return letters[0];
+        int n = letters.size(), left = 0, right = n;
+        while (left < right) {
+            int mid = left + (right - left) / 2;
+            if (letters[mid] <= target) left = mid + 1;
+            else right = mid;
+        }
+        return letters[right];
+    }
+};
+-----
+
+我们也可以用STL自带的upper_bound函数来做，这个就是找第一个大于目标值的数字，如果返回end()，说明没找到，返回首元素即可，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    char nextGreatestLetter(vector<char>& letters, char target) {
+        auto it = upper_bound(letters.begin(), letters.end(), target);
+        return it == letters.end() ? *letters.begin() : *it;
+    }
+};
+----
+
+==== 前后缀搜索
+
+----
+Given many words, words[i] has weight i.
+
+Design a class WordFilter that supports one function, WordFilter.f(String prefix, String suffix). It will return the word with given prefix and suffix with maximum weight. If no word exists, return -1.
+----
+
+这道题给了我们一些单词，让我们通过输入单词的前缀和后缀来查找单词的位置。单词的位置就是其权重值，如果给定的前后缀能对应到不只一个单词，那么返回最大的权重。首先，一个单词如果长度为n的话，那么其就有n个前缀，比如对于单词apple，其前缀即为"a", "ap", "app", "appl", "apple"，同理，后缀也有n个。那么其组成的情况就有n2个，所以最简单的方法就是把这n2个前后缀组成一个字符串，和当前权重建立映射。如果后面的单词有相同的前后缀，直接用后面的大权重来覆盖之前的权重即可。为了将前后缀encode成一个字符串，我们可以在中间加上一个非字母字符，比如'#'，然后在查找的时候，我们先拼出“前缀#后缀”字符串，直接去哈希map中找即可，这种解法的WordFilter函数时间复杂度为O(NL^2)，其中N是单词个数，L是单词长度。f函数时间复杂度为O(1)，空间复杂度为O(NL^2)，适合需要大量查找的情况下使用，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class WordFilter {
+public:
+    WordFilter(vector<string> words) {
+        for (int k = 0; k < words.size(); ++k) {
+            for (int i = 0; i <= words[k].size(); ++i) {
+                for (int j = 0; j <= words[k].size(); ++j) {
+                    m[words[k].substr(0, i) + "#" + words[k].substr(words[k].size() - j)] = k;
+                }
+            }
+        }
+    }
+
+    int f(string prefix, string suffix) {
+        return (m.count(prefix + "#" + suffix)) ? m[prefix + "#" + suffix] : -1;
+    }
+
+private:
+    unordered_map<string, int> m;
+};
+----
+
+如果我们希望节省一些空间的话，可以使用下面的方法。使用两个哈希map，一个建立所有前缀和权重数组之间的映射，另一个建立所有后缀和权重数组之间的映射。在WordFilter函数中，我们遍历每个单词，然后先遍历其所有前缀，将遍历到的前缀的映射数组中加入当前权重，同理再遍历其所有后缀，将遍历到的后缀的映射数组中加入当前权重。在搜索函数f中，首先判断，如果前缀或后缀不存在的话，直接返回-1。否则我们分别把前缀和后缀的权重数组取出来，然后用两个指针i和j，分别指向数组的最后一个位置。当i和j不小于0时进行循环，如果两者的权重相等，直接返回，如果前缀的权重数组值大，则j自减1，反之i自减1，这种解法的WordFilter函数时间复杂度为O(NL)，其中N是单词个数，L是单词长度。f函数时间复杂度为O(N)，空间复杂度为O(NL)，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class WordFilter {
+public:
+    WordFilter(vector<string> words) {
+        for (int k = 0; k < words.size(); ++k) {
+            for (int i = 0; i <= words[k].size(); ++i) {
+                mp[words[k].substr(0, i)].push_back(k);
+            }
+            for (int i = 0; i <= words[k].size(); ++i) {
+                ms[words[k].substr(words[k].size() - i)].push_back(k);
+            }
+        }
+    }
+
+    int f(string prefix, string suffix) {
+        if (!mp.count(prefix) || !ms.count(suffix)) return -1;
+        vector<int> pre = mp[prefix], suf = ms[suffix];
+        int i = pre.size() - 1, j = suf.size() - 1;
+        while (i >= 0 && j >= 0) {
+            if (pre[i] < suf[j]) --j;
+            else if (pre[i] > suf[j]) --i;
+            else return pre[i];
+        }
+        return -1;
+    }
+
+private:
+    unordered_map<string, vector<int>> mp, ms;
+};
+----
+
+==== 爬楼梯的最小损失
+
+----
+On a staircase, the i-th step has some non-negative cost cost[i] assigned (0 indexed).
+
+Once you pay the cost, you can either climb one or two steps. You need to find minimum cost to reach the top of the floor, and you can either start from the step with index 0, or the step with index 1.
+----
+
+----
+这道题应该算是之前那道Climbing Stairs的拓展，这里不是求步数，而是每个台阶上都有一个cost，让我们求爬到顶端的最小cost是多少。换汤不换药，还是用动态规划Dynamic Programming来做。这里我们定义一个一维的dp数组，其中dp[i]表示爬到第i层的最小cost，然后我们来想dp[i]如何推导。我们来思考一下如何才能到第i层呢？是不是只有两种可能性，一个是从第i-2层上直接跳上来，一个是从第i-1层上跳上来。不会再有别的方法，所以我们的dp[i]只和前两层有关系，所以可以写做如下：
+
+dp[i] = min(dp[i- 2] + cost[i - 2], dp[i - 1] + cost[i - 1])
+
+最后我们返回最后一个数字dp[n]即可，参见代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int minCostClimbingStairs(vector<int>& cost) {
+        int n = cost.size();
+        vector<int> dp(n + 1, 0);
+        for (int i = 2; i < n + 1; ++i) {
+            dp[i] = min(dp[i- 2] + cost[i - 2], dp[i - 1] + cost[i - 1]);
+        }
+        return dp.back();
+    }
+};
+----
+
+----
+再来看一种DP的解法，跟上面的解法很相近，不同在于dp数组长度为n，其中dp[i]表示到第i+1层的最小cost，分别初始化dp[0]和dp[1]为cost[0]和cost[1]。然后从i=2处开始遍历，此时我们的更新思路是，要爬当前的台阶，肯定需要加上当前的cost[i]，那么我们还是要从前一层或者前两层的台阶上跳上来，那么我们选择dp值小的那个，所以递归式如下：
+
+dp[i] = cost[i] + min(dp[i- 1], dp[i - 2])
+
+最后我们在最后两个dp值中选择一个较小的返回即可，参见代码如下：
+----
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int minCostClimbingStairs(vector<int>& cost) {
+        int n = cost.size();
+        vector<int> dp(n, 0);
+        dp[0] = cost[0]; dp[1] = cost[1];
+        for (int i = 2; i < n; ++i) {
+            dp[i] = cost[i] + min(dp[i- 1], dp[i - 2]);
+        }
+        return min(dp[n - 1], dp[n - 2]);
+    }
+};
+----
+
+我们可以对空间复杂度进行优化，通过前面的分析我们可以发现，当前的dp值仅仅依赖前面两个的值，所以我们不必把整个dp数组都记录下来，只需用两个变量a和b来记录前两个值，然后不停的用新得到的值来覆盖它们就好了。我们初始化a和b均为0，然后遍历cost数组，首先将a和b中较小值加上num放入临时变量t中，然后把b赋给a，把t赋给b即可，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int minCostClimbingStairs(vector<int>& cost) {
+        int a = 0, b = 0;
+        for (int num : cost) {
+            int t = min(a, b) + num;
+            a = b;
+            b = t;
+        }
+        return min(a, b);
+    }
+};
+----
+
+我们还可以用递归来写，需要优化计算量，即用哈希map来保存已经算过了台阶，用的还是dp的思想，参见代码如下： +
+
+**解法4:** +
+[source, cpp, linenums]
+----
+
+class Solution {
+public:
+    int minCostClimbingStairs(vector<int>& cost) {
+        unordered_map<int, int> memo;
+        return helper(cost, cost.size(), memo);
+    }
+    int helper(vector<int>& cost, int i, unordered_map<int, int>& memo) {
+        if (memo.count(i)) return memo[i];
+        if (i <= 1) return memo[i] = cost[i];
+        return memo[i] = (i == cost.size() ? 0 : cost[i]) + min(helper(cost, i - 1, memo), helper(cost, i - 2, memo));
+    }
+};
+----
+
+==== 至少是其他数字两倍的最大数
+
+----
+In a given integer array nums, there is always exactly one largest element.
+
+Find whether the largest element in the array is at least twice as much as every other number in the array.
+
+If it is, return the index of the largest element, otherwise return -1.
+----
+
+这道题让我们找一个至少是其他数字两倍的最大数字，那么我们想，首先明确的一点是这个要求的数字一定是数组中的最大数字，因为其是其他所有的数字的至少两倍。然后就是，如果该数字是数组中第二大的数字至少两倍的话，那么它一定是其他所有数字的至少两倍，所以我们可以遍历一次数组分别求出最大数字和第二大数字，然后判断一下最大数字是否是第二大数字的两倍即可，注意这里我们判断两倍的方法并不是直接相除，为了避免除以零的情况，我们采用减法，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+
+class Solution {
+public:
+    int dominantIndex(vector<int>& nums) {
+        int mx = INT_MIN, secondMx = INT_MIN, mxId = 0;
+        for (int i = 0; i < nums.size(); ++i) {
+            if (nums[i] > mx) {
+                secondMx = mx;
+                mx = nums[i];
+                mxId = i;
+            } else if (nums[i] > secondMx) {
+                secondMx = nums[i];
+            }
+        }
+        return (mx - secondMx >= secondMx) ? mxId : -1;
+    }
+};
+----
+
+当然我们也可以使用更straightforward的方法，首先遍历一遍数组找出最大数字，然后再遍历一遍数组，验证这个数字是否是其他数字的至少两倍，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int dominantIndex(vector<int>& nums) {
+        int mx = INT_MIN, mxId = 0;
+        for (int i = 0; i < nums.size(); ++i) {
+            if (mx < nums[i]) {
+                mx = nums[i];
+                mxId = i;
+            }
+        }
+        for (int num : nums) {
+            if (mx != num && mx - num < num) return -1;
+        }
+        return mxId;
+    }
+};
+----
+
+==== 最短完整的单词
+
+----
+Find the minimum length word from a given dictionary words, which has all the letters from the string licensePlate. Such a word is said to complete the given string licensePlate
+
+Here, for letters we ignore case. For example, "P" on the licensePlate still matches "p" on the word.
+
+It is guaranteed an answer exists. If there are multiple answers, return the one that occurs first in the array.
+
+The license plate might have the same letter occurring multiple times. For example, given a licensePlate of "PP", the word "pair" does not complete the licensePlate, but the word "supper" does.
+----
+
+这道题给了我们一个车牌号，还有一些单词，让我们找出包含这个车牌号中所有字母的第一个最短的单词。车牌中的字母有大小写之分，但是单词只是由小写单词组成的，所以需要把车牌号中的所有大写字母都转为小写的，转换方法很简单，ASCII码加上32即可。我们建立车牌中各个字母和其出现的次数之间的映射，同时记录所有字母的个数total，然后遍历所有的单词，对于每个单词都要单独处理，我们遍历单词中所有的字母，如果其在车牌中也出现了，则对应字母的映射减1，同时还需匹配的字母数cnt也自减1，最后遍历字母完成后，如果cnt为0（说明车牌中所有的字母都在单词中出现了），并且结果res为空或长度大于当前单词word的话，更新结果即可，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string shortestCompletingWord(string licensePlate, vector<string>& words) {
+        string res = "";
+        int total = 0;
+        unordered_map<char, int> freq;
+        for (char c : licensePlate) {
+            if (c >= 'a' && c <= 'z') {++freq[c]; ++total;}
+            else if (c >= 'A' && c <= 'Z') {++freq[c + 32]; ++total;}
+        }
+        for (string word : words) {
+            int cnt = total;
+            unordered_map<char, int> t = freq;
+            for (char c : word) {
+                if (--t[c] >= 0) --cnt;
+            }
+            if (cnt == 0 && (res.empty() || res.size() > word.size())) {
+                res = word;
+            }
+        }
+        return res;
+    }
+};
+----
+
+
+如果这道题的单词是按长度排序的话，那么上面的方法就不是很高效了，因为其会强制遍历完所有的单词。所以我们考虑给单词排序，博主这里用了TreeMap这个数据结构建立单词长度和包含所有该长度单词的数组之间的映射，其会自动按照单词长度来排序。然后还使用了一个chars数组来记录车牌中的所有字母，这样就可以方便的统计出字母总个数。我们从单词长度等于字母总个数的映射开始遍历，先检验该长度的所有单词。这里检验方法跟上面略有不同，但都大同小异，用一个bool型变量succ，初始化为true，然后建立一个字母和其出现次数的映射，先遍历单词，统计各个字母出现的次数。然后就遍历chars数组，如果chars中某个字母不在单词中，那么succ赋值为false，然后break掉。最后我们看succ，如果仍为true，直接返回当前单词word，之后的单词就不用再检验了，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string shortestCompletingWord(string licensePlate, vector<string>& words) {
+        map<int, vector<string>> m;
+        vector<char> chars;
+        for (string word : words) {
+            m[word.size()].push_back(word);
+        }
+        for (char c : licensePlate) {
+            if (c >= 'a' && c <= 'z') chars.push_back(c);
+            else if (c >= 'A' && c <= 'Z') chars.push_back(c + 32);
+        }
+        for (auto a : m) {
+            if (a.first < chars.size()) continue;
+            for (string word : a.second) {
+                bool succ = true;
+                unordered_map<char, int> freq;
+                for (char c : word) ++freq[c];
+                for (char c : chars) {
+                    if (--freq[c] < 0) {succ = false; break;}
+                }
+                if (succ) return word;
+            }
+        }
+        return "";
+    }
+};
+----
+
+==== 边角矩形的数量
+
+----
+Given a grid where each entry is only 0 or 1, find the number of corner rectangles.
+
+A corner rectangle is 4 distinct 1s on the grid that form an axis-aligned rectangle. Note that only the corners need to have the value 1. Also, all four 1s used must be distinct.
+----
+
+这道题给了我们一个由0和1组成的二维数组，这里定义了一种边角矩形，其四个顶点均为1，让我们求这个二维数组中有多少个不同的边角矩形。那么最简单直接的方法就是暴力破解啦，我们遍历所有的子矩形，并且检验其四个顶点是否为1即可。先确定左上顶点，每个顶点都可以当作左上顶点，所以需要两个for循环，然后我们直接跳过非1的左上顶点，接下来就是要确定右上顶点和左下顶点了，先用一个for循环确定左下顶点的位置，同理，如果左下顶点为0，直接跳过。再用一个for循环确定右上顶点的位置，如果右上顶点位置也确定了，那么此时四个顶点中确定了三个，右下顶点的位置也就确定了，此时如果右上和右下顶点均为1，则结果res自增1，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int countCornerRectangles(vector<vector<int>>& grid) {
+        int m = grid.size(), n = grid[0].size(), res = 0;
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                if (grid[i][j] == 0) continue;
+                for (int h = 1; h < m - i; ++h) {
+                    if (grid[i + h][j] == 0) continue;
+                    for (int w = 1; w < n - j; ++w) {
+                        if (grid[i][j + w] == 1 && grid[i + h][j + w] == 1) ++res;
+                    }
+                }
+            }
+        }
+        return res;
+    }
+};
+----
+
+我们来看一种优化了时间复杂度的方法，这种方法的原理是两行同时遍历，如果两行中相同列位置的值都为1，则计数器cnt自增1，那么最后就相当于有了(cnt - 1)个相邻的格子，问题就转化为了求cnt-1个相邻的格子能组成多少个矩形，就变成了初中数学问题了，共有cnt*(cnt-1)/2个，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int countCornerRectangles(vector<vector<int>>& grid) {
+        int m = grid.size(), n = grid[0].size(), res = 0;
+        for (int i = 0; i < m; ++i) {
+            for (int j = i + 1; j < m; ++j) {
+                int cnt = 0;
+                for (int k = 0; k < n; ++k) {
+                    if (grid[i][k] == 1 && grid[j][k] == 1) ++cnt;
+                }
+                res += cnt * (cnt - 1) / 2;
+            }
+        }
+        return res;
+    }
+};
+----
+
+下面这种解法由热心网友edyyy提供，最大亮点是将解法二的beat 65%提高到了beat 97%，速度杠杠的，要飞起来了的节奏。在遍历前一行的时候，将所有为1的位置存入到了一个数组ones中，然后在遍历其他行时，直接检测ones数组中的那些位置是否为1，这样省去了检查一些之前行为0的步骤，提高了运行速度，但是也牺牲了一些空间，比如需要ones数组，算是个trade off吧，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int countCornerRectangles(vector<vector<int>>& grid) {
+        int m = grid.size(), n = grid[0].size(), res = 0;
+        for (int i = 0; i < m - 1; i++) {
+            vector<int> ones;
+            for (int k = 0; k < n; k++) if (grid[i][k]) ones.push_back(k);
+            for (int j = i + 1; j < m; j++) {
+                int cnt = 0;
+                for (int l = 0; l < ones.size(); l++) {
+                    if (grid[j][ones[l]]) cnt++;
+                }
+                res += cnt * (cnt - 1) / 2;
+            }
+        }
+        return res;
+    }
+};
+----

@@ -1,0 +1,1542 @@
+==== 旋转链表
+
+----
+Given a list, rotate the list to the right by k places, where k is non-negative.
+
+For example:
+Given 1->2->3->4->5->NULL and k = 2,
+return 4->5->1->2->3->NULL.
+----
+
+这道旋转链表的题和之前那道 Rotate Array 旋转数组 很类似，但是比那道要难一些，因为链表的值不能通过下表来访问，
+只能一个一个的走，我刚开始拿到这题首先想到的就是用快慢指针来解，快指针先走k步，然后两个指针一起走，当快指针走到末尾时，
+慢指针的下一个位置是新的顺序的头结点，这样就可以旋转链表了，自信满满的写完程序，放到OJ上跑，以为能一次通过，
+结果跪在了各种特殊情况，首先一个就是当原链表为空时，直接返回NULL，还有就是当k大于链表长度和k远远大于链表长度时该如何处理，
+我们需要首先遍历一遍原链表得到链表长度n，然后k对n取余，这样k肯定小于n，就可以用上面的算法了，代码如下: +
+
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    ListNode *rotateRight(ListNode *head, int k) {
+        if (!head) return NULL;
+        int n = 0;
+        ListNode *cur = head;
+        while (cur) {
+            ++n;
+            cur = cur->next;
+        }
+        k %= n;
+        ListNode *fast = head, *slow = head;
+        for (int i = 0; i < k; ++i) {
+            if (fast) fast = fast->next;
+        }
+        if (!fast) return head;
+        while (fast->next) {
+            fast = fast->next;
+            slow = slow->next;
+        }
+        fast->next = head;
+        fast = slow->next;
+        slow->next = NULL;
+        return fast;
+    }
+};
+----
+
+这道题还有一种解法，跟上面的方法类似，但是不用快慢指针，一个指针就够了，原理是先遍历整个链表获得链表长度n，
+然后此时把链表头和尾链接起来，在往后走n - k % n个节点就到达新链表的头结点前一个点，这时断开链表即可，代码如下: +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    ListNode *rotateRight(ListNode *head, int k) {
+        if (!head) return NULL;
+        int n = 1;
+        ListNode *cur = head;
+        while (cur->next) {
+            ++n;
+            cur = cur->next;
+        }
+        cur->next = head;
+        int m = n - k % n;
+        for (int i = 0; i < m; ++i) {
+            cur = cur->next;
+        }
+        ListNode *newhead = cur->next;
+        cur->next = NULL;
+        return newhead;
+    }
+};
+----
+
+==== 不同的路径
+
+----
+A robot is located at the top-left corner of a m x n grid (marked 'Start' in the diagram below).
+
+The robot can only move either down or right at any point in time. The robot is trying to reach the bottom-right corner of the grid (marked 'Finish' in the diagram below).
+
+How many possible unique paths are there?
+----
+
+image::images/question_61.png[width="30%", height="35%"]
+
+Above is a 3 x 7 grid. How many possible unique paths are there? +
+
+Note: m and n will be at most 100. +
+
+这道题让求所有不同的路径的个数，一开始还真把我难住了，因为之前好像没有遇到过这类的问题，所以感觉好像有种无从下手的感觉。
+在网上找攻略之后才恍然大悟，原来这跟之前那道 Climbing Stairs 爬梯子问题 很类似，那道题是说可以每次能爬一格或两格，
+问到达顶部的所有不同爬法的个数。而这道题是每次可以向下走或者向右走，求到达最右下角的所有不同走法的个数。那么跟爬梯子问题一样，
+我们需要用动态规划Dynamic Programming来解，我们可以维护一个二维数组dp，其中dp[i][j]表示到当前位置不同的走法的个数，
+然后可以得到递推式为: dp[i][j] = dp[i - 1][j] + dp[i][j - 1]，这里为了节省空间，我们使用一维数组dp，
+一行一行的刷新也可以，代码如下： +
+
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int uniquePaths(int m, int n) {
+        vector<int> dp(n, 1);
+        for (int i = 1; i < m; ++i) {
+            for (int j = 1; j < n; ++j) {
+                dp[j] += dp[j - 1];
+            }
+        }
+        return dp[n - 1];
+    }
+};
+----
+
+这道题其实还有另一种很数学的解法，参见网友Code Ganker的博客，实际相当于机器人总共走了m + n - 2步，其中m - 1步向下走，
+n - 1步向右走，那么总共不同的方法个数就相当于在步数里面m - 1和n - 1中较小的那个数的取法，实际上是一道组合数的问题，
+写出代码如下: +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int uniquePaths(int m, int n) {
+        double num = 1, denom = 1;
+        int small = m > n ? n : m;
+        for (int i = 1; i <= small - 1; ++i) {
+            num *= m + n - 1 - i;
+            denom *= i;
+        }
+        return (int)(num / denom);
+    }
+};
+----
+
+==== 不同的路径之二
+
+----
+Follow up for "Unique Paths":
+
+Now consider if some obstacles are added to the grids. How many unique paths would there be?
+
+An obstacle and empty space is marked as 1 and 0 respectively in the grid.
+
+For example,
+
+There is one obstacle in the middle of a 3x3 grid as illustrated below.
+
+[
+  [0,0,0],
+  [0,1,0],
+  [0,0,0]
+]
+The total number of unique paths is 2.
+
+Note: m and n will be at most 100.
+----
+
+
+这道题是之前那道 Unique Paths 不同的路径 的延伸，在路径中加了一些障碍物，还是用动态规划Dynamic Programming来解，
+不同的是当遇到为1的点，将该位置的dp数组中的值清零，其余和之前那道题并没有什么区别，代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int uniquePathsWithObstacles(vector<vector<int>>& obstacleGrid) {
+        if (obstacleGrid.empty() || obstacleGrid[0].empty() || obstacleGrid[0][0] == 1) return 0;
+        vector<vector<int> > dp(obstacleGrid.size(), vector<int>(obstacleGrid[0].size(), 0));
+        for (int i = 0; i < obstacleGrid.size(); ++i) {
+            for (int j = 0; j < obstacleGrid[i].size(); ++j) {
+                if (obstacleGrid[i][j] == 1) dp[i][j] = 0;
+                else if (i == 0 && j == 0) dp[i][j] = 1;
+                else if (i == 0 && j > 0) dp[i][j] = dp[i][j - 1];
+                else if (i > 0 && j == 0) dp[i][j] = dp[i - 1][j];
+                else dp[i][j] = dp[i - 1][j] + dp[i][j - 1];
+            }
+        }
+        return dp.back().back();
+    }
+};
+----
+
+或者我们也可以使用一维dp数组来解，省一些空间，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int uniquePathsWithObstacles(vector<vector<int> > &obstacleGrid) {
+        if (obstacleGrid.empty() || obstacleGrid[0].empty()) return 0;
+        int m = obstacleGrid.size(), n = obstacleGrid[0].size();
+        if (obstacleGrid[0][0] == 1) return 0;
+        vector<int> dp(n, 0);
+        dp[0] = 1;
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                if (obstacleGrid[i][j] == 1) dp[j] = 0;
+                else if (j > 0) dp[j] += dp[j - 1];
+            }
+        }
+        return dp[n - 1];
+    }
+};
+----
+
+==== 最小路径和
+
+----
+Given a m x n grid filled with non-negative numbers, find a path from top left to bottom right which minimizes the sum of all numbers along its path.
+
+Note: You can only move either down or right at any point in time.
+----
+
+这道题跟之前那道 Dungeon Game 地牢游戏 没有什么太大的区别，都需要用动态规划Dynamic Programming来做，
+这应该算是DP问题中比较简单的一类，我们维护一个二维的dp数组，其中dp[i][j]表示当前位置的最小路径和，
+递推式也容易写出来 dp[i][j] = grid[i][j] + min(dp[i - 1][j], dp[i][j - 1]) 反正难度不算大，代码如下： +
+
+[source, cpp, lknenums]
+----
+class Solution {
+public:
+    int minPathSum(vector<vector<int> > &grid) {
+        int m = grid.size(), n = grid[0].size();
+        int dp[m][n];
+        dp[0][0] = grid[0][0];
+        for (int i = 1; i < m; ++i) dp[i][0] = grid[i][0] + dp[i - 1][0];
+        for (int i = 1; i < n; ++i) dp[0][i] = grid[0][i] + dp[0][i - 1];
+        for (int i = 1; i < m; ++i) {
+            for (int j = 1; j < n; ++j) {
+                dp[i][j] = grid[i][j] + min(dp[i - 1][j], dp[i][j - 1]);
+            }
+        }
+        return dp[m - 1][n - 1];
+    }
+};
+----
+
+==== 验证数字
+
+----
+Validate if a given string is numeric.
+
+Some examples:
+"0" => true
+" 0.1 " => true
+"abc" => false
+"1 a" => false
+"2e10" => true
+
+Note: It is intended for the problem statement to be ambiguous. You should gather all requirements up front before implementing one.
+----
+
+这道验证数字的题比想象中的要复杂的多，有很多情况需要考虑，而OJ上给这道题的分类居然是Easy，Why?
+而10.9% 的全场最低的Accept Rate正说明这道题的难度，网上有很多解法，有利用有限自动机Finite Automata Machine的程序写的简洁优雅
+ (http://blog.csdn.net/kenden23/article/details/18696083), 还有利用正则表达式，
+ 更是写的丧心病狂的简洁 (http://blog.csdn.net/fightforyourdream/article/details/12900751)。而我主要还是用最一般的写法，
+ 参考了网上另一篇博文 (http://yucoding.blogspot.com/2013/05/leetcode-question-118-valid-number.html)，处理各种情况。 +
+
+ 首先，从题目中给的一些例子可以分析出来，我们所需要关注的除了数字以外的特殊字符有空格 ‘ ’， 小数点 '.', 自然数 'e/E', 还要加上正负号 '+/-"， 除了这些字符需要考虑意外，出现了任何其他的字符，可以马上判定不是数字。下面我们来一一分析这些出现了也可能是数字的特殊字符： +
+
+1. 空格 ‘ ’： 空格分为两种情况需要考虑，一种是出现在开头和末尾的空格，一种是出现在中间的字符。出现在开头和末尾的空格不影响数字，而一旦中间出现了空格，则立马不是数字。解决方法：预处理时去掉字符的首位空格，中间再检测到空格，则判定不是数字。 +
+
+2. 小数点 '.'：小数点需要分的情况较多，首先的是小数点只能出现一次，但是小数点可以出现在任何位置，开头(".3"), 中间("1.e2"), 以及结尾("1." ), 而且需要注意的是，小数点不能出现在自然数 'e/E' 之后，如 "1e.1" false, "1e1.1" false。还有，当小数点位于末尾时，前面必须是数字，如 "1."  true，" -." false。解决方法：开头中间结尾三个位置分开讨论情况。 +
+
+3. 自然数 'e/E'：自然数的前后必须有数字，即自然数不能出现在开头和结尾，如 "e" false,  ".e1" false, "3.e" false, "3.e1" true。而且小数点只能出现在自然数之前，还有就是自然数前面不能是符号，如 "+e1" false, "1+e" false. 解决方法：开头中间结尾三个位置分开讨论情况。 +
+
+4. 正负号 '+/-"，正负号可以再开头出现，可以再自然数e之后出现，但不能是最后一个字符，后面得有数字，如  "+1.e+5" true。解决方法：开头中间结尾三个位置分开讨论情况。 +
+
+下面我们开始正式分开头中间结尾三个位置来讨论情况： +
+
+1. 在讨论三个位置之前做预处理，去掉字符串首尾的空格，可以采用两个指针分别指向开头和结尾，遇到空格则跳过，分别指向开头结尾非空格的字符。 +
+
+2. 对首字符处理，首字符只能为数字或者正负号 '+/-"，我们需要定义三个flag在标示我们是否之前检测到过小数点，自然数和正负号。首字符如为数字或正负号，则标记对应的flag，若不是，直接返回false。 +
+
+3. 对中间字符的处理，中间字符会出现五种情况，数字，小数点，自然数，正负号和其他字符。 +
+
+若是数字，标记flag并通过。 +
+
+若是自然数，则必须是第一次出现自然数，并且前一个字符不能是正负号，而且之前一定要出现过数字，才能标记flag通过。 +
+
+若是正负号，则之前的字符必须是自然数e，才能标记flag通过。 +
+
+若是小数点，则必须是第一次出现小数点并且自然数没有出现过，才能标记flag通过。 +
+
+若是其他，返回false。 +
+
+4. 对尾字符处理，最后一个字符只能是数字或小数点，其他字符都返回false。 +
+
+若是数字，返回true。 +
+
+若是小数点，则必须是第一次出现小数点并且自然数没有出现过，还有前面必须是数字，才能返回true。 +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool isNumber(string s) {
+        int len = s.size();
+        int left = 0, right = len - 1;
+        bool eExisted = false;
+        bool dotExisted = false;
+        bool digitExisited = false;
+        // Delete spaces in the front and end of string
+        while (s[left] == ' ') ++left;
+        while (s[right] == ' ') --right;
+        // If only have one char and not digit, return false
+        if (left >= right && (s[left] < '0' || s[left] > '9')) return false;
+        //Process the first char
+        if (s[left] == '.') dotExisted = true;
+        else if (s[left] >= '0' && s[left] <= '9') digitExisited = true;
+        else if (s[left] != '+' && s[left] != '-') return false;
+        // Process the middle chars
+        for (int i = left + 1; i <= right - 1; ++i) {
+            if (s[i] >= '0' && s[i] <= '9') digitExisited = true;
+            else if (s[i] == 'e' || s[i] == 'E') { // e/E cannot follow +/-, must follow a digit
+                if (!eExisted && s[i - 1] != '+' && s[i - 1] != '-' && digitExisited) eExisted = true;
+                else return false;
+            } else if (s[i] == '+' || s[i] == '-') { // +/- can only follow e/E
+                if (s[i - 1] != 'e' && s[i - 1] != 'E') return false;
+            } else if (s[i] == '.') { // dot can only occur once and cannot occur after e/E
+                if (!dotExisted && !eExisted) dotExisted = true;
+                else return false;
+            } else return false;
+        }
+        // Process the last char, it can only be digit or dot, when is dot, there should be no dot and e/E before and must follow a digit
+        if (s[right] >= '0' && s[right] <= '9') return true;
+        else if (s[right] == '.' && !dotExisted && !eExisted && digitExisited) return true;
+        else return false;
+    }
+};
+----
+
+上面的写法略为复杂，我们尝试着来优化一下，根据上面的分析，所有的字符可以分为六大类，空格，符号，数字，小数点，自然底数和其他字符，我们需要五个标志变量，num, dot, exp, sign分别表示数字，小数点，自然底数和符号是否出现，numAfterE表示自然底数后面是否有数字，那么我们分别来看各种情况： +
+
+- 空格： 我们需要排除的情况是，当前位置是空格而后面一位不为空格，但是之前有数字，小数点，自然底数或者符号出现时返回false。 +
+
+- 符号：符号前面如果有字符的话必须是空格或者是自然底数，标记sign为true。 +
+
+- 数字：标记num和numAfterE为true。 +
+
+- 小数点：如果之前出现过小数点或者自然底数，返回false，否则标记dot为true。 +
+
+- 自然底数：如果之前出现过自然底数或者之前从未出现过数字，返回false，否则标记exp为true，numAfterE为false。 +
+
+- 其他字符：返回false。 +
+
+最后返回num && numAfterE即可。 +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool isNumber(string s) {
+        bool num = false, numAfterE = true, dot = false, exp = false, sign = false;
+        int n = s.size();
+        for (int i = 0; i < n; ++i) {
+            if (s[i] == ' ') {
+                if (i < n - 1 && s[i + 1] != ' ' && (num || dot || exp || sign)) return false;
+            } else if (s[i] == '+' || s[i] == '-') {
+                if (i > 0 && s[i - 1] != 'e' && s[i - 1] != ' ') return false;
+                sign = true;
+            } else if (s[i] >= '0' && s[i] <= '9') {
+                num = true;
+                numAfterE = true;
+            } else if (s[i] == '.') {
+                if (dot || exp) return false;
+                dot = true;
+            } else if (s[i] == 'e') {
+                if (exp || !num) return false;
+                exp = true;
+                numAfterE = false;
+            } else return false;
+        }
+        return num && numAfterE;
+    }
+};
+----
+
+==== 加一运算
+
+----
+Given a non-negative number represented as an array of digits, plus one to the number.
+
+The digits are stored such that the most significant digit is at the head of the list.
+----
+
+将一个数字的每个位上的数字分别存到一个一维向量中，最高位在最开头，我们需要给这个数字加一，即在末尾数字加一，如果末尾数字是9，
+那么则会有进位问题，而如果前面位上的数字仍为9，则需要继续向前进位。具体算法如下：首先判断最后一位是否为9，若不是，直接加一返回，
+若是，则该位赋0，再继续查前一位，同样的方法，知道查完第一位。如果第一位原本为9，加一后会产生新的一位，那么最后要做的是，查运算完的第一位是否为0，
+如果是，则在最前头加一个1。代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> plusOne(vector<int> &digits) {
+        int n = digits.size();
+        for (int i = n - 1; i >= 0; --i) {
+            if (digits[i] == 9) digits[i] = 0;
+            else {
+                digits[i] += 1;
+                return digits;
+            }
+        }
+        if (digits.front() == 0) digits.insert(digits.begin(), 1);
+        return digits;
+    }
+};
+----
+
+我们也可以使用跟之前那道Add Binary类似的做法，我们将carry初始化为1，然后相当于digits加了一个0，处理方法跟之前那道题一样，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> plusOne(vector<int>& digits) {
+        if (digits.empty()) return digits;
+        int carry = 1, n = digits.size();
+        for (int i = n - 1; i >= 0; --i) {
+            if (carry == 0) return digits;
+            int sum = digits[i] + carry;
+            digits[i] = sum % 10;
+            carry = sum / 10;
+        }
+        if (carry == 1) digits.insert(digits.begin(), 1);
+        return digits;
+    }
+};
+----
+
+==== 二进制数相加
+
+----
+Given two binary strings, return their sum (also a binary string).
+
+For example,
+a = "11"
+b = "1"
+Return "100".
+----
+
+二进制数相加，并且保存在string中，要注意的是如何将string和int之间互相转换，并且每位相加时，会有进位的可能，
+会影响之后相加的结果。而且两个输入string的长度也可能会不同。这时我们需要新建一个string，它的长度是两条输入string中的较大的那个，
+并且把较短的那个输入string通过在开头加字符‘0’来补的较大的那个长度。这时候我们逐个从两个string的末尾开始取出字符，然后转为数字，
+想加，如果大于等于2，则标记进位标志carry，并且给新string加入一个字符‘0’。代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string addBinary(string a, string b) {
+        string res;
+        int na = a.size();
+        int nb = b.size();
+        int n = max(na, nb);
+        bool carry = false;
+        if (na > nb) {
+            for (int i = 0; i < na - nb; ++i) b.insert(b.begin(), '0');
+        }
+        else if (na < nb) {
+            for (int i = 0; i < nb - na; ++i) a.insert(a.begin(), '0');
+        }
+        for (int i = n - 1; i >= 0; --i) {
+            int tmp = 0;
+            if (carry) tmp = (a[i] - '0') + (b[i] - '0') + 1;
+            else tmp = (a[i] - '0') + (b[i] - '0');
+            if (tmp == 0) {
+                res.insert(res.begin(), '0');
+                carry = false;
+            }
+            else if (tmp == 1) {
+                res.insert(res.begin(), '1');
+                carry = false;
+            }
+            else if (tmp == 2) {
+                res.insert(res.begin(), '0');
+                carry = true;
+            }
+            else if (tmp == 3) {
+                res.insert(res.begin(), '1');
+                carry = true;
+            }
+        }
+        if (carry) res.insert(res.begin(), '1');
+        return res;
+    }
+};
+----
+
+下面这种写法又巧妙又简洁，用了两个指针分别指向a和b的末尾，然后每次取出一个字符，转为数字，若无法取出字符则按0处理，然后定义进位carry，
+初始化为0，将三者加起来，对2取余即为当前位的数字，对2取商即为当前进位的值，记得最后还要判断下carry，如果为1的话，要在结果最前面加上一个1，
+参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string addBinary(string a, string b) {
+        string res = "";
+        int m = a.size() - 1, n = b.size() - 1, carry = 0;
+        while (m >= 0 || n >= 0) {
+            int p = m >= 0 ? a[m--] - '0' : 0;
+            int q = n >= 0 ? b[n--] - '0' : 0;
+            int sum = p + q + carry;
+            res = to_string(sum % 2) + res;
+            carry = sum / 2;
+        }
+        return carry == 1 ? "1" + res : res;
+    }
+};
+----
+
+==== 文本左右对齐
+
+----
+Given an array of words and a length L, format the text such that each line has exactly L characters and is fully (left and right) justified.
+
+You should pack your words in a greedy approach; that is, pack as many words as you can in each line. Pad extra spaces ' ' when necessary so that each line has exactly Lcharacters.
+
+Extra spaces between words should be distributed as evenly as possible. If the number of spaces on a line do not divide evenly between words, the empty slots on the left will be assigned more spaces than the slots on the right.
+
+For the last line of text, it should be left justified and no extra space is inserted between words.
+
+For example,
+words: ["This", "is", "an", "example", "of", "text", "justification."]
+L: 16.
+
+Return the formatted lines as:
+
+[
+   "This    is    an",
+   "example  of text",
+   "justification.  "
+]
+
+
+Note: Each word is guaranteed not to exceed L in length.
+
+click to show corner cases.
+
+Corner Cases:
+
+
+A line other than the last line might contain only one word. What should you do in this case?
+In this case, that line should be left-justified.
+----
+
+
+我将这道题翻译为文本的左右对齐是因为这道题像极了word软件里面的文本左右对齐功能，这道题我前前后后折腾了快四个小时终于通过了OJ，
+完成了之后想着去网上搜搜看有没有更简单的方法，搜了一圈发现都差不多，都挺复杂的，于是乎就按自己的思路来说吧，由于返回的结果是多行的，
+所以我们在处理的时候也要一行一行的来处理，首先要做的就是确定每一行能放下的单词数，这个不难，就是比较n个单词的长度和加上n - 1个空格的长度跟给定的长度L来比较即可，
+找到了一行能放下的单词个数，然后计算出这一行存在的空格的个数，是用给定的长度L减去这一行所有单词的长度和。得到了空格的个数之后，
+就要在每个单词后面插入这些空格，这里有两种情况，比如某一行有两个单词"to" 和 "a"，给定长度L为6，如果这行不是最后一行，
+那么应该输出"to   a"，如果是最后一行，则应该输出 "to a  "，所以这里需要分情况讨论，最后一行的处理方法和其他行之间略有不同。
+最后一个难点就是，如果一行有三个单词，这时候中间有两个空，如果空格数不是2的倍数，那么左边的空间里要比右边的空间里多加入一个空格，
+那么我们只需要用总的空格数除以空间个数，能除尽最好，说明能平均分配，除不尽的话就多加个空格放在左边的空间里，以此类推，具体实现过程还是看代码吧： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<string> fullJustify(vector<string> &words, int L) {
+        vector<string> res;
+        int i = 0;
+        while (i < words.size()) {
+            int j = i, len = 0;
+            while (j < words.size() && len + words[j].size() + j - i <= L) {
+                len += words[j++].size();
+            }
+            string out;
+            int space = L - len;
+            for (int k = i; k < j; ++k) {
+                out += words[k];
+                if (space > 0) {
+                    int tmp;
+                    if (j == words.size()) {
+                        if (j - k == 1) tmp = space;
+                        else tmp = 1;
+                    } else {
+                        if (j - k - 1 > 0) {
+                            if (space % (j - k - 1) == 0) tmp = space / (j - k - 1);
+                            else tmp = space / (j - k - 1) + 1;
+                        } else tmp = space;
+                    }
+                    out.append(tmp, ' ');
+                    space -= tmp;
+                }
+            }
+            res.push_back(out);
+            i = j;
+        }
+        return res;
+    }
+};
+----
+
+==== 求平方根
+
+----
+Implement int sqrt(int x).
+
+Compute and return the square root of x.
+----
+
+这道题要求我们求平方根，我们能想到的方法就是算一个候选值的平方，然后和x比较大小，为了缩短查找时间，我们采用二分搜索法来找平方根，这里属于博主之前总结的LeetCode Binary Search Summary 二分搜索法小结中的第三类的变形，找最后一个不大于目标值的数，代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int mySqrt(int x) {
+        if (x <= 1) return x;
+        int left = 0, right = x;
+        while (left < right) {
+            int mid = left + (right - left) / 2;
+            if (x / mid >= mid) left = mid + 1;
+            else right = mid;
+        }
+        return right - 1;
+    }
+};
+----
+
+这道题还有另一种解法，是利用牛顿迭代法，记得高数中好像讲到过这个方法，是用逼近法求方程根的神器，在这里也可以借用一下，可参见网友Annie Kim's Blog的博客，因为要求x2 = n的解，令f(x)=x2-n，相当于求解f(x)=0的解，可以求出递推式如下： +
+
+xi+1=xi - (xi2 - n) / (2xi) = xi - xi / 2 + n / (2xi) = xi / 2 + n / 2xi = (xi + n/xi) / 2 +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int mySqrt(int x) {
+        if (x == 0) return 0;
+        double res = 1, pre = 0;
+        while (abs(res - pre) > 1e-6) {
+            pre = res;
+            res = (res + x / res) / 2;
+        }
+        return int(res);
+    }
+};
+----
+
+也是牛顿迭代法，写法更加简洁一些，注意为了防止越界，声明为长整型，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int mySqrt(int x) {
+        long res = x;
+        while (res * res > x) {
+            res = (res + x / res) / 2;
+        }
+        return res;
+    }
+};
+----
+
+
+==== 爬楼梯
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int climbStairs(int n) {
+        if(n == 1) return 1;
+        if(n == 2) return 2;
+        int cur = 2, pre = 1;
+        int result = 0;
+        for(int i=3; i<n; ++i){
+            result = cur + pre;
+            pre = cur;
+            cur = result;
+        }
+
+        return cur + pre;
+    }
+};
+----
+
+==== 简化路径
+
+----
+Given an absolute path for a file (Unix-style), simplify it.
+
+For example,
+path = "/home/", => "/home"
+path = "/a/./b/../../c/", => "/c"
+
+click to show corner cases.
+
+Corner Cases:
+
+
+Did you consider the case where path = "/../"?
+In this case, you should return "/".
+Another corner case is the path might contain multiple slashes '/' together, such as "/home//foo/".
+In this case, you should ignore redundant slashes and return "/home/foo".
+----
+
+这道题让简化给定的路径，光根据题目中给的那一个例子还真不太好总结出规律，应该再加上两个例子 path = "/a/./b/../c/", => "/a/c"和path = "/a/./b/c/", => "/a/b/c"， 这样我们就可以知道中间是"."的情况直接去掉，是".."时删掉它上面挨着的一个路径，而下面的边界条件给的一些情况中可以得知，如果是空的话返回"/"，如果有多个"/"只保留一个。那么我们可以把路径看做是由一个或多个"/"分割开的众多子字符串，把它们分别提取出来一一处理即可，代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string simplifyPath(string path) {
+        vector<string> v;
+        int i = 0;
+        while (i < path.size()) {
+            while (path[i] == '/' && i < path.size()) ++i;
+            if (i == path.size()) break;
+            int start = i;
+            while (path[i] != '/' && i < path.size()) ++i;
+            int end = i - 1;
+            string s = path.substr(start, end - start + 1);
+            if (s == "..") {
+                if (!v.empty()) v.pop_back();
+            } else if (s != ".") {
+                v.push_back(s);
+            }
+        }
+        if (v.empty()) return "/";
+        string res;
+        for (int i = 0; i < v.size(); ++i) {
+            res += '/' + v[i];
+        }
+        return res;
+    }
+};
+----
+
+还有一种解法是利用了C语言中的函数strtok来分隔字符串，但是需要把string和char*类型相互转换，转换方法请猛戳这里。除了这块不同，其余的思想和上面那种解法相同，代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string simplifyPath(string path) {
+        vector<string> v;
+        char *cstr = new char[path.length() + 1];
+        strcpy(cstr, path.c_str());
+        char *pch = strtok(cstr, "/");
+        while (pch != NULL) {
+            string p = string(pch);
+            if (p == "..") {
+                if (!v.empty()) v.pop_back();
+            } else if (p != ".") {
+                v.push_back(p);
+            }
+            pch = strtok(NULL, "/");
+        }
+        if (v.empty()) return "/";
+        string res;
+        for (int i = 0; i < v.size(); ++i) {
+            res += '/' + v[i];
+        }
+        return res;
+    }
+};
+----
+
+C++中也有专门处理字符串的机制，我们可以使用stringstream来分隔字符串，然后对每一段分别处理，思路和上面的方法相似，参见代码如下： +
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string simplifyPath(string path) {
+        string res, t;
+        stringstream ss(path);
+        vector<string> v;
+        while (getline(ss, t, '/')) {
+            if (t == "" || t == ".") continue;
+            if (t == ".." && !v.empty()) v.pop_back();
+            else if (t != "..") v.push_back(t);
+        }
+        for (string s : v) res += "/" + s;
+        return res.empty() ? "/" : res;
+    }
+};
+----
+
+==== 编辑距离
+
+----
+Given two words word1 and word2, find the minimum number of steps required to convert word1 to word2. (each operation is counted as 1 step.)
+
+You have the following 3 operations permitted on a word:
+
+a) Insert a character
+b) Delete a character
+c) Replace a character
+----
+
+这道题让求从一个字符串转变到另一个字符串需要的变换步骤，共有三种变换方式，插入一个字符，删除一个字符，和替换一个字符。根据以往的经验，对于字符串相关的题目十有八九都是用动态规划Dynamic Programming来解，这道题也不例外。这道题我们需要维护一个二维的数组dp，其中dp[i][j]表示从word1的前i个字符转换到word2的前j个字符所需要的步骤。那我们可以先给这个二维数组dp的第一行第一列赋值，这个很简单，因为第一行和第一列对应的总有一个字符串是空串，于是转换步骤完全是另一个字符串的长度。跟以往的DP题目类似，难点还是在于找出递推式，我们可以举个例子来看，比如word1是“bbc"，word2是”abcd“，那么我们可以得到dp数组如下： +
+
+----
+  Ø a b c d
+Ø 0 1 2 3 4
+b 1 1 1 2 3
+b 2 2 1 2 3
+c 3 3 2 1 2
+----
+
+----
+我们通过观察可以发现，当word1[i] == word2[j]时，dp[i][j] = dp[i - 1][j - 1]，其他情况时，dp[i][j]是其左，左上，上的三个值中的最小值加1，那么可以得到递推式为：
+
+dp[i][j] =      /    dp[i - 1][j - 1],  if word1[i - 1] == word2[j - 1]
+
+                  \    min(dp[i - 1][j - 1], min(dp[i - 1][j], dp[i][j - 1])) + 1    else
+----
+
+[source, cpp, linenums]
+----
+
+class Solution {
+public:
+    int minDistance(string word1, string word2) {
+        int n1 = word1.size(), n2 = word2.size();
+        int dp[n1 + 1][n2 + 1];
+        for (int i = 0; i <= n1; ++i) dp[i][0] = i;
+        for (int i = 0; i <= n2; ++i) dp[0][i] = i;
+        for (int i = 1; i <= n1; ++i) {
+            for (int j = 1; j <= n2; ++j) {
+                if (word1[i - 1] == word2[j - 1]) {
+                    dp[i][j] = dp[i - 1][j - 1];
+                } else {
+                    dp[i][j] = min(dp[i - 1][j - 1], min(dp[i - 1][j], dp[i][j - 1])) + 1;
+                }
+            }
+        }
+        return dp[n1][n2];
+    }
+};
+----
+
+==== 矩阵赋零
+
+----
+Given a m x n matrix, if an element is 0, set its entire row and column to 0. Do it in place.
+
+click to show follow up.
+
+Follow up:
+Did you use extra space?
+A straight forward solution using O(mn) space is probably a bad idea.
+A simple improvement uses O(m + n) space, but still not the best solution.
+Could you devise a constant space solution?
+----
+
+据说这题是CareerCup上的原题，我还没有刷CareerCup，所以不知道啦，不过这题也不算难，虽然我也是看了网上的解法照着写的，但是下次遇到绝对想的起来。
+这道题中说的空间复杂度为O(mn)的解法自不用多说，直接新建一个和matrix等大小的矩阵，然后一行一行的扫，只要有0，就将新建的矩阵的对应行全赋0，
+行扫完再扫列，然后把更新完的矩阵赋给matrix即可，这个算法的空间复杂度太高。将其优化到O(m+n)的方法是，用一个长度为m的一维数组记录各行中是否有0，
+用一个长度为n的一维数组记录各列中是否有0，最后直接更新matrix数组即可。这道题的要求是用O(1)的空间，那么我们就不能新建数组，
+我们考虑就用原数组的第一行第一列来记录各行各列是否有0. +
+
+- 先扫描第一行第一列，如果有0，则将各自的flag设置为true +
+- 然后扫描除去第一行第一列的整个数组，如果有0，则将对应的第一行和第一列的数字赋0 +
+- 再次遍历除去第一行第一列的整个数组，如果对应的第一行和第一列的数字有一个为0，则将当前值赋0 +
+- 最后根据第一行第一列的flag来更新第一行第一列 +
+
+代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    void setZeroes(vector<vector<int> > &matrix) {
+        if (matrix.empty() || matrix[0].empty()) return;
+        int m = matrix.size(), n = matrix[0].size();
+        bool rowZero = false, colZero = false;
+        for (int i = 0; i < m; ++i) {
+            if (matrix[i][0] == 0) colZero = true;
+        }
+        for (int i = 0; i < n; ++i) {
+            if (matrix[0][i] == 0) rowZero = true;
+        }
+        for (int i = 1; i < m; ++i) {
+            for (int j = 1; j < n; ++j) {
+                if (matrix[i][j] == 0) {
+                    matrix[0][j] = 0;
+                    matrix[i][0] = 0;
+                }
+            }
+        }
+        for (int i = 1; i < m; ++i) {
+            for (int j = 1; j < n; ++j) {
+                if (matrix[0][j] == 0 || matrix[i][0] == 0) {
+                    matrix[i][j] = 0;
+                }
+            }
+        }
+        if (rowZero) {
+            for (int i = 0; i < n; ++i) matrix[0][i] = 0;
+        }
+        if (colZero) {
+            for (int i = 0; i < m; ++i) matrix[i][0] = 0;
+        }
+    }
+};
+----
+
+==== 搜索一个二维矩阵
+
+----
+Write an efficient algorithm that searches for a value in an m x n matrix. This matrix has the following properties:
+
+
+
+Integers in each row are sorted from left to right.
+The first integer of each row is greater than the last integer of the previous row.
+
+
+For example,
+
+Consider the following matrix:
+
+[
+  [1,   3,  5,  7],
+  [10, 11, 16, 20],
+  [23, 30, 34, 50]
+]
+Given target = 3, return true.
+----
+
+这道题要求搜索一个二维矩阵，由于给的矩阵是有序的，所以很自然的想到要用二分查找法，我们可以在第一列上先用一次二分查找法找到目标值所在的行的位置，然后在该行上再用一次二分查找法来找是否存在目标值，代码如下: +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool searchMatrix(vector<vector<int> > &matrix, int target) {
+        if (matrix.empty() || matrix[0].empty()) return false;
+        if (target < matrix[0][0] || target > matrix.back().back()) return false;
+        int left = 0, right = matrix.size() - 1;
+        while (left <= right) {
+            int mid = (left + right) / 2;
+            if (matrix[mid][0] == target) return true;
+            else if (matrix[mid][0] < target) left = mid + 1;
+            else right = mid - 1;
+        }
+        int tmp = right;
+        left = 0;
+        right = matrix[tmp].size() - 1;
+        while (left <= right) {
+            int mid = (left + right) / 2;
+            if (matrix[tmp][mid] == target) return true;
+            else if (matrix[tmp][mid] < target) left = mid + 1;
+            else right = mid - 1;
+        }
+        return false;
+    }
+};
+----
+
+当然这道题也可以使用一次二分查找法，如果我们按S型遍历该二维数组，可以得到一个有序的一维数组，那么我们只需要用一次二分查找法，而关键就在于坐标的转换，如何把二维坐标和一维坐标转换是关键点，把一个长度为n的一维数组转化为m*n的二维数组(m*n = n)后，那么原一维数组中下标为i的元素将出现在二维数组中的[i/n][i%n]的位置，有了这一点，代码很好写出来了： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool searchMatrix(vector<vector<int> > &matrix, int target) {
+        if (matrix.empty() || matrix[0].empty()) return false;
+        if (target < matrix[0][0] || target > matrix.back().back()) return false;
+        int m = matrix.size(), n = matrix[0].size();
+        int left = 0, right = m * n - 1;
+        while (left <= right) {
+            int mid = (left + right) / 2;
+            if (matrix[mid / n][mid % n] == target) return true;
+            else if (matrix[mid / n][mid % n] < target) left = mid + 1;
+            else right = mid - 1;
+        }
+        return false;
+    }
+};
+----
+
+==== 颜色排序
+
+----
+Given an array with n objects colored red, white or blue, sort them so that objects of the same color are adjacent, with the colors in the order red, white and blue.
+
+Here, we will use the integers 0, 1, and 2 to represent the color red, white, and blue respectively.
+
+Note:
+You are not suppose to use the library's sort function for this problem.
+
+click to show follow up.
+
+Follow up:
+A rather straight forward solution is a two-pass algorithm using counting sort.
+First, iterate the array counting number of 0's, 1's, and 2's, then overwrite array with total number of 0's, then 1's and followed by 2's.
+
+Could you come up with an one-pass algorithm using only constant space?
+----
+
+这道题的本质还是一道排序的题，题目中给出提示说可以用计数排序，需要遍历数组两遍，那么先来看这种方法，因为数组中只有三个不同的元素，所以实现起来很容易。 +
+
+- 首先遍历一遍原数组，分别记录0,1,2的个数 +
+- 然后更新原数组，按个数分别赋上0，1，2 +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    void sortColors(int A[], int n) {
+        int count[3] = {0}, idx = 0;
+        for (int i = 0; i < n; ++i) ++count[A[i]];
+        for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < count[i]; ++j) {
+                A[idx++] = i;
+            }
+        }
+    }
+};
+----
+
+题目中还要让只遍历一次数组来求解，那么我需要用双指针来做，分别从原数组的首尾往中心移动。 +
+
+- 定义red指针指向开头位置，blue指针指向末尾位置 +
+
+- 从头开始遍历原数组，如果遇到0，则交换该值和red指针指向的值，并将red指针后移一位。若遇到2，则交换该值和blue指针指向的值，并将blue指针前移一位。若遇到1，则继续遍历。 +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    void sortColors(int A[], int n) {int red = 0, blue = n - 1;
+        for (int i = 0; i <= blue; ++i) {
+            if (A[i] == 0) {
+                swap(A[i], A[red++]);
+            } else if (A[i] == 2) {
+                swap(A[i--], A[blue--]);
+            }
+        }
+    }
+};
+----
+
+==== 最小窗口子串
+
+----
+Given a string S and a string T, find the minimum window in S which will contain all the characters in T in complexity O(n).
+
+Example:
+
+Input: S = "ADOBECODEBANC", T = "ABC"
+Output: "BANC"
+Note:
+
+If there is no such window in S that covers all characters in T, return the empty string "".
+If there is such window, you are guaranteed that there will always be only one unique minimum window in S.
+----
+
+这道题给了我们一个原字符串S，还有一个目标字符串T，让我们在S中找到一个最短的子串，使得其包含了T中的所有的字母，并且限制了时间复杂度为O(n)。这道题的要求是要在O(n)的时间度里实现找到这个最小窗口字串，那么暴力搜索Brute Force肯定是不能用的，因为遍历所有的子串的时间复杂度是平方级的。那么我们想，时间复杂度卡的这么严，说明我们必须在一次遍历中完成任务，当然遍历若干次也是O(n)，但不一定有这个必要，尝试就一次遍历拿下！那么再来想，既然既然要包含T中所有的字母，那么肯定对于T中的每个字母，肯定要快速查找是否在子串中，既然总时间都卡在了O(n)，我们肯定不想在这里还浪费时间，那么就空间换时间（也就算法题中可以这么干了，七老八十的富翁就算用大别野也换不来时间啊。依依东望，望的就是时间呐T.T），使用HashMap，建立T中每个字母与其出现次数之间的映射，那么你可能会有疑问，为啥不用HashSet呢，别急，讲到后面你就知道用HashMap有多妙，简直妙不可言～ +
+
+目前在脑子一片浆糊的情况下，我们还是从简单的例子来分析吧，题目例子中的S有点长，我们换个短的 S = "ADBANC"，T = "ABC"，那么我们肉眼遍历一遍S呗，首先第一个是A，嗯很好，T中有，第二个是D，T中没有，不理它，第三个是B，嗯很好，T中有，第四个又是A，多了一个，礼多人不怪嘛，收下啦，第五个是N，一边凉快去，第六个终于是C了，那么貌似好像需要整个S串，其实不然，我们注意之前有多一个A，但么我们就算去掉第一个A，也没事，因为第四个A可以代替之，第二个D也可以去掉，因为不在T串中，第三个B就不能再去掉了，不然就没有B了。所以最终的答案就"BANC"了。通过上面的描述，你有没有发现一个有趣的现象，我们是先扩展，再收缩，就好像一个窗口一样，先扩大右边界，然后再收缩左边界，上面的例子中我们是右边界无法扩大了后才开始收缩左边界，实际上对于复杂的例子，有可能是扩大右边界，然后缩小一下左边界，然后再扩大右边界等等。这就很像一个不停滑动的窗口了，这就是大名鼎鼎的滑动窗口Sliding Window了，简直是神器啊，能解很多子串，子数组，子序列等等的问题，是必须要熟练掌握的啊！ +
+
+下面我们来考虑用代码来实现，先来回答一下前面埋下的伏笔，为啥要用HashMap，而不是HashSet，现在应该很显而易见了吧，因为要统计T串中字母的个数，而不是仅仅看某个字母是否在T串中出现。统计好T串中字母的个数了之后，我们开始遍历S串，对于S中的每个遍历到的字母，都在HashMap中的映射值减1，如果减1后的映射值仍大于等于0，说明当前遍历到的字母是T串中的字母，我们使用一个计数器cnt，使其自增1。当cnt和T串字母个数相等时，说明此时的窗口已经包含了T串中的所有字母，此时更新一个minLen和结果res，这里的minLen是我们维护的一个全局变量，用来记录出现过的包含T串所有字母的最短的子串的长度，结果res就是这个最短的子串。然后我们要开始收缩左边界，由于我们遍历的时候，对映射值减了1，所以此时去除字母的时候，就要把减去的1加回来，此时如果加1后的值大于0了，说明此时我们少了一个T中的字母，那么cnt值就要减1了，然后移动左边界left。那么你可能会疑问，对于不在T串中的字母的映射值也这么加呀减呀的，真的大丈夫（带脚布）吗？其实没啥事，因为对于不在T串中的字母，我们减1后，变-1，cnt不会增加，之后收缩左边界的时候，映射值加1后为0，cnt也不会减少，所以并没有什么影响啦，下面是具体的步骤啦： +
+
+- 我们最开始先扫描一遍T，把对应的字符及其出现的次数存到HashMap中。 +
+
+- 然后开始遍历S，就把遍历到的字母对应的HashMap中的value减一，如果减1后仍大于等于0，cnt自增1。 +
+
+- 如果cnt等于T串长度时，开始循环，纪录一个字串并更新最小字串值。然后将子窗口的左边界向右移，如果某个移除掉的字母是T串中不可缺少的字母，那么cnt自减1，表示此时T串并没有完全匹配。 +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string minWindow(string s, string t) {
+        string res = "";
+        unordered_map<char, int> letterCnt;
+        int left = 0, cnt = 0, minLen = INT_MAX;
+        for (char c : t) ++letterCnt[c];
+        for (int i = 0; i < s.size(); ++i) {
+            if (--letterCnt[s[i]] >= 0) ++cnt;
+            while (cnt == t.size()) {
+                if (minLen > i - left + 1) {
+                    minLen = i - left + 1;
+                    res = s.substr(left, minLen);
+                }
+                if (++letterCnt[s[left]] > 0) --cnt;
+                ++left;
+            }
+        }
+        return res;
+    }
+};
+----
+
+这道题也可以不用HashMap，直接用个int的数组来代替，因为ASCII只有256个字符，所以用个大小为256的int数组即可代替HashMap，但由于一般输入字母串的字符只有128个，所以也可以只用128，其余部分的思路完全相同，虽然只改了一个数据结构，但是运行速度提高了一倍，说明数组还是比HashMap快啊，代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string minWindow(string s, string t) {
+        string res = "";
+        vector<int> letterCnt(128, 0);
+        int left = 0, cnt = 0, minLen = INT_MAX;
+        for (char c : t) ++letterCnt[c];
+        for (int i = 0; i < s.size(); ++i) {
+            if (--letterCnt[s[i]] >= 0) ++cnt;
+            while (cnt == t.size()) {
+                if (minLen > i - left + 1) {
+                    minLen = i - left + 1;
+                    res = s.substr(left, minLen);
+                }
+                if (++letterCnt[s[left]] > 0) --cnt;
+                ++left;
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== 组合项
+
+----
+Given two integers n and k, return all possible combinations of k numbers out of 1 ... n.
+
+For example,
+If n = 4 and k = 2, a solution is:
+
+[
+  [2,4],
+  [3,4],
+  [2,3],
+  [1,2],
+  [1,3],
+  [1,4],
+]
+----
+
+这道题让求1到n共n个数字里k个数的组合数的所有情况，还是要用深度优先搜索DFS来解，根据以往的经验，像这种要求出所有结果的集合，一般都是用DFS调用递归来解。那么我们建立一个保存最终结果的大集合res，还要定义一个保存每一个组合的小集合out，每次放一个数到out里，如果out里数个数到了k个，则把out保存到最终结果中，否则在下一层中继续调用递归。网友u010500263的博客里有一张图很好的说明了递归调用的顺序，请点击这里。根据上面分析，可写出代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<int>> combine(int n, int k) {
+        vector<vector<int>> res;
+        vector<int> out;
+        helper(n, k, 1, out, res);
+        return res;
+    }
+    void helper(int n, int k, int level, vector<int>& out, vector<vector<int>>& res) {
+        if (out.size() == k) {res.push_back(out); return;}
+        for (int i = level; i <= n; ++i) {
+            out.push_back(i);
+            helper(n, k, i + 1, out, res);
+            out.pop_back();
+        }
+    }
+};
+----
+
+对于n = 5, k = 3, 处理的结果如下： +
+
+----
+1 2 3
+1	2	4
+1	2	5
+1	3	4
+1	3	5
+1	4	5
+2	3	4
+2	3	5
+2	4	5
+3	4	5
+----
+我们再来看一种递归的写法，此解法没用helper当递归函数，而是把本身就当作了递归函数，写起来十分的简洁，也是非常有趣的一种解法。这个解法用到了一个重要的性质 C(n, k) = C(n-1, k-1) + C(n-1, k)，这应该在我们高中时候学排列组合的时候学过吧，博主也记不清了。总之，翻译一下就是，在n个数中取k个数的组合项个数，等于在n-1个数中取k-1个数的组合项个数再加上在n-1个数中取k个数的组合项个数之和。这里博主就不证明了，因为我也不会，就直接举题目中的例子来说明吧： +
+
+C(4, 2) = C(3, 1) + C(3, 2) +
+
+我们不难写出 C(3, 1) 的所有情况：[1], [2], [3]，还有 C(3, 2) 的所有情况：[1, 2], [1, 3], [2, 3]。我们发现二者加起来为6，正好是 C(4, 2) 的个数之和。但是我们仔细看会发现，C(3, 2)的所有情况包含在 C(4, 2) 之中，但是 C(3, 1) 的每种情况只有一个数字，而我们需要的结果k=2，其实很好办，每种情况后面都加上4，于是变成了：[1, 4], [2, 4], [3, 4]，加上C(3, 2) 的所有情况：[1, 2], [1, 3], [2, 3]，正好就得到了 n=4, k=2 的所有情况了。参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<int>> combine(int n, int k) {
+        if (k > n || k < 0) return {};
+        if (k == 0) return {{}};
+        vector<vector<int>> res = combine(n - 1, k - 1);
+        for (auto &a : res) a.push_back(n);
+        for (auto &a : combine(n - 1, k)) res.push_back(a);
+        return res;
+    }
+};
+----
+
+我们再来看一种迭代的写法，也是一种比较巧妙的方法。这里每次先递增最右边的数字，存入结果res中，当右边的数字超过了n，则增加其左边的数字，然后将当前数组赋值为左边的数字，再逐个递增，直到最左边的数字也超过了n，停止循环。对于n=4, k=2时，遍历的顺序如下所示： +
+
+----
+0 0 #initialization
+1 0
+1 1
+1 2 #push_back
+1 3 #push_back
+1 4 #push_back
+1 5
+2 5
+2 2
+2 3 #push_back
+2 4 #push_back
+...
+3 4 #push_back
+3 5
+4 5
+4 4
+4 5
+5 5 #stop
+----
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<int>> combine(int n, int k) {
+        vector<vector<int>> res;
+        vector<int> out(k, 0);
+        int i = 0;
+        while (i >= 0) {
+            ++out[i];
+            if (out[i] > n) --i;
+            else if (i == k - 1) res.push_back(out);
+            else {
+                ++i;
+                out[i] = out[i - 1];
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== 子集合
+
+----
+Given a set of distinct integers, S, return all possible subsets.
+
+Note:
+
+Elements in a subset must be in non-descending order.
+The solution set must not contain duplicate subsets.
+
+
+For example,
+If S = [1,2,3], a solution is:
+
+[
+  [3],
+  [1],
+  [2],
+  [1,2,3],
+  [1,3],
+  [2,3],
+  [1,2],
+  []
+]
+----
+
+
+这道求子集合的问题，由于其要列出所有结果，按照以往的经验，肯定要是要用递归来做。这道题其实它的非递归解法相对来说更简单一点，下面我们先来看非递归的解法，由于题目要求子集合中数字的顺序是非降序排列的，所有我们需要预处理，先给输入数组排序，然后再进一步处理，最开始我在想的时候，是想按照子集的长度由少到多全部写出来，比如子集长度为0的就是空集，空集是任何集合的子集，满足条件，直接加入。下面长度为1的子集，直接一个循环加入所有数字，子集长度为2的话可以用两个循环，但是这种想法到后面就行不通了，因为循环的个数不能无限的增长，所以我们必须换一种思路。我们可以一位一位的网上叠加，比如对于题目中给的例子[1,2,3]来说，最开始是空集，那么我们现在要处理1，就在空集上加1，为[1]，现在我们有两个自己[]和[1]，下面我们来处理2，我们在之前的子集基础上，每个都加个2，可以分别得到[2]，[1, 2]，那么现在所有的子集合为[], [1], [2], [1, 2]，同理处理3的情况可得[3], [1, 3], [2, 3], [1, 2, 3], 再加上之前的子集就是所有的子集合了，代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<int> > subsets(vector<int> &S) {
+        vector<vector<int> > res(1);
+        sort(S.begin(), S.end());
+        for (int i = 0; i < S.size(); ++i) {
+            int size = res.size();
+            for (int j = 0; j < size; ++j) {
+                res.push_back(res[j]);
+                res.back().push_back(S[i]);
+            }
+        }
+        return res;
+    }
+};
+----
+
+整个添加的顺序为： +
+----
+[]
+[1]
+[2]
+[1 2]
+[3]
+[1 3]
+[2 3]
+[1 2 3]
+----
+下面来看递归的解法，相当于一种深度优先搜索，参见网友JustDoIt的博客，由于原集合每一个数字只有两种状态，要么存在，要么不存在，那么在构造子集时就有选择和不选择两种情况，所以可以构造一棵二叉树，左子树表示选择该层处理的节点，右子树表示不选择，最终的叶节点就是所有子集合，树的结构如下： +
+
+----
+                    []
+              /          \
+            /            \
+          /              \
+        [1]                []
+     /       \           /    \
+    /         \         /      \
+ [1 2]       [1]       [2]     []
+/     \     /   \     /   \    / \
+[1 2 3] [1 2] [1 3] [1] [2 3] [2] [3] []
+----
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<int> > subsets(vector<int> &S) {
+        vector<vector<int> > res;
+        vector<int> out;
+        sort(S.begin(), S.end());
+        getSubsets(S, 0, out, res);
+        return res;
+    }
+    void getSubsets(vector<int> &S, int pos, vector<int> &out, vector<vector<int> > &res) {
+        res.push_back(out);
+        for (int i = pos; i < S.size(); ++i) {
+            out.push_back(S[i]);
+            getSubsets(S, i + 1, out, res);
+            out.pop_back();
+        }
+    }
+};
+----
+
+
+整个添加的顺序为： +
+----
+[]
+[1]
+[1 2]
+[1 2 3]
+[1 3]
+[2]
+[2 3]
+[3]
+----
+
+最后我们再来看一种解法，这种解法是CareerCup书上给的一种解法，想法也比较巧妙，把数组中所有的数分配一个状态，true表示这个数在子集中出现，false表示在子集中不出现，那么对于一个长度为n的数组，每个数字都有出现与不出现两种情况，所以共有2n中情况，那么我们把每种情况都转换出来就是子集了，我们还是用题目中的例子, [1 2 3]这个数组共有8个子集，每个子集的序号的二进制表示，把是1的位对应原数组中的数字取出来就是一个子集，八种情况都取出来就是所有的子集了，参见代码如下： +
+----
+1	2	3	Subset
+0	F	F	F	[]
+1	F	F	T	3
+2	F	T	F	2
+3	F	T	T	23
+4	T	F	F	1
+5	T	F	T	13
+6	T	T	F	12
+7	T	T	T	123
+----
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<int> > subsets(vector<int> &S) {
+        vector<vector<int> > res;
+        sort(S.begin(), S.end());
+        int max = 1 << S.size();
+        for (int k = 0; k < max; ++k) {
+            vector<int> out = convertIntToSet(S, k);
+            res.push_back(out);
+        }
+        return res;
+    }
+    vector<int> convertIntToSet(vector<int> &S, int k) {
+        vector<int> sub;
+        int idx = 0;
+        for (int i = k; i > 0; i >>= 1) {
+            if ((i & 1) == 1) {
+                sub.push_back(S[idx]);
+            }
+            ++idx;
+        }
+        return sub;
+    }
+};
+----
+
+
+==== 词语搜索
+
+----
+Given a 2D board and a word, find if the word exists in the grid.
+
+The word can be constructed from letters of sequentially adjacent cell, where "adjacent" cells are those horizontally or vertically neighboring. The same letter cell may not be used more than once.
+
+For example,
+Given board =
+
+[
+  ["ABCE"],
+  ["SFCS"],
+  ["ADEE"]
+]
+word = "ABCCED", -> returns true,
+word = "SEE", -> returns true,
+word = "ABCB", -> returns false.
+----
+
+这道题是典型的深度优先遍历DFS的应用，原二维数组就像是一个迷宫，可以上下左右四个方向行走，我们以二维数组中每一个数都作为起点和给定字符串做匹配，我们还需要一个和原数组等大小的visited数组，是bool型的，用来记录当前位置是否已经被访问过，因为题目要求一个cell只能被访问一次。如果二维数组board的当前字符和目标字符串word对应的字符相等，则对其上下左右四个邻字符分别调用DFS的递归函数，只要有一个返回true，那么就表示可以找到对应的字符串，否则就不能找到，具体看代码实现如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool exist(vector<vector<char>>& board, string word) {
+        if (board.empty() || board[0].empty()) return false;
+        int m = board.size(), n = board[0].size();
+        vector<vector<bool>> visited(m, vector<bool>(n, false));
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                if (search(board, word, 0, i, j, visited)) return true;
+            }
+        }
+        return false;
+    }
+    bool search(vector<vector<char>>& board, string word, int idx, int i, int j, vector<vector<bool>>& visited) {
+        if (idx == word.size()) return true;
+        int m = board.size(), n = board[0].size();
+        if (i < 0 || j < 0 || i >= m || j >= n || visited[i][j] || board[i][j] != word[idx]) return false;
+        visited[i][j] = true;
+        bool res = search(board, word, idx + 1, i - 1, j, visited)
+                 || search(board, word, idx + 1, i + 1, j, visited)
+                 || search(board, word, idx + 1, i, j - 1, visited)
+                 || search(board, word, idx + 1, i, j + 1, visited);
+        visited[i][j] = false;
+        return res;
+    }
+};
+----
+
+我们还可以不用visited数组，直接对board数组进行修改，将其遍历过的位置改为井号，记得递归调用完后需要恢复之前的状态，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool exist(vector<vector<char>>& board, string word) {
+        if (board.empty() || board[0].empty()) return false;
+        int m = board.size(), n = board[0].size();
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                if (search(board, word, 0, i, j)) return true;
+            }
+        }
+        return false;
+    }
+    bool search(vector<vector<char>>& board, string word, int idx, int i, int j) {
+        if (idx == word.size()) return true;
+        int m = board.size(), n = board[i].size();
+        if (i < 0 || j < 0 || i >= m || j >= n || board[i][j] != word[idx]) return false;
+        char c = board[i][j];
+        board[i][j] = '#';
+        bool res = search(board, word, idx + 1, i - 1, j)
+                 || search(board, word, idx + 1, i + 1, j)
+                 || search(board, word, idx + 1, i, j - 1)
+                 || search(board, word, idx + 1, i, j + 1);
+        board[i][j] = c;
+        return res;
+    }
+};
+----
+
+==== 有序数组中去除重复项之二
+
+----
+Follow up for "Remove Duplicates":
+What if duplicates are allowed at most twice?
+
+For example,
+Given sorted array A = [1,1,1,2,2,3],
+
+Your function should return length = 5, and A is now [1,1,2,2,3].
+----
+
+这道题是之前那道 Remove Duplicates from Sorted Array 有序数组中去除重复项 的延续，这里允许最多重复的次数是两次，那么我们就需要用一个变量count来记录还允许有几次重复，count初始化为1，如果出现过一次重复，则count递减1，那么下次再出现重复，快指针直接前进一步，如果这时候不是重复的，则count恢复1，由于整个数组是有序的，所以一旦出现不重复的数，则一定比这个数大，此数之后不会再有重复项。理清了上面的思路，则代码很好写了： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int removeDuplicates(int A[], int n) {
+        if (n <= 2) return n;
+        int pre = 0, cur = 1, count = 1;
+        while (cur < n) {
+            if (A[pre] == A[cur] && count == 0) ++cur;
+            else {
+                if (A[pre] == A[cur]) --count;
+                else count = 1;
+                A[++pre] = A[cur++];
+            }
+        }
+        return pre + 1;
+    }
+};
+----

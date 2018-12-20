@@ -1,0 +1,1270 @@
+==== 数字范围位相与
+
+----
+Given a range [m, n] where 0 <= m <= n <= 2147483647, return the bitwise AND of all numbers in this range, inclusive.
+
+For example, given the range [5, 7], you should return 4.
+
+Credits:
+Special thanks to @amrsaqr for adding this problem and creating all test cases.
+----
+
+----
+又是一道考察位操作Bit Operation的题，相似的题目在LeetCode中还真不少，比如Repeated DNA Sequences 求重复的DNA序列， Single Number 单独的数字,   Single Number II 单独的数字之二 ， Grey Code 格雷码，和 Reverse Bits 翻转位 等等，那么这道题其实并不难，我们先从题目中给的例子来分析，[5, 7]里共有三个数字，分别写出它们的二进制为：
+
+101　　110　　111
+
+相与后的结果为100，仔细观察我们可以得出，最后的数是该数字范围内所有的数的左边共同的部分，如果上面那个例子不太明显，我们再来看一个范围[26, 30]，它们的二进制如下：
+
+11010　　11011　　11100　　11101　　11110
+
+发现了规律后，我们只要写代码找到左边公共的部分即可，我们可以从建立一个32位都是1的mask，然后每次向左移一位，比较m和n是否相同，不同再继续左移一位，直至相同，然后把m和mask相与就是最终结果，代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int rangeBitwiseAnd(int m, int n) {
+        int d = INT_MAX;
+        while ((m & d) != (n & d)) {
+            d <<= 1;
+        }
+        return m & d;
+    }
+};
+----
+
+此题还有另一种解法，不需要用mask，直接平移m和n，每次向右移一位，直到m和n相等，记录下所有平移的次数i，然后再把m左移i位即为最终结果，代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int rangeBitwiseAnd(int m, int n) {
+        int i = 0;
+        while (m != n) {
+            m >>= 1;
+            n >>= 1;
+            ++i;
+        }
+        return (m << i);
+    }
+};
+----
+
+下面这种方法有点叼，就一行搞定了，通过递归来做的，如果n大于m，那么就对m和n分别除以2，并且调用递归函数，对结果再乘以2，一定要乘回来，不然就不对了，就举一个最简单的例子，m = 10, n = 11，注意这里是二进制表示的，然后各自除以2，都变成了1，调用递归返回1，这时候要乘以2，才能变回10，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int rangeBitwiseAnd(int m, int n) {
+        return (n > m) ? (rangeBitwiseAnd(m / 2, n / 2) << 1) : m;
+    }
+};
+----
+
+下面这种方法也不错，也很简单，如果m小于n就进行循环，n与上n-1，那么为什么要这样与呢，举个简单的例子呗，110与上(110-1)，得到100，这不就相当于去掉最低位的1么，n就这样每次去掉最低位的1，如果小于等于m了，返回此时的n即可，参见代码如下： +
+
+**解法4:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int rangeBitwiseAnd(int m, int n) {
+        while (m < n) n &= (n - 1);
+        return n;
+    }
+};
+----
+
+==== 快乐数
+
+----
+Write an algorithm to determine if a number is "happy".
+
+A happy number is a number defined by the following process: Starting with any positive integer, replace the number by the sum of the squares of its digits, and repeat the process until the number equals 1 (where it will stay), or it loops endlessly in a cycle which does not include 1. Those numbers for which this process ends in 1 are happy numbers.
+
+Example: 19 is a happy number
+
+1^2 + 9^2 = 82
+8^2 + 2^2 = 68
+6^2 + 8^2 = 100
+1^2 + 0^2 + 0^2 = 1
+Credits:
+Special thanks to @mithmatt and @ts for adding this problem and creating all test cases.
+----
+
+----
+这道题定义了一种快乐数，就是说对于某一个正整数，如果对其各个位上的数字分别平方，然后再加起来得到一个新的数字，再进行同样的操作，如果最终结果变成了1，则说明是快乐数，如果一直循环但不是1的话，就不是快乐数，那么现在任意给我们一个正整数，让我们判断这个数是不是快乐数，题目中给的例子19是快乐数，那么我们来看一个不是快乐数的情况，比如数字11有如下的计算过程：
+
+1^2 + 1^2 = 2
+2^2 = 4
+4^2 = 16
+1^2 + 6^2 = 37
+3^2 + 7^2 = 58
+5^2 + 8^2 = 89
+8^2 + 9^2 = 145
+1^2 + 4^2 + 5^2 = 42
+4^2 + 2^2 = 20
+2^2 + 0^2 = 4
+
+我们发现在算到最后时数字4又出现了，那么之后的数字又都会重复之前的顺序，这个循环中不包含1，那么数字11不是一个快乐数，发现了规律后就要考虑怎么用代码来实现，我们可以用set来记录所有出现过的数字，然后每出现一个新数字，在set中查找看是否存在，若不存在则加入表中，若存在则跳出循环，并且判断此数是否为1，若为1返回true，不为1返回false，代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool isHappy(int n) {
+        set<int> s;
+        while (n != 1) {
+            int t = 0;
+            while (n) {
+                t += (n % 10) * (n % 10);
+                n /= 10;
+            }
+            n = t;
+            if (s.count(n)) break;
+            else s.insert(n);
+        }
+        return n == 1;
+    }
+};
+----
+
+其实这道题也可以不用set来做，我们并不需要太多的额外空间，关于非快乐数有个特点，循环的数字中必定会有4，这里就不做证明了，我也不会证明，就是利用这个性质，就可以不用set了，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool isHappy(int n) {
+        while (n != 1 && n != 4) {
+            int t = 0;
+            while (n) {
+                t += (n % 10) * (n % 10);
+                n /= 10;
+            }
+            n = t;
+        }
+        return n == 1;
+    }
+};
+----
+
+==== 移除链表元素
+
+----
+Remove all elements from a linked list of integers that have value val.
+
+Example
+Given: 1 --> 2 --> 6 --> 3 --> 4 --> 5 --> 6, val = 6
+Return: 1 --> 2 --> 3 --> 4 --> 5
+
+Credits:
+Special thanks to @mithmatt for adding this problem and creating all test cases.
+----
+
+这道移除链表元素是链表的基本操作之一，没有太大的难度，就是考察了基本的链表遍历和设置指针的知识点，我们只需定义几个辅助指针，然后遍历原链表，遇到与给定值相同的元素，将该元素的前后连个节点连接起来，然后删除该元素即可，要注意的是还是需要在链表开头加上一个dummy node，具体实现参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    ListNode* removeElements(ListNode* head, int val) {
+        ListNode *dummy = new ListNode(-1), *pre = dummy;
+        dummy->next = head;
+        while (pre->next) {
+            if (pre->next->val == val) {
+                ListNode *t = pre->next;
+                pre->next = t->next;
+                t->next = NULL;
+                delete t;
+            } else {
+                pre = pre->next;
+            }
+        }
+        return dummy->next;
+    }
+};
+----
+
+我们也可以用递归来解，写法很简洁，通过递归调用到链表末尾，然后回来，需要要删的元素，将链表next指针指向下一个元素即可： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    ListNode* removeElements(ListNode* head, int val) {
+        if (!head) return NULL;
+        head->next = removeElements(head->next, val);
+        return head->val == val ? head->next : head;
+    }
+};
+----
+
+==== 质数的个数
+
+----
+Description:
+
+Count the number of prime numbers less than a non-negative number, n
+
+click to show more hints.
+
+References:
+How Many Primes Are There?
+
+Sieve of Eratosthenes
+
+Credits:
+Special thanks to @mithmatt for adding this problem and creating all test cases.
+----
+
+----
+这道题给定一个非负数n，让我们求小于n的质数的个数，题目中给了充足的提示，解题方法就在第二个提示埃拉托斯特尼筛法Sieve of Eratosthenes中，这个算法的过程如下图所示，我们从2开始遍历到根号n，先找到第一个质数2，然后将其所有的倍数全部标记出来，然后到下一个质数3，标记其所有倍数，一次类推，直到根号n，此时数组中未被标记的数字就是质数。我们需要一个n-1长度的bool型数组来记录每个数字是否被标记，长度为n-1的原因是题目说是小于n的质数个数，并不包括n。 然后我们用两个for循环来实现埃拉托斯特尼筛法，难度并不是很大，代码如下所示：
+----
+
+image::images/question_204.gif[width="40%", height="45%"]
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int countPrimes(int n) {
+        vector<bool> num(n - 1, true);
+        num[0] = false;
+        int res = 0, limit = sqrt(n);
+        for (int i = 2; i <= limit; ++i) {
+            if (num[i - 1]) {
+                for (int j = i * i; j < n; j += i) {
+                    num[j - 1] = false;
+                }
+            }
+        }
+        for (int j = 0; j < n - 1; ++j) {
+            if (num[j]) ++res;
+        }
+        return res;
+    }
+};
+----
+
+==== 同构字符串
+
+----
+Given two strings s and t, determine if they are isomorphic.
+
+Two strings are isomorphic if the characters in s can be replaced to get t.
+
+All occurrences of a character must be replaced with another character while preserving the order of characters. No two characters may map to the same character but a character may map to itself.
+
+For example,
+Given "egg", "add", return true.
+
+Given "foo", "bar", return false.
+
+Given "paper", "title", return true.
+
+Note:
+You may assume both s and t have the same length.
+----
+
+这道题让我们求同构字符串，就是说原字符串中的每个字符可由另外一个字符替代，可以被其本身替代，相同的字符一定要被同一个字符替代，且一个字符不能被多个字符替代，即不能出现一对多的映射。根据一对一映射的特点，我们需要用两个哈希表分别来记录原字符串和目标字符串中字符出现情况，由于ASCII码只有256个字符，所以我们可以用一个256大小的数组来代替哈希表，并初始化为0，我们遍历原字符串，分别从源字符串和目标字符串取出一个字符，然后分别在两个哈希表中查找其值，若不相等，则返回false，若相等，将其值更新为i + 1，因为默认的值是0，所以我们更新值为i + 1，这样当 i=0 时，则映射为1，如果不加1的话，那么就无法区分是否更新了，代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool isIsomorphic(string s, string t) {
+        int m1[256] = {0}, m2[256] = {0}, n = s.size();
+        for (int i = 0; i < n; ++i) {
+            if (m1[s[i]] != m2[t[i]]) return false;
+            m1[s[i]] = i + 1;
+            m2[t[i]] = i + 1;
+        }
+        return true;
+    }
+};
+----
+
+==== 倒置链表
+
+----
+Reverse a singly linked list.
+
+click to show more hints.
+
+Hint:
+A linked list can be reversed either iteratively or recursively. Could you implement both?
+----
+
+之前做到 Reverse Linked List II 倒置链表之二的时候我还纳闷怎么只有二没有一呢，原来真是忘了啊，现在才加上，这道题跟之前那道比起来简单不少，题目为了增加些许难度，让我们分别用迭代和递归来实现，但难度还是不大。我们先来看迭代的解法，思路是在原链表之前建立一个dummy node，因为首节点会变，然后从head开始，将之后的一个节点移到dummy node之后，重复此操作知道head成为末节点为止，代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    ListNode* reverseList(ListNode* head) {
+        if (!head) return head;
+        ListNode *dummy = new ListNode(-1);
+        dummy->next = head;
+        ListNode *cur = head;
+        while (cur->next) {
+            ListNode *tmp = cur->next;
+            cur->next = tmp->next;
+            tmp->next = dummy->next;
+            dummy->next = tmp;
+        }
+        return dummy->next;
+    }
+};
+----
+
+下面我们来看递归解法，代码量更少，递归解法的思路是，不断的进入递归函数，直到head指向最后一个节点，p指向之前一个节点，然后调换head和p的位置，再返回上一层递归函数，再交换p和head的位置，每次交换后，head节点后面都是交换好的顺序，直到p为首节点，然后再交换，首节点就成了为节点，此时整个链表也完成了翻转，代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    ListNode* reverseList(ListNode* head) {
+        if (!head || !head->next) return head;
+        ListNode *p = head;
+        head = reverseList(p->next);
+        p->next->next = p;
+        p->next = NULL;
+        return head;
+    }
+};
+----
+
+==== 课程清单
+
+----
+There are a total of n courses you have to take, labeled from 0 to n - 1.
+
+Some courses may have prerequisites, for example to take course 0 you have to first take course 1, which is expressed as a pair: [0,1]
+
+Given the total number of courses and a list of prerequisite pairs, is it possible for you to finish all courses?
+
+For example:
+
+2, [[1,0]]
+There are a total of 2 courses to take. To take course 1 you should have finished course 0. So it is possible.
+
+2, [[1,0],[0,1]]
+There are a total of 2 courses to take. To take course 1 you should have finished course 0, and to take course 0 you should also have finished course 1. So it is impossible.
+
+click to show more hints.
+
+Hints:
+This problem is equivalent to finding if a cycle exists in a directed graph. If a cycle exists, no topological ordering exists and therefore it will be impossible to take all courses.
+There are several ways to represent a graph. For example, the input prerequisites is a graph represented by a list of edges. Is this graph representation appropriate?
+Topological Sort via DFS - A great video tutorial (21 minutes) on Coursera explaining the basic concepts of Topological Sort.
+Topological sort could also be done via BFS.
+----
+
+这道课程清单的问题对于我们学生来说应该不陌生，因为我们在选课的时候经常会遇到想选某一门课程，发现选它之前必须先上了哪些课程，这道题给了很多提示，第一条就告诉我们了这道题的本质就是在有向图中检测环。 LeetCode中关于图的题很少，有向图的仅此一道，还有一道关于无向图的题是 Clone Graph 无向图的复制。个人认为图这种数据结构相比于树啊，链表啊什么的要更为复杂一些，尤其是有向图，很麻烦。第二条提示是在讲如何来表示一个有向图，可以用边来表示，边是由两个端点组成的，用两个点来表示边。第三第四条提示揭示了此题有两种解法，DFS和BFS都可以解此题。我们先来看BFS的解法，我们定义二维数组graph来表示这个有向图，一位数组in来表示每个顶点的入度。我们开始先根据输入来建立这个有向图，并将入度数组也初始化好。然后我们定义一个queue变量，将所有入度为0的点放入队列中，然后开始遍历队列，从graph里遍历其连接的点，每到达一个新节点，将其入度减一，如果此时该点入度为0，则放入队列末尾。直到遍历完队列中所有的值，若此时还有节点的入度不为0，则说明环存在，返回false，反之则返回true。代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool canFinish(int numCourses, vector<vector<int>>& prerequisites) {
+        vector<vector<int> > graph(numCourses, vector<int>(0));
+        vector<int> in(numCourses, 0);
+        for (auto a : prerequisites) {
+            graph[a[1]].push_back(a[0]);
+            ++in[a[0]];
+        }
+        queue<int> q;
+        for (int i = 0; i < numCourses; ++i) {
+            if (in[i] == 0) q.push(i);
+        }
+        while (!q.empty()) {
+            int t = q.front();
+            q.pop();
+            for (auto a : graph[t]) {
+                --in[a];
+                if (in[a] == 0) q.push(a);
+            }
+        }
+        for (int i = 0; i < numCourses; ++i) {
+            if (in[i] != 0) return false;
+        }
+        return true;
+    }
+};
+----
+
+下面我们来看DFS的解法，也需要建立有向图，还是用二维数组来建立，和BFS不同的是，我们像现在需要一个一维数组visit来记录访问状态，这里有三种状态，0表示还未访问过，1表示已经访问了，-1表示有冲突。大体思路是，先建立好有向图，然后从第一个门课开始，找其可构成哪门课，暂时将当前课程标记为已访问，然后对新得到的课程调用DFS递归，直到出现新的课程已经访问过了，则返回false，没有冲突的话返回true，然后把标记为已访问的课程改为未访问。代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool canFinish(int numCourses, vector<vector<int> >& prerequisites) {
+        vector<vector<int> > graph(numCourses, vector<int>(0));
+        vector<int> visit(numCourses, 0);
+        for (auto a : prerequisites) {
+            graph[a[1]].push_back(a[0]);
+        }
+        for (int i = 0; i < numCourses; ++i) {
+            if (!canFinishDFS(graph, visit, i)) return false;
+        }
+        return true;
+    }
+    bool canFinishDFS(vector<vector<int> > &graph, vector<int> &visit, int i) {
+        if (visit[i] == -1) return false;
+        if (visit[i] == 1) return true;
+        visit[i] = -1;
+        for (auto a : graph[i]) {
+            if (!canFinishDFS(graph, visit, a)) return false;
+        }
+        visit[i] = 1;
+        return true;
+    }
+};
+----
+
+==== 实现字典树(前缀树)
+
+----
+Implement a trie with insert, search, and startsWith methods.
+
+Note:
+You may assume that all inputs are consist of lowercase letters a-z.
+----
+
+----
+字母树的插入（Insert）、删除（ Delete）和查找（Find）都非常简单，用一个一重循环即可，即第i 次循环找到前i 个字母所对应的子树，然后进行相应的操作。实现这棵字母树，我们用最常见的数组保存（静态开辟内存）即可，当然也可以开动态的指针类型（动态开辟内存）。至于结点对儿子的指向，一般有三种方法：
+
+1、对每个结点开一个字母集大小的数组，对应的下标是儿子所表示的字母，内容则是这个儿子对应在大数组上的位置，即标号；
+
+2、对每个结点挂一个链表，按一定顺序记录每个儿子是谁；
+
+3、使用左儿子右兄弟表示法记录这棵树。
+
+三种方法，各有特点。第一种易实现，但实际的空间要求较大；第二种，较易实现，空间要求相对较小，但比较费时；第三种，空间要求最小，但相对费时且不易写。
+----
+
+我们先来看第一种实现方法，这种方法实现起来简单直观，字母的字典树每个节点要定义一个大小为26的子节点指针数组，
+然后用一个标志符用来记录到当前位置为止是否为一个词，初始化的时候讲26个子节点都赋为空。
+那么insert操作只需要对于要插入的字符串的每一个字符算出其的位置，然后找是否存在这个子节点，若不存在则新建一个，
+然后再查找下一个。查找词和找前缀操作跟insert操作都很类似，不同点在于若不存在子节点，则返回false。查找次最后还要看标识位，
+而找前缀直接返回true即可。代码如下： +
+
+[source, cpp, linenums]
+----
+class TrieNode {
+public:
+    // Initialize your data structure here.
+    TrieNode *child[26];
+    bool isWord;
+    TrieNode() : isWord(false){
+        for (auto &a : child) a = NULL;
+    }
+};
+
+class Trie {
+public:
+    Trie() {
+        root = new TrieNode();
+    }
+
+    // Inserts a word into the trie.
+    void insert(string s) {
+        TrieNode *p = root;
+        for (auto &a : s) {
+            int i = a - 'a';
+            if (!p->child[i]) p->child[i] = new TrieNode();
+            p = p->child[i];
+        }
+        p->isWord = true;
+    }
+
+    // Returns if the word is in the trie.
+    bool search(string key) {
+        TrieNode *p = root;
+        for (auto &a : key) {
+            int i = a - 'a';
+            if (!p->child[i]) return false;
+            p = p->child[i];
+        }
+        return p->isWord;
+    }
+
+    // Returns if there is any word in the trie
+    // that starts with the given prefix.
+    bool startsWith(string prefix) {
+        TrieNode *p = root;
+        for (auto &a : prefix) {
+            int i = a - 'a';
+            if (!p->child[i]) return false;
+            p = p->child[i];
+        }
+        return true;
+    }
+
+private:
+    TrieNode* root;
+};
+----
+
+==== 最短子数组之和
+
+----
+Given an array of n positive integers and a positive integer s, find the minimal length of a subarray of which the sum ≥ s. If there isn't one, return 0 instead.
+
+For example, given the array [2,3,1,2,4,3] and s = 7,
+the subarray [4,3] has the minimal length under the problem constraint.
+
+click to show more practice.
+
+More practice:
+If you have figured out the O(n) solution, try coding another solution of which the time complexity is O(n log n).
+
+Credits:
+Special thanks to @Freezen for adding this problem and creating all test cases.
+----
+
+
+这道题给定了我们一个数字，让我们求子数组之和大于等于给定值的最小长度，跟之前那道 Maximum Subarray 最大子数组有些类似，
+并且题目中要求我们实现O(n)和O(nlgn)两种解法，那么我们先来看O(n)的解法，我们需要定义两个指针left和right，
+分别记录子数组的左右的边界位置，然后我们让right向右移，直到子数组和大于等于给定值或者right达到数组末尾，
+此时我们更新最短距离，并且将left像右移一位，然后再sum中减去移去的值，然后重复上面的步骤，直到right到达末尾，
+且left到达临界位置，即要么到达边界，要么再往右移动，和就会小于给定值。代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int minSubArrayLen(int s, vector<int>& nums) {
+        if (nums.empty()) return 0;
+        int left = 0, right = 0, sum = 0, len = nums.size(), res = len + 1;
+        while (right < len) {
+            while (sum < s && right < len) {
+                sum += nums[right++];
+            }
+            while (sum >= s) {
+                res = min(res, right - left);
+                sum -= nums[left++];
+            }
+        }
+        return res == len + 1 ? 0 : res;
+    }
+};
+----
+
+同样的思路，我们也可以换一种写法，参考代码如下: +
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int minSubArrayLen(int s, vector<int>& nums) {
+        int res = INT_MAX, left = 0, sum = 0;
+        for (int i = 0; i < nums.size(); ++i) {
+            sum += nums[i];
+            while (left <= i && sum >= s) {
+                res = min(res, i - left + 1);
+                sum -= nums[left++];
+            }
+        }
+        return res == INT_MAX ? 0 : res;
+    }
+};
+----
+
+下面我们再来看看O(nlgn)的解法，这个解法要用到二分查找法，思路是，我们建立一个比原数组长一位的sums数组，其中sums[i]表示nums数组中[0, i - 1]的和，然后我们对于sums中每一个值sums[i]，用二分查找法找到子数组的右边界位置，使该子数组之和大于sums[i] + s，然后我们更新最短长度的距离即可。代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int minSubArrayLen(int s, vector<int>& nums) {
+        int len = nums.size(), sums[len + 1] = {0}, res = len + 1;
+        for (int i = 1; i < len + 1; ++i) sums[i] = sums[i - 1] + nums[i - 1];
+        for (int i = 0; i < len + 1; ++i) {
+            int right = searchRight(i + 1, len, sums[i] + s, sums);
+            if (right == len + 1) break;
+            if (res > right - i) res = right - i;
+        }
+        return res == len + 1 ? 0 : res;
+    }
+    int searchRight(int left, int right, int key, int sums[]) {
+        while (left <= right) {
+            int mid = (left + right) / 2;
+            if (sums[mid] >= key) right = mid - 1;
+            else left = mid + 1;
+        }
+        return left;
+    }
+};
+----
+
+
+我们也可以不用为二分查找法专门写一个函数，直接嵌套在for循环中即可，参加代码如下： +
+
+**解法4:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int minSubArrayLen(int s, vector<int>& nums) {
+        int res = INT_MAX, n = nums.size();
+        vector<int> sums(n + 1, 0);
+        for (int i = 1; i < n + 1; ++i) sums[i] = sums[i - 1] + nums[i - 1];
+        for (int i = 0; i < n; ++i) {
+            int left = i + 1, right = n, t = sums[i] + s;
+            while (left <= right) {
+                int mid = left + (right - left) / 2;
+                if (sums[mid] < t) left = mid + 1;
+                else right = mid - 1;
+            }
+            if (left == n + 1) break;
+            res = min(res, left - i);
+        }
+        return res == INT_MAX ? 0 : res;
+    }
+};
+----
+
+讨论：本题有一个很好的Follow up，就是去掉所有数字是正数的限制条件，而去掉这个条件会使得累加数组不一定会是递增的了，那么就不能使用二分法，同时双指针的方法也会失效，只能另辟蹊径了。其实博主觉得同时应该去掉大于s的条件，只保留sum=s这个要求，因为这样我们可以再建立累加数组后用2sum的思路，快速查找s-sum是否存在，如果有了大于的条件，还得继续遍历所有大于s-sum的值，效率提高不了多少。 +
+
+==== 课程清单之二
+
+----
+There are a total of n courses you have to take, labeled from 0 to n - 1.
+
+Some courses may have prerequisites, for example to take course 0 you have to first take course 1, which is expressed as a pair: [0,1]
+
+Given the total number of courses and a list of prerequisite pairs, return the ordering of courses you should take to finish all courses.
+
+There may be multiple correct orders, you just need to return one of them. If it is impossible to finish all courses, return an empty array.
+
+For example:
+
+2, [[1,0]]
+There are a total of 2 courses to take. To take course 1 you should have finished course 0. So the correct course order is [0,1]
+
+4, [[1,0],[2,0],[3,1],[3,2]]
+There are a total of 4 courses to take. To take course 3 you should have finished both courses 1 and 2. Both courses 1 and 2 should be taken after you finished course 0. So one correct course order is [0,1,2,3]. Another correct ordering is[0,2,1,3].
+
+Note:
+The input prerequisites is a graph represented by a list of edges, not adjacency matrices. Read more about how a graph is represented.
+
+click to show more hints.
+
+Hints:
+This problem is equivalent to finding the topological order in a directed graph. If a cycle exists, no topological ordering exists and therefore it will be impossible to take all courses.
+Topological Sort via DFS - A great video tutorial (21 minutes) on Coursera explaining the basic concepts of Topological Sort.
+Topological sort could also be done via BFS.
+----
+
+这题是之前那道 Course Schedule 课程清单的扩展，那道题只让我们判断是否能完成所有课程，即检测有向图中是否有环，而这道题我们得找出要上的课程的顺序，即有向图的拓扑排序，这样一来，难度就增加了，但是由于我们有之前那道的基础，而此题正是基于之前解法的基础上稍加修改，我们从queue中每取出一个数组就将其存在结果中，最终若有向图中有环，则结果中元素的个数不等于总课程数，那我们将结果清空即可。代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<int> findOrder(int numCourses, vector<pair<int, int>>& prerequisites) {
+        vector<int> res;
+        vector<vector<int> > graph(numCourses, vector<int>(0));
+        vector<int> in(numCourses, 0);
+        for (auto &a : prerequisites) {
+            graph[a.second].push_back(a.first);
+            ++in[a.first];
+        }
+        queue<int> q;
+        for (int i = 0; i < numCourses; ++i) {
+            if (in[i] == 0) q.push(i);
+        }
+        while (!q.empty()) {
+            int t = q.front();
+            res.push_back(t);
+            q.pop();
+            for (auto &a : graph[t]) {
+                --in[a];
+                if (in[a] == 0) q.push(a);
+            }
+        }
+        if (res.size() != numCourses) res.clear();
+        return res;
+    }
+};
+----
+
+==== 添加和查找单词-数据结构设计
+
+----
+Design a data structure that supports the following two operations:
+
+void addWord(word)
+bool search(word)
+search(word) can search a literal word or a regular expression string containing only letters a-z or .. A . means it can represent any one letter.
+
+For example:
+
+addWord("bad")
+addWord("dad")
+addWord("mad")
+search("pad") -> false
+search("bad") -> true
+search(".ad") -> true
+search("b..") -> true
+Note:
+You may assume that all words are consist of lowercase letters a-z.
+
+click to show hint.
+
+You should be familiar with how a Trie works. If not, please work on this problem: Implement Trie (Prefix Tree) first.
+----
+
+LeetCode出新题的速度越来越快了，有点跟不上节奏的感觉了。这道题如果做过之前的那道 Implement Trie (Prefix Tree) 实现字典树(前缀树)的话就没有太大的难度了，还是要用到字典树的结构，唯一不同的地方就是search的函数需要重新写一下，因为这道题里面'.'可以代替任意字符，所以一旦有了'.'，就需要查找所有的子树，只要有一个返回true，整个search函数就返回true，典型的DFS的问题，其他部分跟上一道实现字典树没有太大区别，代码如下： +
+
+[source, cpp, linenums]
+----
+class WordDictionary {
+public:
+    struct TrieNode {
+    public:
+        TrieNode *child[26];
+        bool isWord;
+        TrieNode() : isWord(false) {
+            for (auto &a : child) a = NULL;
+        }
+    };
+
+    WordDictionary() {
+        root = new TrieNode();
+    }
+
+    // Adds a word into the data structure.
+    void addWord(string word) {
+        TrieNode *p = root;
+        for (auto &a : word) {
+            int i = a - 'a';
+            if (!p->child[i]) p->child[i] = new TrieNode();
+            p = p->child[i];
+        }
+        p->isWord = true;
+    }
+
+    // Returns if the word is in the data structure. A word could
+    // contain the dot character '.' to represent any one letter.
+    bool search(string word) {
+        return searchWord(word, root, 0);
+    }
+
+    bool searchWord(string &word, TrieNode *p, int i) {
+        if (i == word.size()) return p->isWord;
+        if (word[i] == '.') {
+            for (auto &a : p->child) {
+                if (a && searchWord(word, a, i + 1)) return true;
+            }
+            return false;
+        } else {
+            return p->child[word[i] - 'a'] && searchWord(word, p->child[word[i] - 'a'], i + 1);
+        }
+    }
+
+private:
+    TrieNode *root;
+};
+----
+
+==== 词语搜索之二
+
+----
+Given a 2D board and a list of words from the dictionary, find all words in the board.
+
+Each word must be constructed from letters of sequentially adjacent cell, where "adjacent" cells are those horizontally or vertically neighboring. The same letter cell may not be used more than once in a word.
+
+For example,
+Given words = ["oath","pea","eat","rain"] and board =
+
+[
+  ['o','a','a','n'],
+  ['e','t','a','e'],
+  ['i','h','k','r'],
+  ['i','f','l','v']
+]
+Return ["eat","oath"].
+
+Note:
+You may assume that all inputs are consist of lowercase letters a-z.
+
+click to show hint.
+
+You would need to optimize your backtracking to pass the larger test. Could you stop backtracking earlier?
+
+If the current candidate does not exist in all words' prefix, you could stop backtracking immediately. What kind of data structure could answer such query efficiently? Does a hash table work? Why or why not? How about a Trie? If you would like to learn how to implement a basic trie, please work on this problem: Implement Trie (Prefix Tree) first.
+----
+
+
+这道题是在之前那道Word Search 词语搜索的基础上做了些拓展，之前是给一个单词让判断是否存在，现在是给了一堆单词，让返回所有存在的单词，在这道题最开始更新的几个小时内，用brute force是可以通过OJ的，就是在之前那题的基础上多加一个for循环而已，但是后来出题者其实是想考察字典树的应用，所以加了一个超大的test case，以至于brute force无法通过，强制我们必须要用字典树来求解。LeetCode中有关字典树的题还有 Implement Trie (Prefix Tree) 实现字典树(前缀树)和Add and Search Word - Data structure design 添加和查找单词-数据结构设计，那么我们在这题中只要实现字典树中的insert功能就行了，查找单词和前缀就没有必要了，然后DFS的思路跟之前那道Word Search 词语搜索基本相同，请参见代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    struct TrieNode {
+        TrieNode *child[26];
+        string str;
+        TrieNode() : str("") {
+            for (auto &a : child) a = NULL;
+        }
+    };
+    struct Trie {
+        TrieNode *root;
+        Trie() : root(new TrieNode()) {}
+        void insert(string s) {
+            TrieNode *p = root;
+            for (auto &a : s) {
+                int i = a - 'a';
+                if (!p->child[i]) p->child[i] = new TrieNode();
+                p = p->child[i];
+            }
+            p->str = s;
+        }
+    };
+    vector<string> findWords(vector<vector<char> >& board, vector<string>& words) {
+        vector<string> res;
+        if (words.empty() || board.empty() || board[0].empty()) return res;
+        vector<vector<bool> > visit(board.size(), vector<bool>(board[0].size(), false));
+        Trie T;
+        for (auto &a : words) T.insert(a);
+        for (int i = 0; i < board.size(); ++i) {
+            for (int j = 0; j < board[i].size(); ++j) {
+                if (T.root->child[board[i][j] - 'a']) {
+                    search(board, T.root->child[board[i][j] - 'a'], i, j, visit, res);
+                }
+            }
+        }
+        return res;
+    }
+    void search(vector<vector<char> > &board, TrieNode *p, int i, int j, vector<vector<bool> > &visit, vector<string> &res) {
+        if (!p->str.empty()) {
+            res.push_back(p->str);
+            p->str.clear();
+        }
+        int d[][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+        visit[i][j] = true;
+        for (auto &a : d) {
+            int nx = a[0] + i, ny = a[1] + j;
+            if (nx >= 0 && nx < board.size() && ny >= 0 && ny < board[0].size() && !visit[nx][ny] && p->child[board[nx][ny] - 'a']) {
+                search(board, p->child[board[nx][ny] - 'a'], nx, ny, visit, res);
+            }
+        }
+        visit[i][j] = false;
+    }
+};
+----
+
+==== 打家劫舍之二
+
+----
+Note: This is an extension of House Robber.
+
+After robbing those houses on that street, the thief has found himself a new place for his thievery so that he will not get too much attention. This time, all houses at this place are arranged in a circle. That means the first house is the neighbor of the last one. Meanwhile, the security system for these houses remain the same as for those in the previous street.
+
+Given a list of non-negative integers representing the amount of money of each house, determine the maximum amount of money you can rob tonight without alerting the police.
+
+Credits:
+Special thanks to @Freezen for adding this problem and creating all test cases.
+----
+
+这道题是之前那道House Robber 打家劫舍的拓展，现在房子排成了一个圆圈，则如果抢了第一家，就不能抢最后一家，因为首尾相连了，所以第一家和最后一家只能抢其中的一家，或者都不抢，那我们这里变通一下，如果我们把第一家和最后一家分别去掉，各算一遍能抢的最大值，然后比较两个值取其中较大的一个即为所求。那我们只需参考之前的House Robber 打家劫舍中的解题方法，然后调用两边取较大值，代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int rob(vector<int>& nums) {
+        if (nums.size() <= 1) return nums.empty() ? 0 : nums[0];
+        return max(rob(nums, 0, nums.size() - 1), rob(nums, 1, nums.size()));
+    }
+    int rob(vector<int> &nums, int left, int right) {
+        if (right - left <= 1) return nums[left];
+        vector<int> dp(right, 0);
+        dp[left] = nums[left];
+        dp[left + 1] = max(nums[left], nums[left + 1]);
+        for (int i = left + 2; i < right; ++i) {
+            dp[i] = max(nums[i] + dp[i - 2], dp[i - 1]);
+        }
+        return dp.back();
+    }
+};
+----
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int rob(vector<int>& nums) {
+        if (nums.size() <= 1) return nums.empty() ? 0 : nums[0];
+        return max(rob(nums, 0, nums.size() - 1), rob(nums, 1, nums.size()));
+    }
+    int rob(vector<int> &nums, int left, int right) {
+        int a = 0, b = 0;
+        for (int i = left; i < right; ++i) {
+            int m = a, n = b;
+            a = n + nums[i];
+            b = max(m, n);
+        }
+        return max(a, b);
+    }
+};
+----
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+  int rob(vector<int>& nums) {
+      if (nums.size() <= 1) return nums.empty() ? 0 : nums[0];
+      vector<int> v1 = nums, v2 = nums;
+      v1.erase(v1.begin()); v2.pop_back();
+      return max(rob_house(v1), rob_house(v2));
+  }
+  int rob_house(vector<int> &nums) {
+      int a = 0, b = 0;
+      for (int i = 0; i < nums.size(); ++i) {
+          if (i % 2 == 0) {
+              a += nums[i];
+              a = max(a, b);
+          } else {
+              b += nums[i];
+              b = max(a, b);
+          }
+      }
+      return max(a, b);
+  }
+};
+----
+
+==== 最短回文串
+
+----
+Given a string S, you are allowed to convert it to a palindrome by adding characters in front of it. Find and return the shortest palindrome you can find by performing this transformation.
+
+For example:
+
+Given "aacecaaa", return "aaacecaaa".
+
+Given "abcd", return "dcbabcd".
+
+Credits:
+Special thanks to @ifanchu for adding this problem and creating all test cases. Thanks to @Freezen for additional test cases.
+----
+
+这道题让我们求最短的回文串，LeetCode中关于回文串的其他的题目有 Palindrome Number 验证回文数字， Validate Palindrome 验证回文字符串， Palindrome Partitioning 拆分回文串，Palindrome Partitioning II 拆分回文串之二和 Longest Palindromic Substring 最长回文串。题目让我们在给定字符串s的前面加上最少个字符，使之变成回文串，那么我们来看题目中给的两个例子，最坏的情况下是s中没有相同的字符，那么最小需要添加字符的个数为s.size() - 1个，第一个例子的字符串包含一个回文串，只需再在前面添加一个字符即可，还有一点需要注意的是，前面添加的字符串都是从s的末尾开始，一位一位往前添加的，那么我们只需要知道从s末尾开始需要添加到前面的个数。这道题如果用brute force无法通过OJ，所以我们需要用一些比较巧妙的方法来解。这里我们用到了KMP算法，KMP算法是一种专门用来匹配字符串的高效的算法，具体方法可以参见这篇博文从头到尾彻底理解KMP。我们把s和其转置r连接起来，中间加上一个其他字符，形成一个新的字符串t，我们还需要一个和t长度相同的一位数组next，其中next[i]表示从t[i]到开头的子串的相同前缀后缀的个数，具体可参考KMP算法中解释。最后我们把不相同的个数对应的字符串添加到s之前即可，代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string shortestPalindrome(string s) {
+        string r = s;
+        reverse(r.begin(), r.end());
+        string t = s + "#" + r;
+        vector<int> next(t.size(), 0);
+        for (int i = 1; i < t.size(); ++i) {
+            int j = next[i - 1];
+            while (j > 0 && t[i] != t[j]) j = next[j - 1];
+            next[i] = (j += t[i] == t[j]);
+        }
+        return r.substr(0, s.size() - next.back()) + s;
+    }
+};
+----
+
+从上面的Java和C++的代码中，我们可以看出来C++和Java在使用双等号上的明显的不同，感觉Java对于双等号对使用更加苛刻一些，比如Java中的双等号只对primitive类数据结构(比如int, char等)有效，但是即便有效，也不能将结果直接当1或者0来用。而对于一些从Object派生出来的类，比如Integer或者String等，不能直接用双等号来比较，而是要用其自带的equals()函数来比较，因为双等号判断的是不是同一个对象，而不是他们所表示的值是否相同。同样需要注意的是，Stack的peek()函数取出的也是对象，不能直接和另一个Stack的peek()取出的对象直接双等，而是使用equals或者先将其中一个强行转换成primitive类，再和另一个强行比较。 +
+
+下面这种方法的写法比较简洁，虽然不是明显的KMP算法，但是也有其的影子在里面，首先我们还是先将其的翻转字符串搞出来，然后比较原字符串s的前缀后翻转字符串t的对应位置的后缀是否相等，起始位置是比较s和t是否相等，如果相等，说明s本身就是回文串，不用添加任何字符，直接返回即可；如果不想等，s去掉最后一位，t去掉第一位，继续比较，以此类推直至有相等，或者循环结束，这样我们就能将两个字符串在正确的位置拼接起来了。很有意思的是，这种方法对应Java写法却会TLE，无法通过OJ。 +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string shortestPalindrome(string s) {
+        string t = s;
+        reverse(t.begin(), t.end());
+        int n = s.size(), i = 0;
+        for (i = n; i >= 0; --i) {
+            if (s.substr(0, i) == t.substr(n - i)) {
+                break;
+            }
+        }
+        return t.substr(0, n - i) + s;
+    }
+};
+----
+
+==== 数组中第k大的数字
+
+----
+Find the kth largest element in an unsorted array. Note that it is the kth largest element in the sorted order, not the kth distinct element.
+
+Example 1:
+
+Input: [3,2,1,5,6,4] and k = 2
+Output: 5
+Example 2:
+
+Input: [3,2,3,1,2,4,5,5,6] and k = 4
+Output: 4
+Note:
+You may assume k is always valid, 1 ≤ k ≤ array's length.
+----
+
+这道题让我们求数组中第k大的数字，怎么求呢，当然首先想到的是给数组排序，然后求可以得到第k大的数字。先看一种利用c++的STL中的集成的排序方法，不用我们自己实现，这样的话这道题只要两行就完事了，代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findKthLargest(vector<int>& nums, int k) {
+        sort(nums.begin(), nums.end());
+        return nums[nums.size() - k];
+    }
+};
+----
+
+下面这种解法是利用了priority_queue的自动排序的特性，跟上面的解法思路上没有什么区别，当然我们也可以换成multiset来做，一个道理，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findKthLargest(vector<int>& nums, int k) {
+        priority_queue<int> q(nums.begin(), nums.end());
+        for (int i = 0; i < k - 1; ++i) {
+            q.pop();
+        }
+        return q.top();
+    }
+};
+----
+
+上面两种方法虽然简洁，但是确不是本题真正想考察的东西，可以说有一定的偷懒嫌疑。这道题最好的解法应该是下面这种做法，用到了快速排序Quick Sort的思想，这里排序的方向是从小往大排。对快排不熟悉的童鞋们随意上网搜些帖子看下吧，多如牛毛啊，总有一款适合你。核心思想是每次都要先找一个中枢点Pivot，然后遍历其他所有的数字，像这道题从小往大排的话，就把小于中枢点的数字放到左半边，把大于中枢点的放在右半边，这样中枢点是整个数组中第几大的数字就确定了，虽然左右两部分不一定是完全有序的，但是并不影响本题要求的结果，所以我们求出中枢点的位置，如果正好是k-1，那么直接返回该位置上的数字；如果大于k-1，说明要求的数字在左半部分，更新右边界，再求新的中枢点位置；反之则更新右半部分，求中枢点的位置；不得不说，这个思路真的是巧妙啊～ +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findKthLargest(vector<int>& nums, int k) {
+        int left = 0, right = nums.size() - 1;
+        while (true) {
+            int pos = partition(nums, left, right);
+            if (pos == k - 1) return nums[pos];
+            else if (pos > k - 1) right = pos - 1;
+            else left = pos + 1;
+        }
+    }
+    int partition(vector<int>& nums, int left, int right) {
+        int pivot = nums[left], l = left + 1, r = right;
+        while (l <= r) {
+            if (nums[l] < pivot && nums[r] > pivot) {
+                swap(nums[l++], nums[r--]);
+            }
+            if (nums[l] >= pivot) ++l;
+            if (nums[r] <= pivot) --r;
+        }
+        swap(nums[left], nums[r]);
+        return r;
+    }
+};
+----
+
+==== 组合之和之三
+
+----
+Find all possible combinations of k numbers that add up to a number n, given that only numbers from 1 to 9 can be used and each combination should be a unique set of numbers.
+
+Ensure that numbers within the set are sorted in ascending order.
+
+
+Example 1:
+
+Input: k = 3, n = 7
+
+Output:
+
+[[1,2,4]]
+----
+
+这道题题是组合之和系列的第三道题，跟之前两道Combination Sum 组合之和，Combination Sum II 组合之和之二都不太一样，那两道的联系比较紧密，变化不大，而这道跟它们最显著的不同就是这道题的个数是固定的，为k。个人认为这道题跟那道Combinations 组合项更相似一些，但是那道题只是排序，对k个数字之和又没有要求。所以实际上这道题是它们的综合体，两者杂糅到一起就是这道题的解法了，n是k个数字之和，如果n小于0，则直接返回，如果n正好等于0，而且此时out中数字的个数正好为k，说明此时是一个正确解，将其存入结果res中，具体实现参见代码入下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<int> > combinationSum3(int k, int n) {
+        vector<vector<int> > res;
+        vector<int> out;
+        combinationSum3DFS(k, n, 1, out, res);
+        return res;
+    }
+    void combinationSum3DFS(int k, int n, int level, vector<int> &out, vector<vector<int> > &res) {
+        if (n < 0) return;
+        if (n == 0 && out.size() == k) res.push_back(out);
+        for (int i = level; i <= 9; ++i) {
+            out.push_back(i);
+            combinationSum3DFS(k, n - i, i + 1, out, res);
+            out.pop_back();
+        }
+    }
+};
+----
+
+==== 包含重复值
+
+----
+Given an array of integers, find if the array contains any duplicates. Your function should return true if any value appears at least twice in the array, and it should return false if every element is distinct.
+----
+这道题不算难题，就是使用一个哈希表，遍历整个数组，如果哈希表里存在，返回false，如果不存在，则将其放入哈希表中，代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool containsDuplicate(vector<int>& nums) {
+        unordered_map<int, int> m;
+        for (int i = 0; i < nums.size(); ++i) {
+            if (m.find(nums[i]) != m.end()) return true;
+            ++m[nums[i]];
+        }
+        return false;
+    }
+};
+----
+
+这题还有另一种解法，就是先将数组排个序，然后再比较相邻两个数字是否相等，时间复杂度取决于排序方法，代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool containsDuplicate(vector<int>& nums) {
+        sort(nums.begin(), nums.end());
+        for (int i = 1; i < nums.size(); ++i) {
+            if (nums[i] == nums[i - 1]) return true;
+        }
+        return false;
+    }
+};
+----
+
+==== 天际线问题
+
+----
+A city's skyline is the outer contour of the silhouette formed by all the buildings in that city when viewed from a distance. Now suppose you are given the locations and height of all the buildings as shown on a cityscape photo (Figure A), write a program to output the skyline formed by these buildings collectively (Figure B).
+----
+
+image::images/question_218_1.jpg[width="20%", height="25%"]
+image::images/question_218_2.jpg[width="20%", height="25%"]
+
+这道题一打开又是图又是这么长的题目的，看起来感觉应该是一道相当复杂的题，但是做完之后发现也就那么回事，虽然我不会做，是学习的别人的解法。这道求天际线的题目应该算是比较新颖的题，要是非要在之前的题目中找一道类似的题，也就只有 Merge Intervals 合并区间了吧，但是与那题不同的是，这道题不是求被合并成的空间，而是求轮廓线的一些关键的转折点，这就比较复杂了，我们通过仔细观察题目中给的那个例子可以发现，要求的红点都跟每个小区间的左右区间点有密切的关系，而且进一步发现除了每一个封闭区间的最右边的结束点是楼的右边界点，其余的都是左边界点，而且每个红点的纵坐标都是当前重合处的最高楼的高度，但是在右边界的那个楼的就不算了。在网上搜了很多帖子，发现网友Brian Gordon的帖子图文并茂，什么动画渐变啊，横向扫描啊，简直叼到没朋友啊，但是叼到极致后就懒的一句一句的去读了，这里博主还是讲解另一位网友百草园的博客吧。这里用到了multiset数据结构，其好处在于其中的元素是按堆排好序的，插入新元素进去还是有序的，而且执行删除元素也可方便的将元素删掉。这里为了区分左右边界，将左边界的高度存为负数，建立左边界和负高度的pair，再建立右边界和高度的pair，存入数组中，都存进去了以后，给数组按照左边界排序，这样我们就可以按顺序来处理那些关键的节点了。我们要在multiset中放入一个0，这样在某个没有和其他建筑重叠的右边界上，我们就可以将封闭点存入结果res中。下面我们按顺序遍历这些关键节点，如果遇到高度为负值的pair，说明是左边界，那么将正高度加入multiset中，然后取出此时集合中最高的高度，即最后一个数字，然后看是否跟pre相同，这里的pre是上一个状态的高度，初始化为0，所以第一个左边界的高度绝对不为0，所以肯定会存入结果res中。接下来如果碰到了一个更高的楼的左边界的话，新高度存入multiset的话会排在最后面，那么此时cur取来也跟pre不同，可以将新的左边界点加入结果res。第三个点遇到绿色建筑的左边界点时，由于其高度低于红色的楼，所以cur取出来还是红色楼的高度，跟pre相同，直接跳过。下面遇到红色楼的右边界，此时我们首先将红色楼的高度从multiset中删除，那么此时cur取出的绿色楼的高度就是最高啦，跟pre不同，则可以将红楼的右边界横坐标和绿楼的高度组成pair加到结果res中，这样就成功的找到我们需要的拐点啦，后面都是这样类似的情况。当某个右边界点没有跟任何楼重叠的话，删掉当前的高度，那么multiset中就只剩0了，所以跟当前的右边界横坐标组成pair就是封闭点啦，具体实现参看代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<pair<int, int>> getSkyline(vector<vector<int>>& buildings) {
+        vector<pair<int, int>> h, res;
+        multiset<int> m;
+        int pre = 0, cur = 0;
+        for (auto &a : buildings) {
+            h.push_back({a[0], -a[2]});
+            h.push_back({a[1], a[2]});
+        }
+        sort(h.begin(), h.end());
+        m.insert(0);
+        for (auto &a : h) {
+            if (a.second < 0) m.insert(-a.second);
+            else m.erase(m.find(a.second));
+            cur = *m.rbegin();
+            if (cur != pre) {
+                res.push_back({a.first, cur});
+                pre = cur;
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== 包含重复值之二
+
+----
+Given an array of integers and an integer k, find out whether there are two distinct indices i and j in the array such that nums[i] = nums[j] and the difference between i and j is at most k. (New Version)
+----
+
+这道题是之前那道Contains Duplicate 包含重复值的延伸，不同之处在于那道题只要我们判断下数组中是否有重复值，而这道题限制了数组中只许有一组重复的数字，而且他们坐标差不能超过k。那么我们首先需要一个哈希表，来记录每个数字和其坐标的映射，然后我们需要一个变量d来记录第一次出现重复数字的坐标差。由于题目要求只能有一组重复的数字，所以我们在遇到重复数字时，首先判断d是否已经存了值，如果d已经有值了，说明之前有过了重复数字，则直接返回false即可。如果没有，则此时给d附上值。在网上看到有些解法在这里就直接判断d和k的关系然后返回结果了，其实这样是不对的。因为题目要求只能有一组重复数，就是说如果后面又出现了重复数，就没法继续判断了。所以正确的做法应该是扫描完整个数组后在判断，先看d有没有存入结果，如果没有，则说明没出现过重复数， 返回false即可。如果d有值，再跟k比较，返回对应的结果。OJ的test case没有包含所有的情况，比如当nums = [1, 2, 3, 1, 3], k = 3时，实际上应该返回false，但是有些返回true的算法也能通过OJ。个人认为正确的解法应该入下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool containsNearbyDuplicate(vector<int>& nums, int k) {
+        unordered_map<int, int> m;
+        for (int i = 0; i < nums.size(); ++i) {
+            if (m.find(nums[i]) != m.end() && i - m[nums[i]] <= k) return true;
+            else m[nums[i]] = i;
+        }
+        return false;
+    }
+};
+----
+
+==== 包含重复值之三
+
+----
+Given an array of integers, find out whether there are two distinct indices i and j in the array such that the difference between nums[i] and nums[j] is at most t and the difference between i and j is at most k.
+----
+这道题跟之前两道Contains Duplicate 包含重复值和Contains Duplicate II 包含重复值之二的关联并不是很大，前两道起码跟重复值有关，这道题的焦点不是在重复值上面，反而是关注与不同的值之间的关系，这里有两个限制条件，两个数字的坐标差不能大于k，值差不能大于t。这道题如果用brute force会超时，所以我们只能另辟蹊径。这里我们使用map数据结构来解,用来记录数字和其下标之间的映射。 这里需要两个指针i和j，刚开始i和j都指向0，然后i开始向右走遍历数组，如果i和j之差大于k，且m中有nums[j]，则删除并j加一。这样保证了m中所有的数的下标之差都不大于k，然后我们用map数据结构的lower_bound()函数来找一个特定范围，就是大于或等于nums[i] - t的地方，所有小于这个阈值的数和nums[i]的差的绝对值会大于t (可自行带数检验)。然后检测后面的所有的数字，如果数的差的绝对值小于等于t，则返回true。最后遍历完整个数组返回false。代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool containsNearbyAlmostDuplicate(vector<int>& nums, int k, int t) {
+        map<long long, int> m;
+        int j = 0;
+        for (int i = 0; i < nums.size(); ++i) {
+            if (i - j > k) m.erase(nums[j++]);
+            auto a = m.lower_bound((long long)nums[i] - t);
+            if (a != m.end() && abs(a->first - nums[i]) <= t) return true;
+            m[nums[i]] = i;
+        }
+        return false;
+    }
+};
+----

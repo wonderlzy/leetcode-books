@@ -1,0 +1,1404 @@
+==== 标签验证器
+
+----
+Given a string representing a code snippet, you need to implement a tag validator to parse the code and return whether it is valid. A code snippet is valid if all the following rules hold:
+
+The code must be wrapped in a valid closed tag. Otherwise, the code is invalid.
+A closed tag (not necessarily valid) has exactly the following format : <TAG_NAME>TAG_CONTENT</TAG_NAME>. Among them, <TAG_NAME> is the start tag, and </TAG_NAME> is the end tag. The TAG_NAME in start and end tags should be the same. A closed tag is valid if and only if the TAG_NAME and TAG_CONTENT are valid.
+A valid TAG_NAME only contain upper-case letters, and has length in range [1,9]. Otherwise, the TAG_NAMEis invalid.
+A valid TAG_CONTENT may contain other valid closed tags, cdata and any characters (see note1) EXCEPTunmatched <, unmatched start and end tag, and unmatched or closed tags with invalid TAG_NAME. Otherwise, the TAG_CONTENT is invalid.
+A start tag is unmatched if no end tag exists with the same TAG_NAME, and vice versa. However, you also need to consider the issue of unbalanced when tags are nested.
+A < is unmatched if you cannot find a subsequent >. And when you find a < or </, all the subsequent characters until the next > should be parsed as TAG_NAME (not necessarily valid).
+The cdata has the following format : <![CDATA[CDATA_CONTENT]]>. The range of CDATA_CONTENT is defined as the characters between <![CDATA[ and the first subsequent ]]>.
+CDATA_CONTENT may contain any characters. The function of cdata is to forbid the validator to parse CDATA_CONTENT, so even it has some characters that can be parsed as tag (no matter valid or invalid), you should treat it as regular characters.
+----
+
+----
+由于博主的修修补补使得博主自己的代码看起来不elegant，所以博主借鉴了论坛上dengzhizhang大神的解法，果然还是用find函数写起来简洁，而不是用while函数来一个一个的找。下面的代码结构还是比较清晰的，首先对于这种成对匹配的问题肯定是要用栈stack的，就像之前的匹配括号的问题。那么我们来遍历code字符串，首先是判断，如果当前遍历到的字符非首字符，并且栈为空，那么直接返回false。虽然只是短短的一句但其实非常的重要，这句就排除了很多错误情况，比如开头结尾不是标签的情况，以及没有标签的情况，和开头的标签在中间就闭合了情况等等，非常powerful的一句判断。然后我们来处理包含CDATA的情况，当然是要先匹配到"<![CDATA["，然后我们用find来找结束标志"]]>"，如果没找到，直接返回false，找到了点话就继续遍历，顺便把当前遍历的位置移到结束标志符的最后一位上。
+
+如果我们只匹配到了"</"，说明是个结束标签，那么我们用find来找到右尖括号'>'，如果没找到直接返回false，找到了就把tag到内容提出来，然后看此时的stack，如果stack为空，或者栈顶元素不等于tag，直接返回false，否则就将栈顶元素取出。
+
+如果我们只匹配到了"<"，说明是个起始标签，还是要找右尖括号，如果找不到，或者标签的长度为0，或者大于9了，直接返回true。然后遍历标签的每一位，如果不全是大些字母，返回false，否则就把tag压入栈。那么你可能会有疑问，为啥在处理结束标签时，没有这些额外的判断呢，因为结束标签要和栈顶元素比较，栈里的标签肯定都是合法的，所以如果结束标签不合法，那么肯定不相等，也就直接返回false了。最后我们看栈是否为空，如果不为空，说明有未封闭的标签，返回false。参见代码如下：
+----
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool isValid(string code) {
+        stack<string> st;
+        for (int i = 0; i < code.size(); ++i) {
+            if (i > 0 && st.empty()) return false;
+            if (code.substr(i, 9) == "<![CDATA[") {
+                int j = i + 9;
+                i = code.find("]]>", j);
+                if (i < 0) return false;
+                i += 2;
+            } else if (code.substr(i, 2) == "</") {
+                int j = i + 2;
+                i = code.find(">", j);
+                if (i < 0) return false;
+                string tag = code.substr(j, i - j);
+                if (st.empty() || st.top() != tag) return false;
+                st.pop();
+            } else if (code.substr(i, 1) == "<") {
+                int j = i + 1;
+                i = code.find(">", j);
+                if (i < 0 || i == j || i - j > 9) return false;
+                for (int k = j; k < i; ++k) {
+                    if (code[k] < 'A' || code[k] > 'Z') return false;
+                }
+                string tag = code.substr(j, i - j);
+                st.push(tag);
+            }
+        }
+        return st.empty();
+    }
+};
+----
+
+这道题只是判断html里最简单的标签，并没有加上js和css的东西，就已经是个Hard的题目了。论坛看到有大神们用正则匹配来做，代码太简洁了，但是博主看不太懂那个正则表达式，囧～所以没有把那种解法贴上来，大家可以看看zqfan大神的帖子，如果哪位看官大神看懂了，请给博主讲一下，博主可以贴上来供大家参考，多谢～ +
+
+==== 分数加减法
+
+----
+Given a string representing an expression of fraction addition and subtraction, you need to return the calculation result in string format. The final result should be irreducible fraction. If your final result is an integer, say 2, you need to change it to the format of fraction that has denominator 1. So in this case, 2 should be converted to 2/1.
+----
+
+这道题让我们做分数的加减法，给了我们一个分数加减法式子的字符串，然我们算出结果，结果当然还是用分数表示了。那么其实这道题主要就是字符串的拆分处理，再加上一点中学的数学运算的知识就可以了。这里我们使用字符流处理类来做，每次按顺序读入一个数字，一个字符，和另一个数字。分别代表了分子，除号，分母。我们初始化分子为0，分母为1，这样就可以进行任何加减法了。中学数学告诉我们必须将分母变为同一个数，分子才能相加，为了简便，我们不求最小公倍数，而是直接乘上另一个数的分母，然后相加。不过得到的结果需要化简一下，我们求出分子分母的最大公约数，记得要取绝对值，然后分子分母分别除以这个最大公约数就是最后的结果了，参见代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string fractionAddition(string expression) {
+        istringstream is(expression);
+        int num = 0, dem = 0, A = 0, B = 1;
+        char c;
+        while (is >> num >> c >> dem) {
+            A = A * dem + num * B;
+            B *= dem;
+            int g = abs(gcd(A, B));
+            A /= g;
+            B /= g;
+        }
+        return to_string(A) + "/" + to_string(B);
+    }
+    int gcd(int a, int b) {
+        return (b == 0) ? a : gcd(b, a % b);
+    }
+};
+----
+
+==== 验证正方形
+
+----
+Given the coordinates of four points in 2D space, return whether the four points could construct a square.
+
+The coordinate (x,y) of a point is represented by an integer array with two integers.
+----
+
+这道题给了我们四个点，让我们验证这四个点是否能组成一个正方形，刚开始博主考虑的方法是想判断四个角是否是直角，
+但即便四个角都是直角，也不能说明一定就是正方形，还有可能是矩形。还得判断各边是否相等。
+其实我们可以仅通过边的关系的来判断是否是正方形，根据初中几何的知识我们知道正方形的四条边相等，两条对角线相等，
+满足这两个条件的四边形一定是正方形。那么这样就好办了，我们只需要对四个点，两两之间算距离，如果计算出某两个点之间距离为0，
+说明两点重合了，直接返回false，如果不为0，那么我们就建立距离和其出现次数之间的映射，最后如果我们只得到了两个不同的距离长度，
+那么就说明是正方形了，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool validSquare(vector<int>& p1, vector<int>& p2, vector<int>& p3, vector<int>& p4) {
+        unordered_map<int, int> m;
+        vector<vector<int>> v{p1, p2, p3, p4};
+        for (int i = 0; i < 4; ++i) {
+            for (int j = i + 1; j < 4; ++j) {
+                int x1 = v[i][0], y1 = v[i][1], x2 = v[j][0], y2 = v[j][1];
+                int dist = (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2);
+                if (dist == 0) return false;
+                ++m[dist];
+            }
+        }
+        return m.size() == 2;
+    }
+};
+----
+
+我们其实不用建立映射，直接用个集合set来放距离就行了，如果最后集合中不存在0，且里面只有两个数的时候，说明是正方形，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool validSquare(vector<int>& p1, vector<int>& p2, vector<int>& p3, vector<int>& p4) {
+        unordered_set<int> s{d(p1, p2), d(p1, p3), d(p1, p4), d(p2, p3), d(p2, p4), d(p3, p4)};
+        return !s.count(0) && s.size() == 2;
+    }
+    int d(vector<int>& p1, vector<int>& p2) {
+        return (p1[0] - p2[0]) * (p1[0] - p2[0]) + (p1[1] - p2[1]) * (p1[1] - p2[1]);
+    }
+};
+----
+
+==== 最长和谐子序列
+
+----
+We define a harmonious array is an array where the difference between its maximum value and its minimum value is exactly 1.
+
+Now, given an integer array, you need to find the length of its longest harmonious subsequence among all its possible subsequences.
+
+Example 1:
+
+Input: [1,3,2,2,5,2,3,7]
+Output: 5
+Explanation: The longest harmonious subsequence is [3,2,2,2,3].
+----
+
+这道题给了我们一个数组，让我们找出最长的和谐子序列，关于和谐子序列就是序列中数组的最大最小差值均为1。
+由于这里只是让我们求长度，并不需要返回具体的子序列。所以我们可以对数组进行排序，那么实际上我们只要找出来相差为1的两个数的总共出现个数就是一个和谐子序列的长度了。
+明白了这一点，我们就可以建立一个数字和其出现次数之间的映射，利用map的自动排序的特性，那么我们遍历map的时候就是从小往大开始遍历，
+我们从第二个映射对开始遍历，每次跟其前面的映射对比较，如果二者的数字刚好差1，那么就把二个数字的出现的次数相加并更新结果res即可，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findLHS(vector<int>& nums) {
+        if (nums.empty()) return 0;
+        int res = 0;
+        map<int, int> m;
+        for (int num : nums) ++m[num];
+        for (auto it = next(m.begin()); it != m.end(); ++it) {
+            auto pre = prev(it);
+            if (it->first == pre->first + 1) {
+                res = max(res, it->second + pre->second);
+            }
+        }
+        return res;
+    }
+};
+----
+
+其实我们并不用向上面那种解法那样用next和prev来移动迭代器，我们遍历每个数字的时候，只需在map中查找该数字加1是否存在，存在就更新结果res，这样更简单一些，参见代码如下：  +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findLHS(vector<int>& nums) {
+        int res = 0;
+        map<int, int> m;
+        for (int num : nums) ++m[num];
+        for (auto a : m) {
+            if (m.count(a.first + 1)) {
+                res = max(res, m[a.first] + m[a.first + 1]);
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== Big Countries
+
+----
+There is a table World
+
++-----------------+------------+------------+--------------+---------------+
+| name            | continent  | area       | population   | gdp           |
++-----------------+------------+------------+--------------+---------------+
+| Afghanistan     | Asia       | 652230     | 25500100     | 20343000      |
+| Albania         | Europe     | 28748      | 2831741      | 12960000      |
+| Algeria         | Africa     | 2381741    | 37100000     | 188681000     |
+| Andorra         | Europe     | 468        | 78115        | 3712000       |
+| Angola          | Africa     | 1246700    | 20609294     | 100990000     |
++-----------------+------------+------------+--------------+---------------+
+A country is big if it has an area of bigger than 3 million square km or a population of more than 25 million.
+
+Write a SQL solution to output big countries' name, population and area.
+----
+
+[source, sql, linenums]
+----
+SELECT name, population, area
+FROM World
+WHERE area > 3000000
+
+UNION
+
+SELECT name, population, area
+FROM World
+WHERE population > 25000000
+----
+
+==== Classes More Than 5 Students
+
+----
+There is a table courses with columns: student and class
+
+Please list out all classes which have more than or equal to 5 students.
+
+For example, the table:
+
++---------+------------+
+| student | class      |
++---------+------------+
+| A       | Math       |
+| B       | English    |
+| C       | Math       |
+| D       | Biology    |
+| E       | Math       |
+| F       | Computer   |
+| G       | Math       |
+| H       | Math       |
+| I       | Math       |
++---------+------------+
+----
+
+[source, sql, linenums]
+----
+select class from courses group by class having count(distinct student) >= 5
+----
+
+==== Friend Requests I: Overall Acceptance Rate
+
+----
+In social network like Facebook or Twitter, people send friend requests and accept others’ requests as well. Now given two tables as below:
+Table: friend_request
+| sender_id | send_to_id |request_date|
+|-----------|------------|------------|
+| 1         | 2          | 2016_06-01 |
+| 1         | 3          | 2016_06-01 |
+| 1         | 4          | 2016_06-01 |
+| 2         | 3          | 2016_06-02 |
+| 3         | 4          | 2016-06-09 |
+Table: request_accepted
+| requester_id | accepter_id |accept_date |
+|--------------|-------------|------------|
+| 1            | 2           | 2016_06-03 |
+| 1            | 3           | 2016-06-08 |
+| 2            | 3           | 2016-06-08 |
+| 3            | 4           | 2016-06-09 |
+| 3            | 4           | 2016-06-10 |
+Write a query to find the overall acceptance rate of requests rounded to 2 decimals, which is the number of acceptance divide the number of requests.
+----
+
+[source, sql, linenums]
+----
+select
+round(
+      ifnull(
+             (select count(*) from (select distinct requester_id, accepter_id from request_accepted) as A)
+             /
+             (select count(*) from (select distinct sender_id, send_to_id from friend_request) as B),
+             0)
+      , 2) as accept_rate;
+----
+
+==== 范围相加之二
+
+----
+Given an m * n matrix M initialized with all 0's and several update operations.
+
+Operations are represented by a 2D array, and each operation is represented by an array with two positive integers a and b, which means M[i][j] should be added by one for all 0 <= i < a and 0 <= j < b.
+
+You need to count and return the number of maximum integers in the matrix after performing all the operations.
+----
+
+这道题看起来像是之前那道Range Addition的拓展，但是感觉实际上更简单一些。每次在ops中给定我们一个横纵坐标，
+将这个子矩形范围内的数字全部自增1，让我们求最大数字的个数。原数组初始化均为0，那么如果ops为空，没有任何操作，
+那么直接返回m*n即可，我们可以用一个优先队列来保存最大数字矩阵的横纵坐标，我们可以通过举些例子发现，
+只有最小数字组成的边界中的数字才会被每次更新，所以我们想让最小的数字到队首，更优先队列的排序机制是大的数字在队首，
+所以我们对其取相反数，这样我们最后取出两个队列的队首数字相乘即为结果，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int maxCount(int m, int n, vector<vector<int>>& ops) {
+        if (ops.empty() || ops[0].empty()) return m * n;
+        priority_queue<int> r, c;
+        for (auto op : ops) {
+            r.push(-op[0]);
+            c.push(-op[1]);
+        }
+        return r.top() * c.top();
+    }
+};
+----
+
+我们可以对空间进行优化，不使用优先队列，而是每次用ops中的值来更新m和n，取其中较小值，这样遍历完成后，m和n就是最大数矩阵的边界了，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int maxCount(int m, int n, vector<vector<int>>& ops) {
+        for (auto op : ops) {
+            m = min(m, op[0]);
+            n = min(n, op[1]);
+        }
+        return m * n;
+    }
+};
+----
+
+==== 两个表单的最小坐标和
+
+----
+Suppose Andy and Doris want to choose a restaurant for dinner, and they both have a list of favorite restaurants represented by strings.
+
+You need to help them find out their common interest with the least list index sum. If there is a choice tie between answers, output all of them with no order requirement. You could assume there always exists an answer.
+----
+
+这道题给了我们两个字符串数组，让我们找到坐标位置之和最小的相同的字符串。那么对于这种数组项和其坐标之间关系的题，
+最先考虑到的就是要建立数据和其位置坐标之间的映射。我们建立list1的值和坐标的之间的映射，然后遍历list2，
+如果当前遍历到的字符串在list1中也出现了，那么我们计算两个的坐标之和，如果跟我们维护的最小坐标和mn相同，
+那么将这个字符串加入结果res中，如果比mn小，那么mn更新为这个较小值，然后将结果res清空并加入这个字符串，参见代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<string> findRestaurant(vector<string>& list1, vector<string>& list2) {
+        vector<string> res;
+        unordered_map<string, int> m;
+        int mn = INT_MAX, n1 = list1.size(), n2 = list2.size();
+        for (int i = 0; i < n1; ++i) m[list1[i]] = i;
+        for (int i = 0; i < n2; ++i) {
+            if (m.count(list2[i])) {
+                int sum = i + m[list2[i]];
+                if (sum == mn) res.push_back(list2[i]);
+                else if (sum < mn) {
+                    mn = sum;
+                    res = {list2[i]};
+                }
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== 非负整数不包括连续的1
+
+----
+Given a positive integer n, find the number of non-negative integers less than or equal to n, whose binary representations do NOT contain consecutive ones.
+----
+
+这道题给了我们一个数字，让我们求不大于这个数字的所有数字中，其二进制的表示形式中没有连续1的个数。根据题目中的例子也不难理解题意。我们首先来考虑二进制的情况，对于1来说，有0和1两种，对于11来说，有00，01，10，三种情况，那么有没有规律可寻呢，其实是有的，我们可以参见这个帖子，这样我们就可以通过DP的方法求出长度为k的二进制数的无连续1的数字个数。由于题目给我们的并不是一个二进制数的长度，而是一个二进制数，比如100，如果我们按长度为3的情况计算无连续1点个数个数，就会多计算101这种情况。所以我们的目标是要将大于num的情况去掉。下面从头来分析代码，首先我们要把十进制数转为二进制数，将二进制数存在一个字符串中，并统计字符串的长度。然后我们利用这个帖子中的方法，计算该字符串长度的二进制数所有无连续1的数字个数，然后我们从倒数第二个字符开始往前遍历这个二进制数字符串，如果当前字符和后面一个位置的字符均为1，说明我们并没有多计算任何情况，不明白的可以带例子来看。如果当前字符和后面一个位置的字符均为0，说明我们有多计算一些情况，就像之前举的100这个例子，我们就多算了101这种情况。我们怎么确定多了多少种情况呢，假如给我们的数字是8，二进制为1000，我们首先按长度为4算出所有情况，共8种。仔细观察我们十进制转为二进制字符串的写法，发现转换结果跟真实的二进制数翻转了一下，所以我们的t为"0001"，那么我们从倒数第二位开始往前遍历，到i=1时，发现有两个连续的0出现，那么i=1这个位置上能出现1的次数，就到one数组中去找，那么我们减去1，减去的就是0101这种情况，再往前遍历，i=0时，又发现两个连续0，那么i=0这个位置上能出1的次数也到one数组中去找，我们再减去1，减去的是1001这种情况，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findIntegers(int num) {
+        int cnt = 0, n = num;
+        string t = "";
+        while (n > 0) {
+            ++cnt;
+            t += (n & 1) ? "1" : "0";
+            n >>= 1;
+        }
+        vector<int> zero(cnt), one(cnt);
+        zero[0] = 1; one[0] = 1;
+        for (int i = 1; i < cnt; ++i) {
+            zero[i] = zero[i - 1] + one[i - 1];
+            one[i] = zero[i - 1];
+        }
+        int res = zero[cnt - 1] + one[cnt - 1];
+        for (int i = cnt - 2; i >= 0; --i) {
+            if (t[i] == '1' && t[i + 1] == '1') break;
+            if (t[i] == '0' && t[i + 1] == '0') res -= one[i];
+        }
+        return res;
+    }
+};
+----
+
+下面这种解法其实蛮有意思的，其实长度为k的二进制数字符串没有连续的1的个数是一个斐波那契数列f(k)。比如当k=5时，二进制数的范围是00000-11111，我们可以将其分为两个部分，00000-01111和10000-10111，因为任何大于11000的数字都是不成立的，因为有开头已经有了两个连续1。而我们发现其实00000-01111就是f(4)，而10000-10111就是f(3)，所以f(5) = f(4) + f(3)，这就是一个斐波那契数列啦。那么我们要做的首先就是建立一个这个数组，方便之后直接查值。我们从给定数字的最高位开始遍历，如果某一位是1，后面有k位，就加上f(k)，因为如果我们把当前位变成0，那么后面k位就可以直接从斐波那契数列中取值了。然后标记pre为1，再往下遍历，如果遇到0位，则pre标记为0。如果当前位是1，pre也是1，那么直接返回结果。最后循环退出后我们要加上数字本身这种情况，参见代码如下：  +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int findIntegers(int num) {
+        int res = 0, k = 31, pre = 0;
+        vector<int> f(32, 0);
+        f[0] = 1; f[1] = 2;
+        for (int i = 2; i < 31; ++i) {
+            f[i] = f[i - 2] + f[i - 1];
+        }
+        while (k >= 0) {
+            if (num & (1 << k)) {
+                res += f[k];
+                if (pre) return res;
+                pre = 1;
+            } else pre = 0;
+            --k;
+        }
+        return res + 1;
+    }
+};
+----
+
+==== Human Traffic of Stadium
+
+----
+X city built a new stadium, each day many people visit it and the stats are saved as these columns: id, date, people
+
+Please write a query to display the records which have 3 or more consecutive rows and the amount of people more than 100(inclusive).
+----
+
+[source, sql, linenums]
+----
+select distinct t1.*
+from stadium t1, stadium t2, stadium t3
+where t1.people >= 100 and t2.people >= 100 and t3.people >= 100
+and
+(
+ (t1.id - t2.id = 1 and t1.id - t3.id = 2 and t2.id - t3.id =1)  -- t1, t2, t3
+ or
+ (t2.id - t1.id = 1 and t2.id - t3.id = 2 and t1.id - t3.id =1) -- t2, t1, t3
+ or
+ (t3.id - t2.id = 1 and t2.id - t1.id =1 and t3.id - t1.id = 2) -- t3, t2, t1
+ )
+order by t1.id
+;
+----
+
+==== Friend Requests II: Who Has Most Friend?
+
+----
+In social network like Facebook or Twitter, people send friend requests and accept others' requests as well.
+Table request_accepted holds the data of friend acceptance, while requester_id and accepter_id both are the id of a person.
+| requester_id | accepter_id | accept_date|
+|--------------|-------------|------------|
+| 1            | 2           | 2016_06-03 |
+| 1            | 3           | 2016-06-08 |
+| 2            | 3           | 2016-06-08 |
+| 3            | 4           | 2016-06-09 |
+Write a query to find the the people who has most friends and the most friends number. For the sample data above, the result is:
+| id | num |
+|----|-----|
+| 3  | 3   |
+----
+
+[source, sql, linenums]
+----
+select ids as id, cnt as num
+from
+(
+ select ids, count(*) as cnt
+ from
+ (
+  select requester_id as ids from request_accepted
+  union all
+  select accepter_id from request_accepted
+  ) as tbl1
+ group by ids
+ ) as tbl2
+order by cnt desc
+limit 1
+;
+----
+
+==== Consecutive Available Seats
+
+----
+Several friends at a cinema ticket office would like to reserve consecutive available seats.
+Can you help to query all the consecutive available seats order by the seat_id using the following cinema table?
+| seat_id | free |
+|---------|------|
+| 1       | 1    |
+| 2       | 0    |
+| 3       | 1    |
+| 4       | 1    |
+| 5       | 1    |
+Your query should return the following result for the sample case above.
+| seat_id |
+|---------|
+| 3       |
+| 4       |
+| 5       |
+----
+
+[source, sql, linenums]
+----
+select distinct a.seat_id
+from cinema a join cinema b
+on abs(a.seat_id - b.seat_id) = 1
+and a.free = true and b.free = true
+order by a.seat_id
+;
+----
+
+==== 设计压缩字符串的迭代器
+
+----
+Design and implement a data structure for a compressed string iterator. It should support the following operations: next and hasNext.
+
+The given compressed string will be in the form of each letter followed by a positive integer representing the number of this letter existing in the original uncompressed string.
+
+next() - if the original string still has uncompressed characters, return the next letter; Otherwise return a white space.
+hasNext() - Judge whether there is any letter needs to be uncompressed.
+
+Note:
+Please remember to RESET your class variables declared in StringIterator, as static/class variables are persisted across multiple test cases. Please see here for more details.
+----
+这道题给了我们一个压缩字符串，就是每个字符后面跟上其出现的次数，这里就算只出现一次，后面还是要加上1，那么其实如果当字符串很好有连续字符的时候，压缩字符串反而要比原字符串长。不过这题的重点不在于压缩字符串本身，而是让我们设计一个压缩字符串的迭代器，那么实际上是要我们根据压缩字符串来输出原字符串中的所有字符。那么我们关键就是要取出每个字符和其出现的次数，每当调用一次next，次数减1，如果减到0了，我们就要取出下一个字符和其出现的次数。我们要用个私有变量s来保存原字符串，然后用个变量i来记录当前遍历到的位置，变量c为当前处理的字符，变量cnt为字符c的当前次数。变量i的初始化为0，指向第一个字符，我们在hasNext()函数中，现将s[i]存入c，然后i自增1，然后我们用while循环取出所有的数字，存入cnt中。在next()函数中，如果hasNext()返回true，那么cnt就自减1，返回c；如果hasNext()返回false，那么字节返回空字符。在hasNext()函数中首先判断cnt的值，如果大于0，直接返回true，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class StringIterator {
+public:
+    StringIterator(string compressedString) {
+        s = compressedString;
+        n = s.size();
+        i = 0;
+        cnt = 0;
+        c = ' ';
+    }
+
+    char next() {
+        if (hasNext()) {
+            --cnt;
+            return c;
+        }
+        return ' ';
+    }
+
+    bool hasNext() {
+        if (cnt > 0) return true;
+        if (i >= n) return false;
+        c = s[i++];
+        while (i < n && s[i] >= '0' && s[i] <= '9') {
+            cnt = cnt * 10 + s[i++] - '0';
+        }
+        return true;
+    }
+
+private:
+    string s;
+    int n, i, cnt;
+    char c;
+};
+----
+
+我们可以用C++中的字符流类来处理字符串，写法非常的简洁，可以少定义一些变量，在hasNext()函数中，如果cnt为0了，那么我们用字符流类直接读出下一个字符和次数，然后看是否能读出大于0的次数来返回真假值，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class StringIterator {
+public:
+    StringIterator(string compressedString) {
+        is = istringstream(compressedString);
+        cnt = 0;
+        c = ' ';
+    }
+
+    char next() {
+        if (hasNext()) {
+            --cnt;
+            return c;
+        }
+        return ' ';
+    }
+
+    bool hasNext() {
+        if (cnt == 0) {
+            is >> c >> cnt;
+        }
+        return cnt > 0;
+    }
+
+private:
+    istringstream is;
+    int cnt;
+    char c;
+};
+----
+下面这种解法还是用字符流类，和上面方法不同的地方是，在构建函数中完成了所有字符和次数的拆分，然后字符和其次数组成一个pair，加入一个队列queue中，这样我们每次处理的时候就直接去queue中取值就行了，这样hasNext()函数就变的非常简洁，只需要判断队列queue是否为空即可，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class StringIterator {
+public:
+    StringIterator(string compressedString) {
+        istringstream is(compressedString);
+        int cnt = 0;
+        char c = ' ';
+        while (is >> c >> cnt) {
+            q.push({c, cnt});
+        }
+    }
+
+    char next() {
+        if (hasNext()) {
+            auto &t = q.front();
+            if (--t.second == 0) q.pop();
+            return t.first;
+        }
+        return ' ';
+    }
+
+    bool hasNext() {
+        return !q.empty();
+    }
+
+private:
+    queue<pair<char, int>> q;
+};
+----
+
+==== 可以放置花
+
+----
+Suppose you have a long flowerbed in which some of the plots are planted and some are not. However, flowers cannot be planted in adjacent plots - they would compete for water and both would die.
+
+Given a flowerbed (represented as an array containing 0 and 1, where 0 means empty and 1 means not empty), and a number n, return if n new flowers can be planted in it without violating the no-adjacent-flowers rule.
+----
+
+这道题给了我们一个01数组，其中1表示已经放了花，0表示可以放花的位置，但是有个限制条件是不能有相邻的花。
+那么我们来看如果是一些简单的例子，如果有3个连续的零，000，能放几盆花呢，其实是要取决约左右的位置的，如果是10001，
+那么只能放1盆，如果左右是边界的花，那么就能放两盆，101，所以如果我们想通过计算连续0的个数，然后直接算出能放花的个数，
+就必须要对边界进行处理，处理方法是如果首位置是0，那么前面再加上个0，如果末位置是0，就在最后面再加上个0。
+这样处理之后我们就默认连续0的左右两边都是1了，这样如果有k个连续0，那么就可以通过(k-1)/2来快速计算出能放的花的数量，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool canPlaceFlowers(vector<int>& flowerbed, int n) {
+        if (flowerbed.empty()) return false;
+        if (flowerbed[0] == 0) flowerbed.insert(flowerbed.begin(), 0);
+        if (flowerbed.back() == 0) flowerbed.push_back(0);
+        int len = flowerbed.size(), cnt = 0, sum = 0;
+        for (int i = 0; i <= len; ++i) {
+            if (i < len && flowerbed[i] == 0) ++cnt;
+            else {
+                sum += (cnt - 1) / 2;
+                cnt = 0;
+            }
+        }
+        return sum >= n;
+    }
+};
+----
+
+我们也可以直接通过修改flowerbed的值来做，我们遍历花床，如果某个位置为0，我们就看其前面一个和后面一个位置的值，注意处理首位置和末位置的情况，如果pre和next均为0，那么说明当前位置可以放花，我们修改flowerbed的值，并且n自减1，最后看n是否小于等于0，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool canPlaceFlowers(vector<int>& flowerbed, int n) {
+        for (int i = 0; i < flowerbed.size(); ++i) {
+            if (n == 0) return true;
+            if (flowerbed[i] == 0) {
+                int next = (i == flowerbed.size() - 1 ? 0 : flowerbed[i + 1]);
+                int pre = (i == 0 ? 0 : flowerbed[i - 1]);
+                if (next + pre == 0) {
+                    flowerbed[i] = 1;
+                    --n;
+                }
+            }
+        }
+        return n <= 0;
+    }
+};
+----
+
+下面这种方法跟上面的方法类似，为了不特殊处理首末位置，直接先在首尾各加了一个0，然后就三个三个的来遍历，如果找到了三个连续的0，那么n自减1，i自增1，这样相当于i一下向后跨了两步，可以自行带例子检验，最后还是看n是否小于等于0，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool canPlaceFlowers(vector<int>& flowerbed, int n) {
+        flowerbed.insert(flowerbed.begin(), 0);
+        flowerbed.push_back(0);
+        for (int i = 1; i < flowerbed.size() - 1; ++i) {
+            if (n == 0) return true;
+            if (flowerbed[i - 1] + flowerbed[i] + flowerbed[i + 1] == 0) {
+                --n;
+                ++i;
+            }
+        }
+        return n <= 0;
+    }
+};
+----
+
+==== 根据二叉树创建字符串
+
+----
+You need to construct a string consists of parenthesis and integers from a binary tree with the preorder traversing way.
+
+The null node needs to be represented by empty parenthesis pair "()". And you need to omit all the empty parenthesis pairs that don't affect the one-to-one mapping relationship between the string and the original binary tree.
+----
+
+这道题给我们了一个二叉树，让我们创建对应的字符串，之前有一道正好反过来的题Construct Binary Tree from String。对于二叉树的处理，递归肯定是王道啊。想想如何来实现递归函数，我们观察到题目中的例子，发现如果左子结点为空，右子结点不为空时，需要在父结点后加上个空括号，而右子结点如果不存在，或者左右子结点都不存在就不需要这么做。那我们在递归函数中，如果当前结点不存在，直接返回，然后要在当前结点值前面加上左括号，然后判断，如果左子结点不存在，而右子结点存在的话，要在结果res后加上个空括号，然后分别对左右子结点调用递归函数，调用完之后要加上右括号，形成封闭的括号。由于最外面一层的括号不需要，所以我们再返回最终结果之前要去掉首尾的括号，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string tree2str(TreeNode* t) {
+        if (!t) return "";
+        string res = "";
+        helper(t, res);
+        return string(res.begin() + 1, res.end() - 1);
+    }
+    void helper(TreeNode* t, string& res) {
+        if (!t) return;
+        res += "(" + to_string(t->val);
+        if (!t->left && t->right) res += "()";
+        helper(t->left, res);
+        helper(t->right, res);
+        res += ")";
+    }
+};
+----
+
+下面来看一种不用额外函数的递归写法，这种做法是一开始调用递归函数求出左右子结点的返回字符串，如果左右结果串均为空，则直接返回当前结点值；如果左子结果串为空，那么返回当前结果res，加上一个空括号，再加上放在括号中的右子结果串；如果右子结果串为空，那么发返回当前结果res，加上放在括号中的左子结果串；如果左右子结果串都存在，那么返回当前结果，加上分别放在括号中的左右子结果串，参见代码如下： +
+
+**解法2:** +
+[source,cpp, linenums]
+----
+class Solution {
+public:
+    string tree2str(TreeNode* t) {
+        if (!t) return "";
+        string res = to_string(t->val);
+        string left = tree2str(t->left), right = tree2str(t->right);
+        if (left == "" && right == "") return res;
+        if (left == "") return res + "()" + "(" + right + ")";
+        if (right == "") return res + "(" + left + ")";
+        return res + "(" + left + ")" + "(" + right + ")";
+    }
+};
+----
+
+下面这种解法更加简洁，由热心网友edyyy提供，思路和上面解法相同，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string tree2str(TreeNode* t) {
+        if (!t) return "";
+        string res = to_string(t->val);
+        if (!t->left && !t->right) return res;
+        res += "(" + tree2str(t->left) + ")";
+        if (t->right) res += "(" + tree2str(t->right) + ")";
+        return res;
+    }
+};
+----
+
+==== Sales Person
+
+----
+Description
+
+Given three tables: salesperson, company, orders.
+Output all the names in the table salesperson, who didn’t have sales to company 'RED'.
+----
+
+[source, sql, linenums]
+----
+SELECT
+s.name
+FROM
+salesperson s
+WHERE
+s.sales_id NOT IN (SELECT
+                   o.sales_id
+                   FROM
+                   orders o
+                   LEFT JOIN
+                   company c ON o.com_id = c.com_id
+                   WHERE
+                   c.name = 'RED')
+;
+----
+
+==== Tree Node
+
+----
+
+Given a table tree, id is identifier of the tree node and p_id is its parent node's id.
+
++----+------+
+| id | p_id |
++----+------+
+| 1  | null |
+| 2  | 1    |
+| 3  | 1    |
+| 4  | 2    |
+| 5  | 2    |
++----+------+
+Each node in the tree can be one of three types:
+Leaf: if the node is a leaf node.
+Root: if the node is the root of the tree.
+Inner: If the node is neither a leaf node nor a root node.
+Write a query to print the node id and the type of the node. Sort your output by the node id. The result for the above sample is:
++----+------+
+| id | Type |
++----+------+
+| 1  | Root |
+| 2  | Inner|
+| 3  | Leaf |
+| 4  | Leaf |
+| 5  | Leaf |
++----+------+
+Explanation
+
+Node '1' is root node, because its parent node is NULL and it has child node '2' and '3'.
+Node '2' is inner node, because it has parent node '1' and child node '4' and '5'.
+Node '3', '4' and '5' is Leaf node, because they have parent node and they don't have child node.
+
+And here is the image of the sample tree as below:
+			                   1
+			                 /   \
+                      2       3
+                    /   \
+                  4       5
+Note
+
+If there is only one node on the tree, you only need to output its root attributes.
+----
+
+[source, sql, linenums]
+----
+SELECT
+atree.id,
+IF(ISNULL(atree.p_id),
+   'Root',
+   IF(atree.id IN (SELECT p_id FROM tree), 'Inner','Leaf')) Type
+FROM
+tree atree
+ORDER BY atree.id
+----
+
+==== 在系统中寻找重复文件
+
+----
+Given a list of directory info including directory path, and all the files with contents in this directory, you need to find out all the groups of duplicate files in the file system in terms of their paths.
+
+A group of duplicate files consists of at least two files that have exactly the same content.
+
+A single directory info string in the input list has the following format:
+
+"root/d1/d2/.../dm f1.txt(f1_content) f2.txt(f2_content) ... fn.txt(fn_content)"
+
+It means there are n files (f1.txt, f2.txt ... fn.txt with content f1_content, f2_content ... fn_content, respectively) in directory root/d1/d2/.../dm. Note that n >= 1 and m >= 0. If m = 0, it means the directory is just the root directory.
+
+The output is a list of group of duplicate file paths. For each group, it contains all the file paths of the files that have the same content. A file path is a string that has the following format:
+
+"directory_path/file_name.txt"
+----
+
+LeetCode的主页又改版了，放了一些五颜六色的按钮上去了，博主个人觉得风格不太搭，还是比较喜欢之前深沉低调的风格，不过也许看久了就习惯了。来看题吧，这道题给了我们一堆字符串数组，每个字符串中包含了文件路径，文件名称和内容，让我们找到重复的文件，这里只要文件内容相同即可，不用管文件名是否相同，而且返回结果中要带上文件的路径。博主个人感觉这实际上应该算是字符串操作的题目，因为思路上并不是很难想，就是要处理字符串，把路径，文件名，和文件内容从一个字符串中拆出来，我们这里建立一个文件内容和文件路径加文件名组成的数组的映射，因为会有多个文件有相同的内容，所以我们要用数组。然后把分离出的路径和文件名拼接到一起，最后我们只要看哪些映射的数组元素个数多于1个的，就说明有重复文件，我们把整个数组加入结果res中，参见代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<string>> findDuplicate(vector<string>& paths) {
+        vector<vector<string>> res;
+        unordered_map<string, vector<string>> m;
+        for (string path : paths) {
+            istringstream is(path);
+            string pre = "", t = "";
+            is >> pre;
+            while (is >> t) {
+                int idx = t.find_last_of('(');
+                string dir = pre + "/" + t.substr(0, idx);
+                string content = t.substr(idx + 1, t.size() - idx - 2);
+                m[content].push_back(dir);
+            }
+        }
+        for (auto a : m) {
+            if (a.second.size() > 1)res.push_back(a.second);
+        }
+        return res;
+    }
+};
+----
+
+==== Triangle Judgement
+
+----
+A pupil Tim gets homework to identify whether three line segments could possibly form a triangle.
+However, this assignment is very heavy because there are hundreds of records to calculate.
+Could you help Tim by writing a query to judge whether these three sides can form a triangle, assuming table triangle holds the length of the three sides x, y and z.
+| x  | y  | z  |
+|----|----|----|
+| 13 | 15 | 30 |
+| 10 | 20 | 15 |
+----
+
+[source, sql, linenums]
+----
+SELECT
+x,
+y,
+z,
+CASE
+WHEN x + y > z AND x + z > y AND y + z > x THEN 'Yes'
+ELSE 'No'
+END AS 'triangle'
+FROM
+triangle
+;
+----
+
+==== 合法的三角形个数
+
+----
+Given an array consists of non-negative integers, your task is to count the number of triplets chosen from the array that can make triangles if we take them as side lengths of a triangle.
+----
+
+这道题给了我们一堆数字，问我们能组成多少个正确的三角形，我们初中就知道三角形的性质，任意两条边之和要大于第三边。那么问题其实就变成了找出所有这样的三个数字，使得任意两个数字之和都大于第三个数字。那么可以转变一下，三个数字中如果较小的两个数字之和大于第三个数字，那么任意两个数字之和都大于第三个数字，这很好证明，因为第三个数字是最大的，所以它加上任意一个数肯定大于另一个数。这样，我们就先要给数组排序，博主最先尝试了暴力破解法，结果TLE了(不要吐槽博主哈，博主就是喜欢霸王硬上弓～)，后来优化的方法是先确定前两个数，将这两个数之和sum作为目标值，然后用二分查找法来快速确定第一个小于目标值的数，这种情况属于博主之前的博客LeetCode Binary Search Summary 二分搜索法小结中总结的第二类的变形，我们找到这个临界值，那么这之前一直到j的位置之间的数都满足题意，直接加起来即可，参见代码如下: +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int triangleNumber(vector<int>& nums) {
+        int res = 0, n = nums.size();
+        sort(nums.begin(), nums.end());
+        for (int i = 0; i < n; ++i) {
+            for (int j = i + 1; j < n; ++j) {
+                int sum = nums[i] + nums[j], left = j + 1, right = n;
+                while (left < right) {
+                    int mid = left + (right - left) / 2;
+                    if (nums[mid] < sum) left = mid + 1;
+                    else right = mid;
+                }
+                res += right - 1 - j;
+            }
+        }
+        return res;
+    }
+};
+----
+
+其实还有更进一步优化的方法，用的是博主之前那篇3Sum Smaller里面的解法二，明明博主以前都总结过，换个题目情景就又没想到，看来博主的举一反三能力还是有所欠缺啊。没办法，只能继续刻意练习了。这种方法能将时间复杂度优化到O(n2), 感觉很叼了。思路是排序之后，从数字末尾开始往前遍历，将left指向首数字，将right之前遍历到的数字的前面一个数字，然后如果left小于right就进行循环，循环里面判断如果left指向的数加上right指向的数大于当前的数字的话，那么right到left之间的数字都可以组成三角形，这是为啥呢，相当于此时确定了i和right的位置，可以将left向右移到right的位置，中间经过的数都大于left指向的数，所以都能组成三角形，就说这思路叼不叼！加完之后，right自减一，即向左移动一位。如果left和right指向的数字之和不大于nums[i]，那么left自增1，即向右移动一位，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int triangleNumber(vector<int>& nums) {
+        int res = 0, n = nums.size();
+        sort(nums.begin(), nums.end());
+        for (int i = n - 1; i >= 2; --i) {
+            int left = 0, right = i - 1;
+            while (left < right) {
+                if (nums[left] + nums[right] > nums[i]) {
+                    res += right - left;
+                    --right;
+                } else {
+                    ++left;
+                }
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== Shortest Distance in a Plane
+
+----
+Table point_2d holds the coordinates (x,y) of some unique points (more than two) in a plane.
+Write a query to find the shortest distance between these points rounded to 2 decimals.
+| x  | y  |
+|----|----|
+| -1 | -1 |
+| 0  | 0  |
+| -1 | -2 |
+The shortest distance is 1.00 from point (-1,-1) to (-1,2). So the output should be:
+| shortest |
+|----------|
+| 1.00     |
+----
+
+[source, sql, linenums]
+----
+SELECT
+ROUND(SQRT(MIN((POW(p1.x - p2.x, 2) + POW(p1.y - p2.y, 2)))),2) AS shortest
+FROM
+point_2d p1
+JOIN
+point_2d p2 ON (p1.x <= p2.x AND p1.y < p2.y)
+OR (p1.x <= p2.x AND p1.y > p2.y)
+OR (p1.x < p2.x AND p1.y = p2.y)
+;
+----
+
+==== Shortest Distance in a Line
+
+----
+Table point holds the x coordinate of some points on x-axis in a plane, which are all integers.
+Write a query to find the shortest distance between two points in these points.
+| x   |
+|-----|
+| -1  |
+| 0   |
+| 2   |
+The shortest distance is '1' obviously, which is from point '-1' to '0'. So the output is as below:
+| shortest|
+|---------|
+| 1       |
+----
+
+[source, sql, linenums]
+----
+SELECT
+MIN(ABS(p1.x - p2.x)) AS shortest
+FROM
+point p1
+JOIN
+point p2 ON p1.x != p2.x
+;
+----
+
+==== Second Degree Follower
+
+[source, sql, linenums]
+----
+SELECT f1.follower, COUNT(DISTINCT f2.follower) AS num
+FROM follow f1
+JOIN follow f2 ON f1.follower = f2.followee
+GROUP BY f1.follower
+----
+
+==== Average Salary: Departments VS Company
+
+----
+Given two tables as below, write a query to display the comparison result (higher/lower/same) of the average salary of employees in a department to the company's average salary.
+Table: salary
+| id | employee_id | amount | pay_date   |
+|----|-------------|--------|------------|
+| 1  | 1           | 9000   | 2017-03-31 |
+| 2  | 2           | 6000   | 2017-03-31 |
+| 3  | 3           | 10000  | 2017-03-31 |
+| 4  | 1           | 7000   | 2017-02-28 |
+| 5  | 2           | 6000   | 2017-02-28 |
+| 6  | 3           | 8000   | 2017-02-28 |
+The employee_id column refers to the employee_id in the following table employee.
+| employee_id | department_id |
+|-------------|---------------|
+| 1           | 1             |
+| 2           | 2             |
+| 3           | 2             |
+----
+
+[source, sql, linenums]
+----
+select department_salary.pay_month, department_id,
+case
+when department_avg>company_avg then 'higher'
+when department_avg<company_avg then 'lower'
+else 'same'
+end as comparison
+from
+(
+ select department_id, avg(amount) as department_avg, date_format(pay_date, '%Y-%m') as pay_month
+ from salary join employee on salary.employee_id = employee.employee_id
+ group by department_id, pay_month
+ ) as department_salary
+join
+(
+ select avg(amount) as company_avg,  date_format(pay_date, '%Y-%m') as pay_month from salary group by date_format(pay_date, '%Y-%m')
+ ) as company_salary
+on department_salary.pay_month = company_salary.pay_month
+;
+----
+
+==== 字符串中增添加粗标签
+
+Given a string s and a list of strings dict, you need to add a closed pair of bold tag <b> and </b> to wrap the substrings in s that exist in dict. If two such substrings overlap, you need to wrap them together by only one pair of closed bold tag. Also, if two substrings wrapped by bold tags are consecutive, you need to combine them. +
+
+这道题给我们了一个字符串，还有一个字典，让我们把字符串中在字典中的单词加粗，注意如果两个单词有交集或者相接，就放到同一个加粗标签中。博主刚开始的想法是，既然需要匹配字符串，那么就上KMP大法，然后得到每个单词在字符串匹配的区间位置，然后再合并区间，再在合并后的区间两头加标签。但是一看题目难度，Medium，中等难度的题不至于要祭出KMP大法吧，于是去网上扫了一眼众神们的解法，发现大多都是暴力匹配啊，既然OJ能过去，那么就一起暴力吧。这题参考的是高神shawngao的解法，高神可是集了一千五百多个赞的男人，叼到飞起！思路是建一个和字符串s等长的bold布尔型数组，表示如果该字符在单词里面就为true，那么最后我们就可以根据bold数组的真假值来添加标签了。我们遍历字符串s中的每一个字符，把遍历到的每一个字符当作起始位置，我们都匹配一遍字典中的所有单词，如果能匹配上，我们就用i + len来更新end，len是当前单词的长度，end表示字典中的单词在字符串s中结束的位置，那么如果i小于end，bold[i]就要赋值为true了。最后我们更新完bold数组了，就再遍历一遍字符串s，如果bold[i]为false，直接将s[i]加入结果res中；如果bold[i]为true，那么我们用while循环来找出所有连续为true的个数，然后在左右两端加上标签，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string addBoldTag(string s, vector<string>& dict) {
+        string res = "";
+        int n = s.size(), end = 0;
+        vector<bool> bold(n, false);
+        for (int i = 0; i < n; ++i) {
+            for (string word : dict) {
+                int len = word.size();
+                if (i + len <= n && s.substr(i, len) == word) {
+                    end = max(end, i + len);
+                }
+            }
+            bold[i] = end > i;
+        }
+        for (int i = 0; i < n; ++i) {
+            if (!bold[i]) {
+                res.push_back(s[i]);
+                continue;
+            }
+            int j = i;
+            while (j < n && bold[j]) ++j;
+            res += "<b>" + s.substr(i, j - i) + "</b>";
+            i = j - 1;
+        }
+        return res;
+    }
+};
+----
+
+这道题跟之后的那道Bold Words in String是一模一样的题，那么解法当然是可以互通的了，这里我们把那道题中解法二也贴过来吧，由于解法一和解法二实在是太相似了，就贴一个吧，具体讲解可以参见Bold Words in String这篇帖子，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    string addBoldTag(string s, vector<string>& dict) {
+        string res = "";
+        int n = s.size();
+        unordered_set<int> bold;
+        for (string word : dict) {
+            int len = word.size();
+            for (int i = 0; i <= n - len; ++i) {
+                if (s[i] == word[0] && s.substr(i, len) == word) {
+                    for (int j = i; j < i + len; ++j) bold.insert(j);
+                }
+            }
+        }
+        for (int i = 0; i < n; ++i) {
+            if (bold.count(i) && !bold.count(i - 1)) res += "<b>";
+            res += s[i];
+            if (bold.count(i) && !bold.count(i + 1)) res += "</b>";
+        }
+        return res;
+    }
+};
+----
+
+==== 合并二叉树
+
+----
+Given two binary trees and imagine that when you put one of them to cover the other, some nodes of the two trees are overlapped while the others are not.
+
+You need to merge them into a new binary tree. The merge rule is that if two nodes overlap, then sum node values up as the new value of the merged node. Otherwise, the NOT null node will be used as the node of new tree.
+
+Example 1:
+
+Input:
+	Tree 1                     Tree 2
+          1                         2
+         / \                       / \
+        3   2                     1   3
+       /                           \   \
+      5                             4   7
+Output:
+Merged tree:
+	     3
+	    / \
+	   4   5
+	  / \   \
+	 5   4   7
+----
+
+这道题给了我们两个二叉树，让我们合并成一个，规则是，都存在的结点，就将结点值加起来，否则空的位置就由另一个树的结点来代替。那么根据过往经验，处理二叉树问题的神器就是递归，那么我们来看递归函数如何去写。根据题目中的规则，我们知道如果要处理的相同位置上的两个结点都不存在的话，直接返回即可，如果t1存在，t2不存在，那么我们就以t1的结点值建立一个新结点，然后分别对t1的左右子结点和空结点调用递归函数，反之，如果t1不存在，t2存在，那么我们就以t2的结点值建立一个新结点，然后分别对t2的左右子结点和空结点调用递归函数。如果t1和t2都存在，那么我们就以t1和t2的结点值之和建立一个新结点，然后分别对t1的左右子结点和t2的左右子结点调用递归函数，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    TreeNode* mergeTrees(TreeNode* t1, TreeNode* t2) {
+        TreeNode *res = NULL;
+        helper(t1, t2, res);
+        return res;
+    }
+    void helper(TreeNode* t1, TreeNode* t2, TreeNode*& res) {
+        if (!t1 && !t2) return;
+        else if (t1 && !t2) {
+            res = new TreeNode(t1->val);
+            helper(t1->left, NULL, res->left);
+            helper(t1->right, NULL, res->right);
+        } else if (!t1 && t2) {
+            res = new TreeNode(t2->val);
+            helper(NULL, t2->left, res->left);
+            helper(NULL, t2->right, res->right);
+        } else {
+            res = new TreeNode(t1->val + t2->val);
+            helper(t1->left, t2->left, res->left);
+            helper(t1->right, t2->right, res->right);
+        }
+    }
+};
+----
+
+其实远不用写的像上面那么复杂，我们连额外的函数都不用写，直接递归调用给定的函数即可，我们首先判断，如果t1不存在，则直接返回t2，反之，如果t2不存在，则直接返回t1。如果上面两种情况都不满足，那么以t1和t2的结点值之和建立新结点t，然后对t1和t2的左子结点调用递归并赋给t的左子结点，再对t1和t2的右子结点调用递归并赋给t的右子结点，返回t结点即可，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    TreeNode* mergeTrees(TreeNode* t1, TreeNode* t2) {
+        if (!t1) return t2;
+        if (!t2) return t1;
+        TreeNode *t = new TreeNode(t1->val + t2->val);
+        t->left = mergeTrees(t1->left, t2->left);
+        t->right = mergeTrees(t1->right, t2->right);
+        return t;
+    }
+};
+----
+
+==== Students Report By Geography
+
+----
+A U.S graduate school has students from Asia, Europe and America. The students' location information are stored in table student as below.
+| name   | continent |
+|--------|-----------|
+| Jack   | America   |
+| Pascal | Europe    |
+| Xi     | Asia      |
+| Jane   | America   |
+Pivot the continent column in this table so that each name is sorted alphabetically and displayed underneath its corresponding continent. The output headers should be America, Asia and Europe respectively. It is guaranteed that the student number from America is no less than either Asia or Europe.
+For the sample input, the output is:
+| America | Asia | Europe |
+|---------|------|--------|
+| Jack    | Xi   | Pascal |
+| Jane    |      |        |
+----
+
+[source, sql, linenums]
+----
+SELECT
+America, Asia, Europe
+FROM
+(SELECT @as:=0, @am:=0, @eu:=0) t,
+(SELECT
+ @as:=@as + 1 AS asid, name AS Asia
+ FROM
+ student
+ WHERE
+ continent = 'Asia'
+ ORDER BY Asia) AS t1
+RIGHT JOIN
+(SELECT
+ @am:=@am + 1 AS amid, name AS America
+ FROM
+ student
+ WHERE
+ continent = 'America'
+ ORDER BY America) AS t2 ON asid = amid
+LEFT JOIN
+(SELECT
+ @eu:=@eu + 1 AS euid, name AS Europe
+ FROM
+ student
+ WHERE
+ continent = 'Europe'
+ ORDER BY Europe) AS t3 ON amid = euid
+;
+----
+
+==== Biggest Single Number
+
+----
+Table number contains many numbers in column num including duplicated ones.
+Can you write a SQL query to find the biggest number, which only appears once.
++---+
+|num|
++---+
+| 8 |
+| 8 |
+| 3 |
+| 3 |
+| 1 |
+| 4 |
+| 5 |
+| 6 |
+For the sample data above, your query should return the following result:
++---+
+|num|
++---+
+| 6 |
+----
+
+[source, sql, linenums]
+----
+SELECT
+MAX(num) AS num
+FROM
+(SELECT
+ num
+ FROM
+ number
+ GROUP BY num
+ HAVING COUNT(num) = 1) AS t
+;
+----
+
+==== Not Boring Movies
+
+----
+X city opened a new cinema, many people would like to go to this cinema. The cinema also gives out a poster indicating the movies’ ratings and descriptions.
+Please write a SQL query to output movies with an odd numbered ID and a description that is not 'boring'. Order the result by rating.
+
+For example, table cinema:
+
++---------+-----------+--------------+-----------+
+|   id    | movie     |  description |  rating   |
++---------+-----------+--------------+-----------+
+|   1     | War       |   great 3D   |   8.9     |
+|   2     | Science   |   fiction    |   8.5     |
+|   3     | irish     |   boring     |   6.2     |
+|   4     | Ice song  |   Fantacy    |   8.6     |
+|   5     | House card|   Interesting|   9.1     |
++---------+-----------+--------------+-----------+
+For the example above, the output should be:
++---------+-----------+--------------+-----------+
+|   id    | movie     |  description |  rating   |
++---------+-----------+--------------+-----------+
+|   5     | House card|   Interesting|   9.1     |
+|   1     | War       |   great 3D   |   8.9     |
++---------+-----------+--------------+-----------+
+----
+
+[source, sql, linenums]
+----
+select *
+from cinema
+where mod(id, 2) = 1 and description != 'boring'
+order by rating DESC
+;
+----

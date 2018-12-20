@@ -1,0 +1,1407 @@
+==== 买卖股票的最佳时间
+
+----
+Say you have an array for which the ith element is the price of a given stock on day i.
+
+If you were only permitted to complete at most one transaction (ie, buy one and sell one share of the stock), design an algorithm to find the maximum profit.
+----
+
+这道题相当简单，感觉达不到Medium的难度，只需要遍历一次数组，用一个变量记录遍历过数中的最小值，然后每次计算当前值和这个最小值之间的差值最为利润，然后每次选较大的利润来更新。当遍历完成后当前利润即为所求，代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int maxProfit(vector<int>& prices) {
+        int res = 0, buy = INT_MAX;
+        for (int price : prices) {
+            buy = min(buy, price);
+            res = max(res, price - buy);
+        }
+        return res;
+    }
+};
+----
+
+==== 买股票的最佳时间之二
+
+----
+Say you have an array for which the ith element is the price of a given stock on day i.
+
+Design an algorithm to find the maximum profit. You may complete as many transactions as you like (ie, buy one and sell one share of the stock multiple times). However, you may not engage in multiple transactions at the same time (ie, you must sell the stock before you buy again).
+----
+
+这道跟之前那道Best Time to Buy and Sell Stock 买卖股票的最佳时间很类似，但都比较容易解答。这道题由于可以无限次买入和卖出。我们都知道炒股想挣钱当然是低价买入高价抛出，那么这里我们只需要从第二天开始，如果当前价格比之前价格高，则把差值加入利润中，因为我们可以昨天买入，今日卖出，若明日价更高的话，还可以今日买入，明日再抛出。以此类推，遍历完整个数组后即可求得最大利润。代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int maxProfit(vector<int>& prices) {
+        int res = 0, n = prices.size();
+        for (int i = 0; i < n - 1; ++i) {
+            if (prices[i] < prices[i + 1]) {
+                res += prices[i + 1] - prices[i];
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== 买股票的最佳时间之三
+
+----
+Say you have an array for which the ith element is the price of a given stock on day i.
+
+Design an algorithm to find the maximum profit. You may complete at most two transactions.
+
+Note:
+You may not engage in multiple transactions at the same time (ie, you must sell the stock before you buy again).
+----
+
+----
+这道是买股票的最佳时间系列问题中最难最复杂的一道，前面两道Best Time to Buy and Sell Stock 买卖股票的最佳时间和Best Time to Buy and Sell Stock II 买股票的最佳时间之二的思路都非常的简洁明了，算法也很简单。而这道是要求最多交易两次，找到最大利润，还是需要用动态规划Dynamic Programming来解，而这里我们需要两个递推公式来分别更新两个变量local和global，参见网友Code Ganker的博客，我们其实可以求至少k次交易的最大利润，找到通解后可以设定 k = 2，即为本题的解答。我们定义local[i][j]为在到达第i天时最多可进行j次交易并且最后一次交易在最后一天卖出的最大利润，此为局部最优。然后我们定义global[i][j]为在到达第i天时最多可进行j次交易的最大利润，此为全局最优。它们的递推式为：
+
+local[i][j] = max(global[i - 1][j - 1] + max(diff, 0), local[i - 1][j] + diff)
+
+global[i][j] = max(local[i][j], global[i - 1][j])
+
+其中局部最优值是比较前一天并少交易一次的全局最优加上大于0的差值，和前一天的局部最优加上差值中取较大值，而全局最优比较局部最优和前一天的全局最优。代码如下：
+----
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int maxProfit(vector<int> &prices) {
+        if (prices.empty()) return 0;
+        int n = prices.size(), g[n][3] = {0}, l[n][3] = {0};
+        for (int i = 1; i < prices.size(); ++i) {
+            int diff = prices[i] - prices[i - 1];
+            for (int j = 1; j <= 2; ++j) {
+                l[i][j] = max(g[i - 1][j - 1] + max(diff, 0), l[i - 1][j] + diff);
+                g[i][j] = max(l[i][j], g[i - 1][j]);
+            }
+        }
+        return g[n - 1][2];
+    }
+};
+----
+
+下面这种解法用一维数组来代替二维数组，可以极大的节省了空间，由于覆盖的顺序关系，我们需要j从2到1，这样可以取到正确的g[j-1]值，而非已经被覆盖过的值，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int maxProfit(vector<int> &prices) {
+        if (prices.empty()) return 0;
+        int g[3] = {0};
+        int l[3] = {0};
+        for (int i = 0; i < prices.size() - 1; ++i) {
+            int diff = prices[i + 1] - prices[i];
+            for (int j = 2; j >= 1; --j) {
+                l[j] = max(g[j - 1] + max(diff, 0), l[j] + diff);
+                g[j] = max(l[j], g[j]);
+            }
+        }
+        return g[2];
+    }
+};
+----
+
+----
+我们如果假设prices数组为1, 3, 2, 9, 那么我们来看每次更新时local 和 global 的值：
+
+第一天两次交易：　　　　　　第一天一次交易：
+
+local:　　  0 0 0 　　　　　　local:　　  0 0 0
+
+global:　　0 0 0　　　　　 　global:　　0 0 0
+
+第二天两次交易：　　　　　　第二天一次交易：
+
+local:　　  0 0 2 　　　　　　local:　　  0 2 2
+
+global:　　0 0 2　　　　　 　global:　　0 2 2
+
+第三天两次交易：　　　　　　第三天一次交易：
+
+local:　　  0 2 2 　　　　　　local:　　  0 1 2
+
+global:　　0 2 2　　　　 　　global:　　0 2 2
+
+第四天两次交易：　　　　　　第四天一次交易：
+
+local:　　  0 1 9 　　　　　　local:　　  0 8 9
+
+global:　　0 2 9　　　　　 　global:　　0 8 9
+
+
+
+在网友@loveahnee的提醒下，发现了其实上述的递推公式关于local[i][j]的可以稍稍化简一下，我们之前定义的local[i][j]为在到达第i天时最多可进行j次交易并且最后一次交易在最后一天卖出的最大利润，然后网友@fgvlty解释了一下第 i 天卖第 j 支股票的话，一定是下面的一种：
+
+1. 今天刚买的
+那么 Local(i, j) = Global(i-1, j-1)
+相当于啥都没干
+
+2. 昨天买的
+那么 Local(i, j) = Global(i-1, j-1) + diff
+等于Global(i-1, j-1) 中的交易，加上今天干的那一票
+
+3. 更早之前买的
+那么 Local(i, j) = Local(i-1, j) + diff
+昨天别卖了，留到今天卖
+
+但其实第一种情况是不需要考虑的，因为当天买当天卖不会增加利润，完全是重复操作，这种情况可以归纳在global[i-1][j-1]中，所以我们就不需要max(0, diff)了，那么由于两项都加上了diff，所以我们可以把diff抽到max的外面，所以更新后的递推公式为：
+
+local[i][j] = max(global[i - 1][j - 1], local[i - 1][j]) + diff
+
+global[i][j] = max(local[i][j], global[i - 1][j])
+----
+
+==== 求二叉树的最大路径和
+
+----
+Given a binary tree, find the maximum path sum.
+
+The path may start and end at any node in the tree.
+
+For example:
+Given the below binary tree,
+
+       1
+      / \
+     2   3
+
+
+Return 6.
+----
+
+这道求二叉树的最大路径和是一道蛮有难度的题，难就难在起始位置和结束位置可以为任意位置，我当然是又不会了，于是上网看看大神们的解法，像这种类似数的遍历的题，一般来说都需要用DFS来求解，我们先来看一个简单的例子： +
+----
+   4
+  / \
+ 11 13
+ / \
+7   2
+----
+
+由于这是一个很简单的例子，我们很容易就能找到最长路径为7-11-4-13，那么怎么用递归来找出正确的路径和呢？根据以往的经验，树的递归解法一般都是递归到叶节点，然后开始边处理边回溯到根节点。那么我们就假设此时已经递归到结点7了，那么其没有左右子节点，所以如果以结点7为根结点的子树最大路径和就是7。然后回溯到结点11，如果以结点11为根结点的子树，我们知道最大路径和为7+11+2=20。但是当回溯到结点4的时候，对于结点11来说，就不能同时取两条路径了，只能取左路径，或者是右路径，所以当根结点是4的时候，那么结点11只能取其左子结点7，因为7大于2。所以，对于每个结点来说，我们要知道经过其左子结点的path之和大还是经过右子节点的path之和大。那么我们的递归函数返回值就可以定义为以当前结点为根结点，到叶节点的最大路径之和，然后全局路径最大值放在参数中，用结果res来表示。 +
+
+在递归函数中，如果当前结点不存在，那么直接返回0。否则就分别对其左右子节点调用递归函数，由于路径和有可能为负数，而我们当然不希望加上负的路径和，所以我们和0相比，取较大的那个，就是要么不加，加就要加正数。然后我们来更新全局最大值结果res，就是以左子结点为终点的最大path之和加上以右子结点为终点的最大path之和，还要加上当前结点值，这样就组成了一个条完整的路径。而我们返回值是取left和right中的较大值加上当前结点值，因为我们返回值的定义是以当前结点为终点的path之和，所以只能取left和right中较大的那个值，而不是两个都要，参见代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int maxPathSum(TreeNode* root) {
+        int res = INT_MIN;
+        helper(root, res);
+        return res;
+    }
+    int helper(TreeNode* node, int& res) {
+        if (!node) return 0;
+        int left = max(helper(node->left, res), 0);
+        int right = max(helper(node->right, res), 0);
+        res = max(res, left + right + node->val);
+        return max(left, right) + node->val;
+    }
+};
+----
+
+讨论：这道题有一个很好的Follow up，就是返回这个最大路径，那么就复杂很多，因为我们的递归函数就不能返回路径和了，而是返回该路径上所有的结点组成的数组，递归的参数还要保留最大路径之和，同时还需要最大路径结点的数组，然后对左右子节点调用递归函数后得到的是数组，我们要统计出数组之和，并且跟0比较，如果小于0，和清零，数组清空。然后就是更新最大路径之和跟数组啦，还要拼出来返回值数组，代码长了很多，有兴趣的童鞋可以在评论区贴上你的代码～ +
+
+====  验证回文字符串
+
+----
+Given a string, determine if it is a palindrome, considering only alphanumeric characters and ignoring cases.
+
+For example,
+"A man, a plan, a canal: Panama" is a palindrome.
+"race a car" is not a palindrome.
+
+Note:
+Have you consider that the string might be empty? This is a good question to ask during an interview.
+
+For the purpose of this problem, we define empty string as valid palindrome.
+----
+
+
+验证回文字符串是比较常见的问题，所谓回文，就是一个正读和反读都一样的字符串，比如“level”或者“noon”等等就是回文串。但是这里，加入了空格和非字母数字的字符，增加了些难度，但其实原理还是很简单：只需要建立两个指针，left和right, 分别从字符的开头和结尾处开始遍历整个字符串，如果遇到非字母数字的字符就跳过，继续往下找，直到找到下一个字母数字或者结束遍历，如果遇到大写字母，就将其转为小写。等左右指针都找到字母数字时，比较这两个字符，若相等，则继续比较下面两个分别找到的字母数字，若不相等，直接返回false.  +
+
+时间复杂度为O(n), 代码如下： +
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool isPalindrome(string s) {
+        int left = 0, right = s.size() - 1 ;
+        while (left < right) {
+            if (!isAlphaNum(s[left])) ++left;
+            else if (!isAlphaNum(s[right])) --right;
+            else if ((s[left] + 32 - 'a') %32 != (s[right] + 32 - 'a') % 32) return false;
+            else {
+                ++left; --right;
+            }
+        }
+        return true;
+    }
+    bool isAlphaNum(char &ch) {
+        if (ch >= 'a' && ch <= 'z') return true;
+        if (ch >= 'A' && ch <= 'Z') return true;
+        if (ch >= '0' && ch <= '9') return true;
+        return false;
+    }
+};
+----
+
+我们也可以用系统自带的判断是否是数母字符的判断函数isalnum，参见代码如下: +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool isPalindrome(string s) {
+        int left = 0, right = s.size() - 1 ;
+        while (left < right) {
+            if (!isalnum(s[left])) ++left;
+            else if (!isalnum(s[right])) --right;
+            else if ((s[left] + 32 - 'a') %32 != (s[right] + 32 - 'a') % 32) return false;
+            else {
+                ++left; --right;
+            }
+        }
+        return true;
+    }
+};
+----
+
+对于该问题的扩展，还有利用Manacher算法来求解最长回文字符串问题，参见我的另一篇博文Manacher's Algorithm 马拉车算法。 +
+
+==== 词语阶梯之二
+
+----
+Given two words (start and end), and a dictionary, find all shortest transformation sequence(s) from start to end, such that:
+
+Only one letter can be changed at a time
+Each intermediate word must exist in the dictionary
+For example,
+
+Given:
+start = "hit"
+end = "cog"
+dict = ["hot","dot","dog","lot","log"]
+Return
+  [
+    ["hit","hot","dot","dog","cog"],
+    ["hit","hot","lot","log","cog"]
+  ]
+Note:
+All words have the same length.
+All words contain only lowercase alphabetic characters.
+----
+
+个人感觉这道题是相当有难度的一道题，它比之前那道Word Ladder 词语阶梯要复杂很多，全场第四低的通过率12.9%正说明了这道题的难度，我也是研究了网上别人的解法很久才看懂，然后照葫芦画瓢的写了出来，下面这种解法的核心思想是BFS，大概思路如下：我们的目的是找出所有的路径，我们建立一个路径集paths，用以保存所有路径，然后是起始路径p，在p中先把起始单词放进去。然后定义两个整型变量level，和minLevel，其中level是记录循环中当前路径的长度，minLevel是记录最短路径的长度，这样的好处是，如果某条路径的长度超过了已有的最短路径的长度，那么舍弃，这样会提高运行速度，相当于一种剪枝。还要定义一个set变量words，用来记录已经循环过的路径中的词，然后就是BFS的核心了，循环路径集paths里的内容，取出队首路径，如果该路径长度大于level，说明字典中的有些词已经存入路径了，如果在路径中重复出现，则肯定不是最短路径，所以我们需要在字典中将这些词删去，然后将words清空，对循环对剪枝处理。然后我们取出当前路径的最后一个词，对每个字母进行替换并在字典中查找是否存在替换后的新词，这个过程在之前那道Word Ladder 词语阶梯里面也有。如果替换后的新词在字典中存在，将其加入words中，并在原有路径的基础上加上这个新词生成一条新路径，如果这个新词就是结束词，则此新路径为一条完整的路径，加入结果中，并更新minLevel，若不是结束词，解将新路径加入路径集中继续循环。写了这么多，不知道你看晕了没有，还是看代码吧，这个最有效： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<string>> findLadders(string beginWord, string endWord, vector<string>& wordList) {
+        vector<vector<string>> res;
+        unordered_set<string> dict(wordList.begin(), wordList.end());
+        vector<string> p{beginWord};
+        queue<vector<string>> paths;
+        paths.push(p);
+        int level = 1, minLevel = INT_MAX;
+        unordered_set<string> words;
+        while (!paths.empty()) {
+            auto t = paths.front(); paths.pop();
+            if (t.size() > level) {
+                for (string w : words) dict.erase(w);
+                words.clear();
+                level = t.size();
+                if (level > minLevel) break;
+            }
+            string last = t.back();
+            for (int i = 0; i < last.size(); ++i) {
+                string newLast = last;
+                for (char ch = 'a'; ch <= 'z'; ++ch) {
+                    newLast[i] = ch;
+                    if (!dict.count(newLast)) continue;
+                    words.insert(newLast);
+                    vector<string> nextPath = t;
+                    nextPath.push_back(newLast);
+                    if (newLast == endWord) {
+                        res.push_back(nextPath);
+                        minLevel = level;
+                    } else paths.push(nextPath);
+                }
+            }
+        }
+        return res;
+    }
+};
+----
+
+
+==== 词语阶梯
+
+----
+Given two words (beginWord and endWord), and a dictionary's word list, find the length of shortest transformation sequence from beginWord to endWord, such that:
+
+Only one letter can be changed at a time.
+Each transformed word must exist in the word list. Note that beginWord is not a transformed word.
+Note:
+
+Return 0 if there is no such transformation sequence.
+All words have the same length.
+All words contain only lowercase alphabetic characters.
+You may assume no duplicates in the word list.
+You may assume beginWord and endWord are non-empty and are not the same.
+Example 1:
+
+Input:
+beginWord = "hit",
+endWord = "cog",
+wordList = ["hot","dot","dog","lot","log","cog"]
+
+Output: 5
+
+Explanation: As one shortest transformation is "hit" -> "hot" -> "dot" -> "dog" -> "cog",
+return its length 5.
+Example 2:
+
+Input:
+beginWord = "hit"
+endWord = "cog"
+wordList = ["hot","dot","dog","lot","log"]
+
+Output: 0
+
+Explanation: The endWord "cog" is not in wordList, therefore no possible transformation.
+----
+
+这道词句阶梯的问题给了我们一个单词字典，里面有一系列很相似的单词，然后给了一个起始单词和一个结束单词，每次变换只能改变一个单词，并且中间过程的单词都必须是单词字典中的单词，让我们求出最短的变化序列的长度。这道题还是挺有难度的，我当然是看了别人的解法才写出来的，这没啥的，从不会到完全掌握才是成长嘛～ +
+
+当拿到题就懵逼的我们如何才能找到一个科学的探索解题的路径呢，那就是先别去管代码实现，如果让我们肉身解题该怎么做呢？让你将 'hit' 变为 'cog'，那么我们发现这两个单词没有一个相同的字母，所以我们就尝试呗，博主会先将第一个 'h' 换成 'c'，看看 'cit' 在不在字典中，发现不在，那么把第二个 'i' 换成 'o'，看看 'hot' 在不在，发现在，完美！然后尝试 'cot' 或者 'hog'，发现都不在，那么就比较麻烦了，我们没法快速的达到目标单词，需要一些中间状态，但我们怎么知道中间状态是什么。简单粗暴的方法就是brute force，遍历所有的情况，我们将起始单词的每一个字母都用26个字母来替换，比如起始单词 'hit' 就要替换为 'ait', 'bit', 'cit', .... 'yit', 'zit'，将每个替换成的单词都在字典中查找一下，如果有的话，那么说明可能是潜在的路径，要保存下来。那么现在就有个问题，比如我们换到了 'hot' 的时候，此时发现在字典中存在，那么下一步我们是继续试接下来的 'hpt', 'hqt', 'hrt'... 还是直接从 'hot' 的首字母开始换 'aot', 'bot', 'cot' ... 这实际上就是BFS和DFS的区别，到底是广度优先，还是深度优先。讲到这里，不知道你有没有觉得这个跟什么很像？对了，跟迷宫遍历很像啊，你想啊，迷宫中每个点有上下左右四个方向可以走，而这里有26个字母，就是二十六个方向可以走，本质上没有啥区别啊！如果熟悉迷宫遍历的童鞋们应该知道，应该用BFS来求最短路径的长度，这也不难理解啊，DFS相当于一条路走到黑啊，你走的那条道不一定是最短的啊。而BFS相当于一个小圈慢慢的一层一层扩大，相当于往湖里扔个石头，一圈一圈扩大的水波纹那种感觉，当水波纹碰到湖上的树叶时，那么此时水圈的半径就是圆心到树叶的最短距离。脑海中有没有浮现出这个生动的场景呢？ +
+
+明确了要用BFS，我们可以开始解题了，为了提到字典的查找效率，我们使用HashSet保存所有的单词。然后我们需要一个HashMap，来建立某条路径结尾单词和该路径长度之间的映射，并把起始单词映射为1。既然是BFS，我们需要一个队列queue，把起始单词排入队列中，开始队列的循环，取出队首词，然后对其每个位置上的字符，用26个字母进行替换，如果此时和结尾单词相同了，就可以返回取出词在哈希表中的值加一。如果替换词在字典中存在但在哈希表中不存在，则将替换词排入队列中，并在哈希表中的值映射为之前取出词加一。如果循环完成则返回0，参见代码如下： +
+
+**解法1:** +
+[source,cpp,linenums]
+----
+class Solution {
+public:
+    int ladderLength(string beginWord, string endWord, vector<string>& wordList) {
+        unordered_set<string> wordSet(wordList.begin(), wordList.end());
+        unordered_map<string, int> pathCnt{{{beginWord, 1}}};
+        queue<string> q{{beginWord}};
+        while (!q.empty()) {
+            string word = q.front(); q.pop();
+            for (int i = 0; i < word.size(); ++i) {
+                string newWord = word;
+                for (char ch = 'a'; ch <= 'z'; ++ch) {
+                    newWord[i] = ch;
+                    if (wordSet.count(newWord) && newWord == endWord) return pathCnt[word] + 1;
+                    if (wordSet.count(newWord) && !pathCnt.count(newWord)) {
+                        q.push(newWord);
+                        pathCnt[newWord] = pathCnt[word] + 1;
+                    }
+                }
+            }
+        }
+        return 0;
+    }
+};
+----
+
+其实我们并不需要上面解法中的HashMap，由于BFS的遍历机制就是一层一层的扩大的，那么我们只要记住层数就行，然后在while循环中使用一个小trick，加一个for循环，表示遍历完当前队列中的个数后，层数就自增1，这样的话我们就省去了HashMap，而仅仅用一个变量res来记录层数即可，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int ladderLength(string beginWord, string endWord, vector<string>& wordList) {
+        unordered_set<string> wordSet(wordList.begin(), wordList.end());
+        queue<string> q{{beginWord}};
+        int res = 0;
+        while (!q.empty()) {
+            for (int k = q.size(); k > 0; --k) {
+                string word = q.front(); q.pop();
+                if (word == endWord) return res + 1;
+                for (int i = 0; i < word.size(); ++i) {
+                    string newWord = word;
+                    for (char ch = 'a'; ch <= 'z'; ++ch) {
+                        newWord[i] = ch;
+                        if (wordSet.count(newWord) && newWord != word) {
+                            q.push(newWord);
+                            wordSet.erase(newWord);
+                        }
+                    }
+                }
+            }
+            ++res;
+        }
+        return 0;
+    }
+};
+----
+
+==== 求最长连续序列
+
+----
+Given an unsorted array of integers, find the length of the longest consecutive elements sequence.
+
+For example,
+Given [100, 4, 200, 1, 3, 2],
+The longest consecutive elements sequence is [1, 2, 3, 4]. Return its length: 4.
+
+Your algorithm should run in O(n) complexity.
+----
+
+这道题要求求最长连续序列，并给定了O(n)复杂度限制，我们的思路是，使用一个集合set存入所有的数字，然后遍历数组中的每个数字，如果其在集合中存在，那么将其移除，然后分别用两个变量pre和next算出其前一个数跟后一个数，然后在集合中循环查找，如果pre在集合中，那么将pre移除集合，然后pre再自减1，直至pre不在集合之中，对next采用同样的方法，那么next-pre-1就是当前数字的最长连续序列，更新res即可。代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+  int longestConsecutive(vector<int>& nums) {
+      int res = 0;
+      unordered_set<int> s(nums.begin(), nums.end());
+      for (int val : nums) {
+          if (!s.count(val)) continue;
+          s.erase(val);
+          int pre = val - 1, next = val + 1;
+          while (s.count(pre)) s.erase(pre--);
+          while (s.count(next)) s.erase(next++);
+          res = max(res, next - pre - 1);
+      }
+      return res;
+  }
+};
+----
+
+我们也可以采用哈希表来做，刚开始哈希表为空，然后遍历所有数字，如果该数字不在哈希表中，那么我们分别看其左右两个数字是否在哈希表中，如果在，则返回其哈希表中映射值，若不在，则返回0，然后我们将left+right+1作为当前数字的映射，并更新res结果，然后更新d-left和d-right的映射值，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int longestConsecutive(vector<int>& nums) {
+        int res = 0;
+        unordered_map<int, int> m;
+        for (int d : nums) {
+            if (!m.count(d)) {
+                int left = m.count(d - 1) ? m[d - 1] : 0;
+                int right = m.count(d + 1) ? m[d + 1] : 0;
+                int sum = left + right + 1;
+                m[d] = sum;
+                res = max(res, sum);
+                m[d - left] = sum;
+                m[d + right] = sum;
+            }
+        }
+        return res;
+    }
+};
+----
+
+==== 求根到叶节点数字之和
+
+----
+Given a binary tree containing digits from 0-9 only, each root-to-leaf path could represent a number.
+
+An example is the root-to-leaf path 1->2->3 which represents the number 123.
+
+Find the total sum of all root-to-leaf numbers.
+
+For example,
+
+    1
+   / \
+  2   3
+The root-to-leaf path 1->2 represents the number 12.
+The root-to-leaf path 1->3 represents the number 13.
+
+Return the sum = 12 + 13 = 25.
+----
+
+这道求根到叶节点数字之和的题跟之前的求Path Sum 二叉树的路径和很类似，都是利用DFS递归来解，这道题由于不是单纯的把各个节点的数字相加，而是每到一个新的数字，要把原来的数字扩大10倍之后再相加。代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int sumNumbers(TreeNode *root) {
+        return sumNumbersDFS(root, 0);
+    }
+    int sumNumbersDFS(TreeNode *root, int sum) {
+        if (!root) return 0;
+        sum = sum * 10 + root->val;
+        if (!root->left && !root->right) return sum;
+        return sumNumbersDFS(root->left, sum) + sumNumbersDFS(root->right, sum);
+    }
+};
+----
+
+==== 包围区域
+
+----
+Given a 2D board containing 'X' and 'O', capture all regions surrounded by 'X'.
+
+A region is captured by flipping all 'O's into 'X's in that surrounded region.
+
+For example,
+X X X X
+X O O X
+X X O X
+X O X X
+After running your function, the board should be:
+
+X X X X
+X X X X
+X X X X
+X O X X
+----
+
+这道题有点像围棋，将包住的O都变成X，但不同的是边缘的O不算被包围，跟之前那道Number of Islands 岛屿的数量很类似，都可以用DFS来解。刚开始我的思路是DFS遍历中间的O，如果没有到达边缘，都变成X，如果到达了边缘，将之前变成X的再变回来。但是这样做非常的不方便，在网上看到大家普遍的做法是扫面矩阵的四条边，如果有O，则用DFS遍历，将所有连着的O都变成另一个字符，比如$，这样剩下的O都是被包围的，然后将这些O变成X，把$变回O就行了。代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    void solve(vector<vector<char> >& board) {
+        for (int i = 0; i < board.size(); ++i) {
+            for (int j = 0; j < board[i].size(); ++j) {
+                if ((i == 0 || i == board.size() - 1 || j == 0 || j == board[i].size() - 1) && board[i][j] == 'O')
+                    solveDFS(board, i, j);
+            }
+        }
+        for (int i = 0; i < board.size(); ++i) {
+            for (int j = 0; j < board[i].size(); ++j) {
+                if (board[i][j] == 'O') board[i][j] = 'X';
+                if (board[i][j] == '$') board[i][j] = 'O';
+            }
+        }
+    }
+    void solveDFS(vector<vector<char> > &board, int i, int j) {
+        if (board[i][j] == 'O') {
+            board[i][j] = '$';
+            if (i > 0 && board[i - 1][j] == 'O')
+                solveDFS(board, i - 1, j);
+            if (j < board[i].size() - 1 && board[i][j + 1] == 'O')
+                solveDFS(board, i, j + 1);
+            if (i < board.size() - 1 && board[i + 1][j] == 'O')
+                solveDFS(board, i + 1, j);
+            if (j > 1 && board[i][j - 1] == 'O')
+                solveDFS(board, i, j - 1);
+        }
+    }
+};
+----
+
+有网友提问上面的代码中红色部分为啥是j > 1 而不是j > 0，为啥j > 0无法通过OJ的最后一个大数据集合，我开始也不知道其中奥秘，直到被另一个网友提醒在本地机子上可以通过最后一个大数据集合，于是我也写了一个程序来验证，请参见验证LeetCode Surrounded Regions 包围区域的DFS方法。发现j > 0是正确的，可以得到相同的结果。 +
+
+下面这种解法还是DFS解法，只是递归函数的写法稍有不同，但是本质上并没有太大的区别，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    void solve(vector<vector<char>>& board) {
+        if (board.empty() || board[0].empty()) return;
+        int m = board.size(), n = board[0].size();
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                if (i == 0 || i == m - 1 || j == 0 || j == n - 1) {
+                    if (board[i][j] == 'O') dfs(board, i , j);
+                }
+            }
+        }
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                if (board[i][j] == 'O') board[i][j] = 'X';
+                if (board[i][j] == '$') board[i][j] = 'O';
+            }
+        }
+    }
+    void dfs(vector<vector<char>> &board, int x, int y) {
+        int m = board.size(), n = board[0].size();
+        vector<vector<int>> dir{{0,-1},{-1,0},{0,1},{1,0}};
+        board[x][y] = '$';
+        for (int i = 0; i < dir.size(); ++i) {
+            int dx = x + dir[i][0], dy = y + dir[i][1];
+            if (dx >= 0 && dx < m && dy > 0 && dy < n && board[dx][dy] == 'O') {
+                dfs(board, dx, dy);
+            }
+        }
+    }
+};
+----
+
+我们也可以使用迭代的解法，但是整体的思路还是一样的，我们在找到边界上的O后，然后利用队列queue进行BFS查找和其相连的所有O，然后都标记上美元号。最后的处理还是先把所有的O变成X，然后再把美元号变回O即可，参见代码如下： +
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    void solve(vector<vector<char>>& board) {
+        if (board.empty() || board[0].empty()) return;
+        int m = board.size(), n = board[0].size();
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                if (i != 0 && i != m - 1 && j != 0 && j != n - 1) continue;
+                if (board[i][j] != 'O') continue;
+                board[i][j] = '$';
+                queue<int> q{{i * n + j}};
+                while (!q.empty()) {
+                    int t = q.front(), x = t / n, y = t % n; q.pop();
+                    if (x >= 1 && board[x - 1][y] == 'O') {board[x - 1][y] = '$'; q.push(t - n);}
+                    if (x < m - 1 && board[x + 1][y] == 'O') {board[x + 1][y] = '$'; q.push(t + n);}
+                    if (y >= 1 && board[x][y - 1] == 'O') {board[x][y - 1] = '$'; q.push(t - 1);}
+                    if (y < n - 1 && board[x][y + 1] == 'O') {board[x][y + 1] = '$'; q.push(t + 1);}
+                }
+            }
+        }
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                if (board[i][j] == 'O') board[i][j] = 'X';
+                if (board[i][j] == '$') board[i][j] = 'O';
+            }
+        }
+    }
+};
+----
+
+==== 拆分回文串
+
+----
+Given a string s, partition s such that every substring of the partition is a palindrome.
+
+Return all possible palindrome partitioning of s.
+
+For example, given s = "aab",
+Return
+
+  [
+    ["aa","b"],
+    ["a","a","b"]
+  ]
+----
+
+这又是一道需要用DFS来解的题目，既然题目要求找到所有可能拆分成回文数的情况，那么肯定是所有的情况都要遍历到，对于每一个子字符串都要分别判断一次是不是回文数，那么肯定有一个判断回文数的子函数，还需要一个DFS函数用来递归，再加上原本的这个函数，总共需要三个函数来求解。代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<vector<string>> partition(string s) {
+        vector<vector<string>> res;
+        vector<string> out;
+        partitionDFS(s, 0, out, res);
+        return res;
+    }
+    void partitionDFS(string s, int start, vector<string> &out, vector<vector<string>> &res) {
+        if (start == s.size()) {
+            res.push_back(out);
+            return;
+        }
+        for (int i = start; i < s.size(); ++i) {
+            if (isPalindrome(s, start, i)) {
+                out.push_back(s.substr(start, i - start + 1));
+                partitionDFS(s, i + 1, out, res);
+                out.pop_back();
+            }
+        }
+    }
+    bool isPalindrome(string s, int start, int end) {
+        while (start < end) {
+            if (s[start] != s[end]) return false;
+            ++start;
+            --end;
+        }
+        return true;
+    }
+};
+----
+
+那么，对原字符串的所有子字符串的访问顺序是什么呢，如果原字符串是 abcd, 那么访问顺序为: a -> b -> c -> d -> cd -> bc -> bcd-> ab -> abc -> abcd, 这是对于没有两个或两个以上子回文串的情况。那么假如原字符串是 aabc，那么访问顺序为：a -> a -> b -> c -> bc -> ab -> abc -> aa -> b -> c -> bc -> aab -> aabc，中间当检测到aa时候，发现是回文串，那么对于剩下的bc当做一个新串来检测，于是有 b -> c -> bc，这样扫描了所有情况，即可得出最终答案。 +
+
+==== 拆分回文串之二
+
+----
+Given a string s, partition s such that every substring of the partition is a palindrome.
+
+Return the minimum cuts needed for a palindrome partitioning of s.
+
+For example, given s = "aab",
+Return 1 since the palindrome partitioning ["aa","b"] could be produced using 1 cut.
+----
+
+这道题是让找到把原字符串拆分成回文串的最小切割数，需要用动态规划Dynamic Programming来做，使用DP的核心是在于找出递推公式，之前有道地牢游戏Dungeon Game的题也是需要用DP来做，而那道题是二维DP来解，这道题由于只是拆分一个字符串，需要一个一维的递推公式，我们还是从后往前推，递推公式为：dp[i] = min(dp[i], 1+dp[j+1] )    i<=j <n，那么还有个问题，是否对于i到j之间的子字符串s[i][j]每次都判断一下是否是回文串，其实这个也可以用DP来简化，其DP递推公式为P[i][j] = s[i] == s[j] && P[i+1][j-1]，其中P[i][j] = true if [i,j]为回文。代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int minCut(string s) {
+        int len = s.size();
+        bool P[len][len];
+        int dp[len + 1];
+        for (int i = 0; i <= len; ++i) {
+            dp[i] = len - i - 1;
+        }
+        for (int i = 0; i < len; ++i) {
+            for (int j = 0; j < len; ++j) {
+                P[i][j] = false;
+            }
+        }
+        for (int i = len - 1; i >= 0; --i) {
+            for (int j = i; j < len; ++j) {
+                if (s[i] == s[j] && (j - i <= 1 || P[i + 1][j - 1])) {
+                    P[i][j] = true;
+                    dp[i] = min(dp[i], dp[j + 1] + 1);
+                }
+            }
+        }
+        return dp[0];
+    }
+};
+----
+
+==== 无向图的复制
+
+----
+Clone an undirected graph. Each node in the graph contains a label and a list of its neighbors.
+
+
+OJ's undirected graph serialization:
+Nodes are labeled uniquely.
+
+We use # as a separator for each node, and , as a separator for node label and each neighbor of the node.
+
+
+As an example, consider the serialized graph {0,1,2#1,2#2,2}.
+
+The graph has a total of three nodes, and therefore contains three parts as separated by #.
+
+First node is labeled as 0. Connect node 0 to both nodes 1 and 2.
+Second node is labeled as 1. Connect node 1 to node 2.
+Third node is labeled as 2. Connect node 2 to node 2 (itself), thus forming a self-cycle.
+
+
+Visually, the graph looks like the following:
+
+       1
+      / \
+     /   \
+    0 --- 2
+         / \
+         \_/
+----
+
+这道无向图的复制问题和之前的拷贝带有随机指针的链表有些类似，那道题的难点是如何处理每个节点的随机指针，这道题目的难点在于如何处理每个节点的neighbors，由于在深度拷贝每一个节点后，还要将其所有neighbors放到一个vector中，而如何避免重复拷贝呢？这道题好就好在所有节点值不同，所以我们可以使用哈希表来对应节点值和新生成的节点。对于图的遍历的两大基本方法是深度优先搜索DFS和广度优先搜索BFS，此题的两种解法可参见网友爱做饭的小莹子的博客，这里我们使用深度优先搜索DFS来解答此题，代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    UndirectedGraphNode *cloneGraph(UndirectedGraphNode *node) {
+        unordered_map<int, UndirectedGraphNode*> umap;
+        return clone(node, umap);
+    }
+    UndirectedGraphNode *clone(UndirectedGraphNode *node, unordered_map<int, UndirectedGraphNode*> &umap) {
+        if (!node) return node;
+        if (umap.count(node->label)) return umap[node->label];
+        UndirectedGraphNode *newNode = new UndirectedGraphNode(node->label);
+        umap[node->label] = newNode;
+        for (int i = 0; i < node->neighbors.size(); ++i) {
+            (newNode->neighbors).push_back(clone(node->neighbors[i], umap));
+        }
+        return newNode;
+    }
+};
+----
+
+==== 加油站问题
+
+----
+There are N gas stations along a circular route, where the amount of gas at station i is gas[i].
+
+You have a car with an unlimited gas tank and it costs cost[i] of gas to travel from station i to its next station (i+1). You begin the journey with an empty tank at one of the gas stations.
+
+Return the starting gas station's index if you can travel around the circuit once, otherwise return -1.
+
+Note:
+The solution is guaranteed to be unique.
+----
+这道转圈加油问题不算很难，只要想通其中的原理就很简单。我们首先要知道能走完整个环的前提是gas的总量要大于cost的总量，这样才会有起点的存在。假设开始设置起点start = 0, 并从这里出发，如果当前的gas值大于cost值，就可以继续前进，此时到下一个站点，剩余的gas加上当前的gas再减去cost，看是否大于0，若大于0，则继续前进。当到达某一站点时，若这个值小于0了，则说明从起点到这个点中间的任何一个点都不能作为起点，则把起点设为下一个点，继续遍历。当遍历完整个环时，当前保存的起点即为所求。代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int canCompleteCircuit(vector<int>& gas, vector<int>& cost) {
+        int total = 0, sum = 0, start = 0;
+        for (int i = 0; i < gas.size(); ++i) {
+            total += gas[i] - cost[i];
+            sum += gas[i] - cost[i];
+            if (sum < 0) {
+                start = i + 1;
+                sum = 0;
+            }
+        }
+        return (total < 0) ? -1 : start;
+    }
+};
+----
+
+
+我们也可以从后往前遍历，用一个变量mx来记录出现过的剩余油量的最大值，total记录当前剩余油量的值，start还是记录起点的位置。当total大于mx的时候，说明当前位置可以作为起点，更新start，并且更新mx。为啥呢？因为我们每次total加上的都是当前位置的油量减去消耗，如果这个差值大于0的话，说明当前位置可以当作起点，因为从当前位置到末尾都不会出现油量不够的情况，而一旦差值小于0的话，说明当前位置如果是起点的话，油量就不够，无法走完全程，所以我们不更新起点位置start。最后结束后我们还是看totoa是否大于等于0，如果其小于0的话，说明没有任何一个起点能走完全程，因为总油量都不够，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int canCompleteCircuit(vector<int>& gas, vector<int>& cost) {
+        int total = 0, mx = -1, start = 0;
+        for (int i = gas.size() - 1; i >= 0; --i) {
+            total += gas[i] - cost[i];
+            if (total > mx) {
+                start = i;
+                mx = total;
+            }
+        }
+        return (total < 0) ? -1 : start;
+    }
+};
+----
+
+==== 分糖果问题
+
+----
+There are N children standing in a line. Each child is assigned a rating value.
+
+You are giving candies to these children subjected to the following requirements:
+
+Each child must have at least one candy.
+Children with a higher rating get more candies than their neighbors.
+What is the minimum candies you must give?
+----
+
+这道题看起来很难，其实解法并没有那么复杂，当然我也是看了别人的解法才做出来的，先来看看两遍遍历的解法，首先初始化每个人一个糖果，然后这个算法需要遍历两遍，第一遍从左向右遍历，如果右边的小盆友的等级高，等加一个糖果，这样保证了一个方向上高等级的糖果多。然后再从右向左遍历一遍，如果相邻两个左边的等级高，而左边的糖果又少的话，则左边糖果数为右边糖果数加一。最后再把所有小盆友的糖果数都加起来返回即可。代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int candy(vector<int>& ratings) {
+        int res = 0, n = ratings.size();
+        vector<int> nums(n, 1);
+        for (int i = 0; i < n - 1; ++i) {
+            if (ratings[i + 1] > ratings[i]) nums[i + 1] = nums[i] + 1;
+        }
+        for (int i = n - 1; i > 0; --i) {
+            if (ratings[i - 1] > ratings[i]) nums[i - 1] = max(nums[i - 1], nums[i] + 1);
+        }
+        for (int num : nums) res += num;
+        return res;
+    }
+};
+----
+
+----
+下面来看一次遍历的方法，相比于遍历两次的思路简单明了，这种只遍历一次的解法就稍有些复杂了。首先我们给第一个同学一个糖果，那么对于接下来的一个同学就有三种情况：
+
+1. 接下来的同学的rating等于前一个同学，那么给接下来的同学一个糖果就行。
+
+2. 接下来的同学的rating大于前一个同学，那么给接下来的同学的糖果数要比前一个同学糖果数加1。
+
+3.接下来的同学的rating小于前一个同学，那么我们此时不知道应该给这个同学多少个糖果，需要看后面的情况。
+
+对于第三种情况，我们不确定要给几个，因为要是只给1个的话，那么有可能接下来还有rating更小的同学，总不能一个都不给吧。也不能直接给前一个同学的糖果数减1，有可能给多了，因为如果后面再没人了的话，其实只要给一个就行了。还有就是，如果后面好几个rating越来越小的同学，那么前一个同学的糖果数可能还得追加，以保证最后面的同学至少能有1个糖果。来一个例子吧，四个同学，他们的rating如下：
+
+1 3 2 1
+
+先给第一个rating为1的同学一个糖果，然后从第二个同学开始遍历，第二个同学rating为3，比1大，所以多给一个糖果，第二个同学得到两个糖果。下面第三个同学，他的rating为2，比前一个同学的rating小，如果我们此时给1个糖果的话，那么rating更小的第四个同学就得不到糖果了，所以我们要给第四个同学1个糖果，而给第三个同学2个糖果，此时要给第二个同学追加1个糖果，使其能够比第三个同学的糖果数多至少一个。那么我们就需要统计出多有个连着的同学的rating变小，用变量cnt来记录，找出了最后一个减小的同学，那么就可以往前推，每往前一个加一个糖果，这就是个等差数列，我们可以直接利用求和公式算出这些rating减小的同学的糖果之和。然后我们还要看第一个开始减小的同学的前一个同学需不需要追加糖果，只要比较cnt和pre的大小，pre是之前同学得到的最大糖果数，二者做差加1就是需要追加的糖果数，加到结果res中即可，参见代码如下：
+----
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int candy(vector<int>& ratings) {
+        if (ratings.empty()) return 0;
+        int res = 1, pre = 1, cnt = 0;
+        for (int i = 1; i < ratings.size(); ++i) {
+            if (ratings[i] >= ratings[i - 1]) {
+                if (cnt > 0) {
+                    res += cnt * (cnt + 1) / 2;
+                    if (cnt >= pre) res += cnt - pre + 1;
+                    cnt = 0;
+                    pre = 1;
+                }
+                pre = (ratings[i] == ratings[i - 1]) ? 1 : pre + 1;
+                res += pre;
+            } else {
+                ++cnt;
+            }
+        }
+        if (cnt > 0) {
+            res += cnt * (cnt + 1) / 2;
+            if (cnt >= pre) res += cnt - pre + 1;
+        }
+        return res;
+    }
+};
+----
+
+==== 单独的数字
+
+----
+Given an array of integers, every element appears twice except for one. Find that single one.
+
+Note:
+Your algorithm should have a linear runtime complexity. Could you implement it without using extra memory?
+----
+
+
+本来是一道非常简单的题，但是由于加上了时间复杂度必须是O(n)，并且空间复杂度为O(1)，使得不能用排序方法，也不能使用map数据结构。那么只能另辟蹊径，需要用位操作Bit Operation来解此题，这个解法如果让我想，肯定想不出来，因为谁会想到用逻辑异或来解题呢。逻辑异或的真值表为： +
+
+异或运算A xor B的真值表如下： +
+----
+A	B	⊕
+F	F	F
+F	T	T
+T	F	T
+T	T	F
+----
+
+由于数字在计算机是以二进制存储的，每位上都是0或1，如果我们把两个相同的数字异或，0与0异或是0,1与1异或也是0，那么我们会得到0。根据这个特点，我们把数组中所有的数字都异或起来，则每对相同的数字都会得0，然后最后剩下来的数字就是那个只有1次的数字。这个方法确实很赞，但是感觉一般人不会忘异或上想，绝对是为CS专业的同学设计的好题呀，赞一个~~  +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int singleNumber(vector<int>& nums) {
+        int res = 0;
+        for (auto num : nums) res ^= num;
+        return res;
+    }
+};
+----
+
+==== 单独的数字之二
+
+----
+Given an array of integers, every element appears three times except for one. Find that single one.
+
+Note:
+Your algorithm should have a linear runtime complexity. Could you implement it without using extra memory?
+----
+
+这道题是之前那道 Single Number 单独的数字 的延伸，那道题的解法就比较独特，是利用计算机按位储存数字的特性来做的，这道题就是除了一个单独的数字之外，数组中其他的数字都出现了三次，那么还是要利用位操作 Bit Operation 来解此题。我们可以建立一个32位的数字，来统计每一位上1出现的个数，我们知道如果某一位上为1的话，那么如果该整数出现了三次，对3去余为0，我们把每个数的对应位都加起来对3取余，最终剩下来的那个数就是单独的数字。代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int singleNumber(vector<int>& nums) {
+        int res = 0;
+        for (int i = 0; i < 32; ++i) {
+            int sum = 0;
+            for (int j = 0; j < nums.size(); ++j) {
+                sum += (nums[j] >> i) & 1;
+            }
+            res |= (sum % 3) << i;
+        }
+        return res;
+    }
+};
+----
+
+----
+还有一种解法，思路很相似，用3个整数来表示INT的各位的出现次数情况，one表示出现了1次，two表示出现了2次。当出现3次的时候该位清零。最后答案就是one的值。
+
+ones   代表第ith 位只出现一次的掩码变量
+twos  代表第ith 位只出现两次次的掩码变量
+threes  代表第ith 位只出现三次的掩码变量
+假设现在有一个数字1，那么我们更新one的方法就是‘亦或’这个1，则one就变成了1，而two的更新方法是用上一个状态下的one去‘与’上数字1，然后‘或’上这个结果，这样假如之前one是1，那么此时two也会变成1，这make sense，因为说明是当前位遇到两个1了；反之如果之前one是0，那么现在two也就是0。注意更新的顺序是先更新two，再更新one，不理解的话只要带个只有一个数字1的输入数组看一下就不难理解了。然后我们更新three，如果此时one和two都是1了，那么由于我们先更新的two，再更新的one，two为1，说明此时至少有两个数字1了，而此时one为1，说明了此时已经有了三个数字1，这块要仔细想清楚，因为one是要‘亦或’一个1的，值能为1，说明之前one为0，实际情况是，当第二个1来的时候，two先更新为1，此时one再更新为0，下面three就是0了，那么‘与’上three的相反数1不会改变one和two的值；那么当第三个1来的时候，two还是1，此时one就更新为1了，那么three就更新为1了，此时就要清空one和two了，让它们‘与’上three的相反数0即可，最终结果将会保存在one中，参见代码如下：
+----
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int singleNumber(vector<int>& nums) {
+        int one = 0, two = 0, three = 0;
+        for (int i = 0; i < nums.size(); ++i) {
+            two |= one & nums[i];
+            one ^= nums[i];
+            three = one & two;
+            one &= ~three;
+            two &= ~three;
+        }
+        return one;
+    }
+};
+----
+
+----
+下面这种解法思路也十分巧妙，根据上面解法的思路，我们把数组中数字的每一位累加起来对3取余，剩下的结果就是那个单独数组该位上的数字，由于我们累加的过程都要对3取余，那么每一位上累加的过程就是0->1->2->0，换成二进制的表示为00->01->10->00，那么我们可以写出对应关系：
+
+00 (+) 1 = 01
+
+01 (+) 1 = 10
+
+10 (+) 1 = 00 ( mod 3)
+
+那么我们用ab来表示开始的状态，对于加1操作后，得到的新状态的ab的算法如下：
+
+b = b xor r & ~a;
+
+a = a xor r & ~b;
+
+我们这里的ab就是上面的三种状态00，01，10的十位和各位，刚开始的时候，a和b都是0，当此时遇到数字1的时候，b更新为1，a更新为0，就是01的状态；再次遇到1的时候，b更新为0，a更新为1，就是10的状态；再次遇到1的时候，b更新为0，a更新为0，就是00的状态，相当于重置了；最后的结果保存在b中。明白了上面的分析过程，就能写出代码如下；
+----
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    int singleNumber(vector<int>& nums) {
+        int a = 0, b = 0;
+        for (int i = 0; i < nums.size(); ++i) {
+            b = (b ^ nums[i]) & ~a;
+            a = (a ^ nums[i]) & ~b;
+        }
+        return b;
+    }
+};
+----
+
+==== 拷贝带有随机指针的链表
+
+----
+A linked list is given such that each node contains an additional random pointer which could point to any node in the list or null.
+
+Return a deep copy of the list.
+----
+
+这道链表的深度拷贝题的难点就在于如何处理随机指针的问题，由于每一个节点都有一个随机指针，这个指针可以为空，也可以指向链表的任意一个节点，如果我们在每生成一个新节点给其随机指针赋值时，都要去遍历原链表的话，OJ上肯定会超时，所以我们可以考虑用Hash map来缩短查找时间，第一遍遍历生成所有新节点时同时建立一个原节点和新节点的哈希表，第二遍给随机指针赋值时，查找时间是常数级。代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    RandomListNode *copyRandomList(RandomListNode *head) {
+        if (!head) return NULL;
+        RandomListNode *res = new RandomListNode(head->label);
+        RandomListNode *node = res;
+        RandomListNode *cur = head->next;
+        map<RandomListNode*, RandomListNode*> m;
+        m[head] = res;
+        while (cur) {
+            RandomListNode *tmp = new RandomListNode(cur->label);
+            node->next = tmp;
+            m[cur] = tmp;
+            node = node->next;
+            cur = cur->next;
+        }
+        node = res;
+        cur = head;
+        while (node) {
+            node->random = m[cur->random];
+            node = node->next;
+            cur = cur->next;
+        }
+        return res;
+    }
+};
+----
+
+当然，如果使用哈希表占用额外的空间，如果这道题限制了空间的话，就要考虑别的方法。下面这个方法很巧妙，具体细节可参见神网友水中的鱼的博客，该方法可以分为以下三个步骤： +
+
+--
+1. 在原链表的每个节点后面拷贝出一个新的节点
+
+2. 依次给新的节点的随机指针赋值，而且这个赋值非常容易 cur->next->random = cur->random->next
+
+3. 断开链表可得到深度拷贝后的新链表
+--
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    RandomListNode *copyRandomList(RandomListNode *head) {
+        if (!head) return NULL;
+        RandomListNode *cur = head;
+        while (cur) {
+            RandomListNode *node = new RandomListNode(cur->label);
+            node->next = cur->next;
+            cur->next = node;
+            cur = node->next;
+        }
+        cur = head;
+        while (cur) {
+            if (cur->random) {
+                cur->next->random = cur->random->next;
+            }
+            cur = cur->next->next;
+        }
+        cur = head;
+        RandomListNode *res = head->next;
+        while (cur) {
+            RandomListNode *tmp = cur->next;
+            cur->next = tmp->next;
+            if(tmp->next) tmp->next = tmp->next->next;
+            cur = cur->next;
+        }
+        return res;
+    }
+};
+----
+
+==== 拆分词句
+
+----
+Given a non-empty string s and a dictionary wordDict containing a list of non-empty words, determine if s can be segmented into a space-separated sequence of one or more dictionary words.
+
+Note:
+
+The same word in the dictionary may be reused multiple times in the segmentation.
+You may assume the dictionary does not contain duplicate words.
+Example 1:
+
+Input: s = "leetcode", wordDict = ["leet", "code"]
+Output: true
+Explanation: Return true because "leetcode" can be segmented as "leet code".
+Example 2:
+
+Input: s = "applepenapple", wordDict = ["apple", "pen"]
+Output: true
+Explanation: Return true because "applepenapple" can be segmented as "apple pen apple".
+             Note that you are allowed to reuse a dictionary word.
+Example 3:
+
+Input: s = "catsandog", wordDict = ["cats", "dog", "sand", "and", "cat"]
+Output: false
+----
+
+这道拆分词句问题是看给定的词句能分被拆分成字典里面的内容，这是一道很经典的题目，解法不止一种，考察的范围很广，属于我们必须要熟练掌握的题目。那么先来想brute force的解法，就拿例子1来分析，如果字典中只有两个单词，我们怎么去判断，是不是可以将原字符串s分成任意两段，然后再看分成的单词是否在字典中。注意这道题说是单词可以重复使用，所以可以分成任意段，而且字典中的单词可以有很多个，这就增加了题目的难度，很多童鞋就在这里迷失了，毫无头绪。那么，就由博主来给各位指点迷津吧（此处应有掌声👏）。 +
+
+既然要分段，看子字符串是否在字典中，由于给定的字典是数组（之前还是HashSet呢），那么我们肯定不希望每次查找都需要遍历一遍数组，费劲！还是把字典中的所有单词都存入HashSet中吧，这样我们就有了常数时间级的查找速度，perfect！好，我们得开始给字符串分段了，怎么分，只能一个一个分了，先看第一个字母是否在字典中，如果不在的话，好办，说明这种分法肯定是错的。问题是在的话，后面的那部分怎么处理，难道还用for循环？你也不知道还要分多少段，怎么用for循环。对于这种不知道怎么处理的情况，一个万能的做法是丢给递归函数，让其去递归求解，这里我们suppose递归函数会返回我们一个正确的值，如果返回的是true的话，表明我们现在分成的两段都在字典中，我们直接返回true即可，因为只要找出一种情况就行了。这种调用递归函数的方法就是brute force的解法，我们遍历了所有的情况，优点是写法简洁，思路清晰，缺点是存在大量的重复计算，被OJ啪啪打脸。所以我们需要进行优化，使用记忆数组memo来保存所有已经计算过的结果，再下次遇到的时候，直接从cache中取，而不是再次计算一遍。这种使用记忆数组memo的递归写法，和使用dp数组的迭代写法，乃解题的两大神器，凡事能用dp解的题，一般也有用记忆数组的递归解法，好似一对形影不离的好基友～关于dp解法，博主会在下文中讲解。这里我们的记忆数组memo[i]定义为范围为[0, i)的子字符串是否可以拆分，初始化为-1，表示没有计算过，如果可以拆分，则赋值为1，反之为0。在之前讲brute force解法时，博主提到的是讲分成两段的后半段的调用递归函数，我们也可以不取出子字符串，而是用一个start变量，来标记分段的位置，这样递归函数中只需要从start的位置往后遍历即可，在递归函数更新记忆数组memo即可，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool wordBreak(string s, vector<string>& wordDict) {
+        unordered_set<string> wordSet(wordDict.begin(), wordDict.end());
+        vector<int> memo(s.size(), -1);
+        return check(s, wordSet, 0, memo);
+    }
+    bool check(string s, unordered_set<string>& wordSet, int start, vector<int>& memo) {
+        if (start >= s.size()) return true;
+        if (memo[start] != -1) return memo[start];
+        for (int i = start + 1; i <= s.size(); ++i) {
+            if (wordSet.count(s.substr(start, i - start)) && check(s, wordSet, i, memo)) {
+                return memo[start] = 1;
+            }
+        }
+        return memo[start] = 0;
+    }
+};
+----
+
+这道题其实还是一道经典的DP题目，也就是动态规划Dynamic Programming。博主曾经说玩子数组或者子字符串且求极值的题，基本就是DP没差了，虽然这道题没有求极值，但是玩子字符串也符合DP的状态转移的特点。把一个人的温暖转移到另一个人的胸膛... 咳咳，跑错片场了，那是爱情转移～ 强行拉回，DP解法的两大难点，定义dp数组跟找出状态转移方程，先来看dp数组的定义，这里我们就用一个一维的dp数组，其中dp[i]表示范围[0, i)内的子串是否可以拆分，注意这里dp数组的长度比s串的长度大1，是因为我们要handle空串的情况，我们初始化dp[0]为true，然后开始遍历。注意这里我们需要两个for循环来遍历，因为此时已经没有递归函数了，所以我们必须要遍历所有的子串，我们用j把[0, i)范围内的子串分为了两部分，[0, j) 和 [j, i)，其中范围 [0, j) 就是dp[j]，范围 [j, i) 就是s.substr(j, i-j)，其中dp[j]是之前的状态，我们已经算出来了，可以直接取，只需要在字典中查找s.substr(j, i-j)是否存在了，如果二者均为true，将dp[i]赋为true，并且break掉，此时就不需要再用j去分[0, i)范围了，因为[0, i)范围已经可以拆分了。最终我们返回dp数组的最后一个值，就是整个数组是否可以拆分的布尔值了，代码如下： +
+
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool wordBreak(string s, vector<string>& wordDict) {
+        unordered_set<string> wordSet(wordDict.begin(), wordDict.end());
+        vector<bool> dp(s.size() + 1);
+        dp[0] = true;
+        for (int i = 0; i < dp.size(); ++i) {
+            for (int j = 0; j < i; ++j) {
+                if (dp[j] && wordSet.count(s.substr(j, i - j))) {
+                    dp[i] = true;
+                    break;
+                }
+            }
+        }
+        return dp.back();
+    }
+};
+----
+
+----
+下面我们从题目中给的例子来分析：
+
+l
+
+le e
+
+lee ee e
+
+leet
+
+leetc eetc etc tc c
+
+leetco eetco etco tco co o
+
+leetcod eetcod etcod tcod cod od d
+
+leetcode eetcode etcode tcode code
+
+T F F F T F F F T
+
+我们知道算法的核心思想是逐行扫描，每一行再逐个字符扫描，每次都在组合出一个新的字符串都要到字典里去找，如果有的话，则跳过此行，继续扫描下一行。
+
+既然DFS都可以解题，那么BFS也就坐不住了，也要出来蹦跶一下。其实本质跟递归的解法没有太大的区别，递归解法在调用递归的时候，原先的状态被存入了栈中，这里BFS是存入了队列中，使用visited数组来标记已经算过的位置，作用跟memo数组一样，从队列中取出一个位置进行遍历，把可以拆分的新位置存入队列中，遍历完成后标记当前位置，然后再到队列中去取即可，参见代码如下：
+----
+
+**解法3:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    bool wordBreak(string s, vector<string>& wordDict) {
+        unordered_set<string> wordSet(wordDict.begin(), wordDict.end());
+        vector<bool> visited(s.size());
+        queue<int> q{{0}};
+        while (!q.empty()) {
+            int start = q.front(); q.pop();
+            if (!visited[start]) {
+                for (int i = start + 1; i <= s.size(); ++i) {
+                    if (wordSet.count(s.substr(start, i - start))) {
+                        q.push(i);
+                        if (i == s.size()) return true;
+                    }
+                }
+                visited[start] = true;
+            }
+        }
+        return false;
+    }
+};
+----
+
+==== 拆分词句之二
+
+----
+Given a non-empty string s and a dictionary wordDict containing a list of non-empty words, add spaces in s to construct a sentence where each word is a valid dictionary word. Return all such possible sentences.
+
+Note:
+
+The same word in the dictionary may be reused multiple times in the segmentation.
+You may assume the dictionary does not contain duplicate words.
+Example 1:
+
+Input:
+s = "catsanddog"
+wordDict = ["cat", "cats", "and", "sand", "dog"]
+Output:
+[
+  "cats and dog",
+  "cat sand dog"
+]
+Example 2:
+
+Input:
+s = "pineapplepenapple"
+wordDict = ["apple", "pen", "applepen", "pine", "pineapple"]
+Output:
+[
+  "pine apple pen apple",
+  "pineapple pen apple",
+  "pine applepen apple"
+]
+Explanation: Note that you are allowed to reuse a dictionary word.
+Example 3:
+
+Input:
+s = "catsandog"
+wordDict = ["cats", "dog", "sand", "and", "cat"]
+Output:
+[]
+----
+
+这道题是之前那道Word Break 拆分词句的拓展，那道题只让我们判断给定的字符串能否被拆分成字典中的词，而这道题加大了难度，让我们求出所有可以拆分成的情况，就像题目中给的例子所示。之前的版本中字典wordDict的数据类型是HashSet，现在的不知为何改成了数组vector，而且博主看到第二个例子就笑了，PPAP么，哈哈。 +
+
+根据博主行走江湖多年的经验，像这种返回结果要列举所有情况的题，十有八九都是要用递归来做的。当我们一时半会没有啥思路的时候，先不要考虑代码如何实现，如果就给你一个s和wordDict，不看Output的内容，你会怎么找出结果。比如对于例子1，博主可能会先扫一遍wordDict数组，看有没有单词可以当s的开头，那么我们可以发现cat和cats都可以，比如我们先选了cat，那么此时s就变成了 "sanddog"，我们再在数组里找单词，发现了sand可以，最后剩一个dog，也在数组中，于是一个结果就出来了。然后回到开头选cats的话，那么此时s就变成了 "anddog"，我们再在数组里找单词，发现了and可以，最后剩一个dog，也在数组中，于是另一个结果也就出来了。那么这个查询的方法很适合用递归来实现，因为s改变后，查询的机制并不变，很适合调用递归函数。再者，我们要明确的是，如果不用记忆数组做减少重复计算的优化，那么递归方法跟brute force没什么区别，大概率无法通过OJ。所以我们要避免重复计算，如何避免呢，还是看上面的分析，如果当s变成 "sanddog"的时候，那么此时我们知道其可以拆分成sand和dog，当某个时候如果我们又遇到了这个 "sanddog"的时候，我们难道还需要再调用递归算一遍吗，当然不希望啦，所以我们要将这个中间结果保存起来，由于我们必须要同时保存s和其所有的拆分的字符串，那么可以使用一个HashMap，来建立二者之间的映射，那么在递归函数中，我们首先检测当前s是否已经有映射，有的话直接返回即可，如果s为空了，我们如何处理呢，题目中说了给定的s不会为空，但是我们递归函数处理时s是会变空的，这时候我们是直接返回空集吗，这里有个小trick，我们其实放一个空字符串返回，为啥要这么做呢？我们观察题目中的Output，发现单词之间是有空格，而最后一个单词后面没有空格，所以这个空字符串就起到了标记当前单词是最后一个，那么我们就不要再加空格了。接着往下看，我们遍历wordDict数组，如果某个单词是s字符串中的开头单词的话，我们对后面部分调用递归函数，将结果保存到rem中，然后遍历里面的所有字符串，和当前的单词拼接起来，这里就用到了我们前面说的trick。for循环结束后，记得返回结果res之前建立其和s之间的映射，方便下次使用，参见代码如下： +
+
+**解法1:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    vector<string> wordBreak(string s, vector<string>& wordDict) {
+        unordered_map<string, vector<string>> m;
+        return helper(s, wordDict, m);
+    }
+    vector<string> helper(string s, vector<string>& wordDict, unordered_map<string, vector<string>>& m) {
+        if (m.count(s)) return m[s];
+        if (s.empty()) return {""};
+        vector<string> res;
+        for (string word : wordDict) {
+            if (s.substr(0, word.size()) != word) continue;
+            vector<string> rem = helper(s.substr(word.size()), wordDict, m);
+            for (string str : rem) {
+                res.push_back(word + (str.empty() ? "" : " ") + str);
+            }
+        }
+        return m[s] = res;
+    }
+};
+----
+
+我们也可以将将主函数本身当作递归函数，这样就不用单独的使用一个递归函数了，不过我们的HashMap必须是全局了，写在外部就好了，参见代码如下： +
+
+**解法2:** +
+[source, cpp, linenums]
+----
+class Solution {
+public:
+    unordered_map<string, vector<string>> m;
+    vector<string> wordBreak(string s, vector<string>& wordDict) {
+        if (m.count(s)) return m[s];
+        if (s.empty()) return {""};
+        vector<string> res;
+        for (string word : wordDict) {
+            if (s.substr(0, word.size()) != word) continue;
+            vector<string> rem = wordBreak(s.substr(word.size()), wordDict);
+            for (string str : rem) {
+                res.push_back(word + (str.empty() ? "" : " ") + str);
+            }
+        }
+        return m[s] = res;
+    }
+};
+----
